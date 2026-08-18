@@ -4,6 +4,13 @@ from mathutils import Euler
 from .math_parser import resolve_parameter_scope
 
 
+SPECTRA_AUX_COLLECTIONS = (
+    "Spectra Calculus",
+    "Spectra Calculus Labels",
+    "Spectra Labels",
+)
+
+
 def ensure_material(name, color):
     material = bpy.data.materials.get(name)
     if material is None:
@@ -14,6 +21,13 @@ def ensure_material(name, color):
         bsdf.inputs["Base Color"].default_value = color
         bsdf.inputs["Roughness"].default_value = 0.35
     return material
+
+
+def clear_collection_objects(collection):
+    if collection is None:
+        return
+    for obj in list(collection.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
 
 
 def ensure_guide_collection(context, name="Spectra Guides"):
@@ -28,11 +42,47 @@ def ensure_text_material():
     return ensure_material("SpectraTextMaterial", (0.98, 0.98, 1.0, 1.0))
 
 
+def ensure_grid_material(name, color):
+    material = ensure_material(name, color)
+    if hasattr(material, "blend_method"):
+        material.blend_method = "BLEND"
+    return material
+
+
 def clear_default_scene(context):
     for name in ("Cube", "Light", "Camera"):
         obj = bpy.data.objects.get(name)
         if obj:
             bpy.data.objects.remove(obj, do_unlink=True)
+
+
+def purge_spectra_graphs(context, collection_name="Spectra Graphs"):
+    graph_collection = bpy.data.collections.get(collection_name)
+    graph_names = []
+    if graph_collection is not None:
+        graph_names = [obj.name for obj in graph_collection.objects]
+        clear_collection_objects(graph_collection)
+
+    for aux_name in SPECTRA_AUX_COLLECTIONS:
+        aux_collection = bpy.data.collections.get(aux_name)
+        if aux_collection is None:
+            continue
+        for obj in list(aux_collection.objects):
+            graph_name = obj.get("spectra_calculus_graph")
+            if not graph_names or graph_name in graph_names or obj.name.startswith("Spectra"):
+                bpy.data.objects.remove(obj, do_unlink=True)
+
+
+def purge_all_spectra_helpers():
+    for aux_name in SPECTRA_AUX_COLLECTIONS:
+        aux_collection = bpy.data.collections.get(aux_name)
+        clear_collection_objects(aux_collection)
+
+
+def purge_spectra_timeline_markers(scene):
+    for marker in list(scene.timeline_markers):
+        if marker.name.startswith("Spectra "):
+            scene.timeline_markers.remove(marker)
 
 
 def ensure_camera(context, mode):
@@ -62,8 +112,21 @@ def ensure_light(context, mode):
         light_data = bpy.data.lights.new("SpectraLight", type="SUN")
         light = bpy.data.objects.new("SpectraLight", light_data)
         context.scene.collection.objects.link(light)
-    light.location = (6.0, -6.0, 12.0) if mode == "MODE_3D" else (0.0, 0.0, 10.0)
-    light.data.energy = 3.0
+    light.location = (7.0, -8.0, 14.0) if mode == "MODE_3D" else (0.0, 0.0, 12.0)
+    light.rotation_euler = Euler((0.75, 0.0, 0.55)) if mode == "MODE_3D" else Euler((0.0, 0.0, 0.0))
+    light.data.energy = 3.8
+
+    fill = bpy.data.objects.get("SpectraFill")
+    if fill is None:
+        fill_data = bpy.data.lights.new("SpectraFill", type="AREA")
+        fill = bpy.data.objects.new("SpectraFill", fill_data)
+        context.scene.collection.objects.link(fill)
+    fill.location = (0.0, -6.5, 8.5) if mode == "MODE_3D" else (0.0, 0.0, 9.5)
+    fill.rotation_euler = Euler((1.5708, 0.0, 0.0))
+    fill.data.energy = 700.0 if mode == "MODE_3D" else 450.0
+    fill.data.shape = "RECTANGLE"
+    fill.data.size = 14.0
+    fill.data.size_y = 8.0
     return light
 
 
@@ -75,39 +138,147 @@ def ensure_world(context):
     world.use_nodes = True
     background = world.node_tree.nodes.get("Background")
     if background:
-        background.inputs[0].default_value = (0.012, 0.014, 0.02, 1.0)
-        background.inputs[1].default_value = 0.85
+        background.inputs[0].default_value = (0.0, 0.0, 0.0, 1.0)
+        background.inputs[1].default_value = 0.42
     return world
 
 
-def create_axes(context, mode, length=10.0):
+def _create_line_object(name, start, end, thickness, material):
+    curve = bpy.data.curves.new(name=name, type="CURVE")
+    curve.dimensions = "3D"
+    curve.resolution_u = 4
+    curve.bevel_depth = thickness
+    spline = curve.splines.new("POLY")
+    spline.points.add(1)
+    spline.points[0].co = (*start, 1.0)
+    spline.points[1].co = (*end, 1.0)
+    curve.materials.append(material)
+    return bpy.data.objects.new(name, curve)
+
+
+def _link_guide_object(collection, scene_collection, obj):
+    if collection.objects.get(obj.name) is None:
+        collection.objects.link(obj)
+    if scene_collection.objects.get(obj.name):
+        scene_collection.objects.unlink(obj)
+
+
+def _create_grid_and_ticks(context, settings, collection, extent=10, step=1.0):
+    minor_material = ensure_grid_material("SpectraGridMinorMaterial", (0.23, 0.23, 0.23, 0.55))
+    major_material = ensure_grid_material("SpectraGridMajorMaterial", (0.42, 0.42, 0.42, 0.7))
+    axis_x_material = ensure_material("SpectraXAxisMaterial", (1.0, 0.38, 0.38, 1.0))
+    axis_y_material = ensure_material("SpectraYAxisMaterial", (0.35, 1.0, 0.52, 1.0))
+
+    for index in range(-extent, extent + 1):
+        if index == 0:
+            continue
+        if getattr(settings, "coordinate_show_grid", True):
+            material = major_material if index % 2 == 0 else minor_material
+            thickness = 0.012 if index % 2 == 0 else 0.006
+
+            vertical = _create_line_object(
+                f"SpectraGridX{index}",
+                (index * step, -extent * step, 0.0),
+                (index * step, extent * step, 0.0),
+                thickness,
+                material,
+            )
+            horizontal = _create_line_object(
+                f"SpectraGridY{index}",
+                (-extent * step, index * step, 0.0),
+                (extent * step, index * step, 0.0),
+                thickness,
+                material,
+            )
+            _link_guide_object(collection, context.scene.collection, vertical)
+            _link_guide_object(collection, context.scene.collection, horizontal)
+
+        tick_x = _create_line_object(
+            f"SpectraTickX{index}",
+            (index * step, -0.18, 0.0),
+            (index * step, 0.18, 0.0),
+            0.01,
+            axis_x_material,
+        )
+        tick_y = _create_line_object(
+            f"SpectraTickY{index}",
+            (-0.18, index * step, 0.0),
+            (0.18, index * step, 0.0),
+            0.01,
+            axis_y_material,
+        )
+        _link_guide_object(collection, context.scene.collection, tick_x)
+        _link_guide_object(collection, context.scene.collection, tick_y)
+
+        if getattr(settings, "coordinate_show_tick_labels", True):
+            label_size = 0.28
+            label_value = index * getattr(settings, "coordinate_step", 1.0)
+            label_text = f"{label_value:g}"
+            x_text = _create_text_object(
+                f"SpectraTickLabelX{index}",
+                label_text,
+                label_size,
+                (index * step - 0.12, -0.52, 0.0),
+                align_x="CENTER",
+            )
+            y_text = _create_text_object(
+                f"SpectraTickLabelY{index}",
+                label_text,
+                label_size,
+                (-0.42, index * step - 0.03, 0.0),
+                align_x="RIGHT",
+            )
+            _link_guide_object(collection, context.scene.collection, x_text)
+            _link_guide_object(collection, context.scene.collection, y_text)
+
+
+def _create_2d_axes(context, settings, collection, extent=10, step=1.0):
+    _create_grid_and_ticks(context, settings, collection, extent=extent, step=step)
+    x_axis = _create_line_object(
+        "X Axis",
+        (-extent * step, 0.0, 0.0),
+        (extent * step, 0.0, 0.0),
+        0.028,
+        ensure_material("SpectraXAxisMaterial", (1.0, 0.38, 0.38, 1.0)),
+    )
+    y_axis = _create_line_object(
+        "Y Axis",
+        (0.0, -extent * step, 0.0),
+        (0.0, extent * step, 0.0),
+        0.028,
+        ensure_material("SpectraYAxisMaterial", (0.35, 1.0, 0.52, 1.0)),
+    )
+    _link_guide_object(collection, context.scene.collection, x_axis)
+    _link_guide_object(collection, context.scene.collection, y_axis)
+
+    x_label = _create_text_object("SpectraAxisLabelX", "x", 0.42, (extent * step + 0.45, -0.38, 0.0))
+    y_label = _create_text_object("SpectraAxisLabelY", "y", 0.42, (-0.36, extent * step + 0.45, 0.0))
+    _link_guide_object(collection, context.scene.collection, x_label)
+    _link_guide_object(collection, context.scene.collection, y_label)
+
+
+def _create_3d_axes(context, collection, length=10.0):
+    axis_specs = [
+        ("X Axis", (-length, 0.0, 0.0), (length, 0.0, 0.0), 0.028, (1.0, 0.38, 0.38, 1.0)),
+        ("Y Axis", (0.0, -length, 0.0), (0.0, length, 0.0), 0.028, (0.35, 1.0, 0.52, 1.0)),
+        ("Z Axis", (0.0, 0.0, -length * 0.2), (0.0, 0.0, length), 0.028, (0.35, 0.6, 1.0, 1.0)),
+    ]
+    for name, start, end, thickness, color in axis_specs:
+        axis = _create_line_object(name, start, end, thickness, ensure_material(f"{name}Material", color))
+        _link_guide_object(collection, context.scene.collection, axis)
+
+
+def create_axes(context, settings):
     collection = ensure_guide_collection(context)
 
-    for obj in list(collection.objects):
-        bpy.data.objects.remove(obj, do_unlink=True)
-
-    axis_specs = [
-        ("X Axis", (length, 0.02, 0.02), (1.0, 0.25, 0.25, 1.0), (length / 2.0, 0.0, 0.0)),
-        ("Y Axis", (0.02, length, 0.02), (0.25, 1.0, 0.4, 1.0), (0.0, length / 2.0, 0.0)),
-    ]
-
-    if mode == "MODE_3D":
-        axis_specs.append(
-            ("Z Axis", (0.02, 0.02, length), (0.3, 0.55, 1.0, 1.0), (0.0, 0.0, length / 2.0))
-        )
-
-    for name, scale, color, location in axis_specs:
-        bpy.ops.mesh.primitive_cube_add(location=location)
-        axis = context.active_object
-        axis.name = name
-        axis.scale = scale
-        material = ensure_material(f"{name}Material", color)
-        axis.data.materials.clear()
-        axis.data.materials.append(material)
-        if collection.objects.get(axis.name) is None:
-            collection.objects.link(axis)
-        if context.scene.collection.objects.get(axis.name):
-            context.scene.collection.objects.unlink(axis)
+    clear_collection_objects(collection)
+    extent = max(int(getattr(settings, "coordinate_extent", 10)), 2)
+    step = max(float(getattr(settings, "coordinate_step", 1.0)), 0.0001)
+    scale = max(float(getattr(settings, "coordinate_unit_scale", 1.0)), 0.0001)
+    if settings.scene_mode == "MODE_2D":
+        _create_2d_axes(context, settings, collection, extent=extent, step=step * scale)
+    else:
+        _create_3d_axes(context, collection, length=extent * step * scale)
 
 
 def clear_labels(context):
@@ -158,9 +329,7 @@ def create_labels(context, settings):
             settings.label_size * 0.58,
             (-8.7, 5.8, 0.0),
         )
-        x_label = _create_text_object("SpectraXLabel", "x", settings.label_size * 0.8, (10.5, -0.4, 0.0))
-        y_label = _create_text_object("SpectraYLabel", "y", settings.label_size * 0.8, (-0.45, 10.5, 0.0))
-        labels = (title, formula, parameter_label, x_label, y_label)
+        labels = (title, formula, parameter_label)
     else:
         title = _create_text_object(
             "SpectraTitle",
@@ -183,10 +352,7 @@ def create_labels(context, settings):
             (-7.0, -8.0, 6.15),
             rotation=(1.15, 0.0, 0.3),
         )
-        x_label = _create_text_object("SpectraXLabel", "x", settings.label_size * 0.8, (10.4, 0.0, 0.0))
-        y_label = _create_text_object("SpectraYLabel", "y", settings.label_size * 0.8, (0.0, 10.4, 0.0))
-        z_label = _create_text_object("SpectraZLabel", "z", settings.label_size * 0.8, (0.0, 0.0, 10.4))
-        labels = (title, formula, parameter_label, x_label, y_label, z_label)
+        labels = (title, formula, parameter_label)
 
     for label in labels:
         if collection.objects.get(label.name) is None:
@@ -232,14 +398,33 @@ def animate_graph(obj, settings):
                 keyframe.interpolation = "BEZIER"
 
 
-def setup_scene(context, mode):
+def setup_scene(context, settings):
     clear_default_scene(context)
+    purge_all_spectra_helpers()
+    purge_spectra_timeline_markers(context.scene)
     ensure_world(context)
-    ensure_camera(context, mode)
-    ensure_light(context, mode)
-    create_axes(context, mode)
+    ensure_camera(context, settings.scene_mode)
+    ensure_light(context, settings.scene_mode)
+    create_axes(context, settings)
 
     context.scene.render.engine = "BLENDER_EEVEE_NEXT"
+    context.scene.eevee.use_gtao = True
+    context.scene.eevee.taa_samples = 32
+    if hasattr(context.scene.eevee, "use_bloom"):
+        context.scene.eevee.use_bloom = True
+    if hasattr(context.scene.eevee, "bloom_intensity"):
+        context.scene.eevee.bloom_intensity = 0.03
+    context.scene.render.resolution_x = 1920
+    context.scene.render.resolution_y = 1080
+    context.scene.render.film_transparent = False
+    context.scene.view_settings.look = "AgX - Medium High Contrast"
+    if settings.scene_mode == "MODE_2D":
+        context.scene.camera.data.ortho_scale = (
+            max(int(getattr(settings, "coordinate_extent", 10)), 2)
+            * max(float(getattr(settings, "coordinate_step", 1.0)), 0.0001)
+            * max(float(getattr(settings, "coordinate_unit_scale", 1.0)), 0.0001)
+            * 2.4
+        )
     context.scene.frame_start = 1
     context.scene.frame_end = 180
     context.scene.frame_current = 1

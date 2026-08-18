@@ -39,6 +39,11 @@ ALLOWED_AST_NODES = (
     ast.BinOp,
     ast.UnaryOp,
     ast.Call,
+    ast.IfExp,
+    ast.BoolOp,
+    ast.And,
+    ast.Or,
+    ast.Compare,
     ast.Name,
     ast.Load,
     ast.Constant,
@@ -51,6 +56,12 @@ ALLOWED_AST_NODES = (
     ast.USub,
     ast.UAdd,
     ast.FloorDiv,
+    ast.Lt,
+    ast.LtE,
+    ast.Gt,
+    ast.GtE,
+    ast.Eq,
+    ast.NotEq,
 )
 
 

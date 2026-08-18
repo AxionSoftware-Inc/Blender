@@ -28,25 +28,55 @@ def _time_value(context, settings):
     return context.scene.frame_current / max(settings.frame_rate_hint, 1.0)
 
 
+def coordinate_unit_scale(settings):
+    return max(getattr(settings, "coordinate_unit_scale", 1.0), 1e-6)
+
+
+def math_to_world(settings, x, y, z=0.0):
+    scale = coordinate_unit_scale(settings)
+    return (x * scale, y * scale, z * scale)
+
+
 def _curve_points(context, settings):
     parameter_scope = resolve_parameter_scope(context.scene.frame_current, settings)
     evaluator = compile_formula(settings.expression, ("x", "t", *parameter_scope.keys()))
-    points = []
+    segments = []
+    current_segment = []
     step_count = max(2, settings.samples)
     span = settings.x_max - settings.x_min
     t_value = _time_value(context, settings)
+    jump_threshold = max(0.75, abs(settings.y_max - settings.y_min) * 0.15)
+    previous_y = None
+
+    def flush_segment():
+        nonlocal current_segment
+        if len(current_segment) >= 2:
+            segments.append(current_segment)
+        current_segment = []
 
     for index in range(step_count):
         factor = index / (step_count - 1)
         x = settings.x_min + span * factor
-        y = evaluator(x=x, t=t_value, **parameter_scope)
-        if not math.isfinite(y):
+        try:
+            y = evaluator(x=x, t=t_value, **parameter_scope)
+        except Exception:
+            previous_y = None
+            flush_segment()
             continue
-        points.append((x, y, 0.0))
+        if not math.isfinite(y):
+            previous_y = None
+            flush_segment()
+            continue
+        if previous_y is not None and abs(y - previous_y) > jump_threshold:
+            flush_segment()
+        current_segment.append(math_to_world(settings, x, y, 0.0))
+        previous_y = y
 
-    if len(points) < 2:
+    flush_segment()
+
+    if not segments:
         raise FormulaValidationError("Formula did not generate enough valid points")
-    return points
+    return segments
 
 
 def _surface_geometry(context, settings):
@@ -70,7 +100,7 @@ def _surface_geometry(context, settings):
             z = evaluator(x=x, y=y, t=t_value, **parameter_scope)
             if not math.isfinite(z):
                 z = 0.0
-            verts.append(Vector((x, y, z)))
+            verts.append(Vector(math_to_world(settings, x, y, z)))
 
     for yi in range(y_samples - 1):
         for xi in range(x_samples - 1):
@@ -79,7 +109,7 @@ def _surface_geometry(context, settings):
     return verts, faces
 
 
-def _apply_curve_data(curve_data, points, settings):
+def _apply_curve_data(curve_data, segments, settings):
     curve_data.dimensions = "3D"
     curve_data.resolution_u = 24
     curve_data.bevel_depth = settings.curve_thickness
@@ -87,10 +117,11 @@ def _apply_curve_data(curve_data, points, settings):
     while curve_data.splines:
         curve_data.splines.remove(curve_data.splines[0])
 
-    spline = curve_data.splines.new("POLY")
-    spline.points.add(len(points) - 1)
-    for point, coordinates in zip(spline.points, points):
-        point.co = (*coordinates, 1.0)
+    for segment in segments:
+        spline = curve_data.splines.new("POLY")
+        spline.points.add(len(segment) - 1)
+        for point, coordinates in zip(spline.points, segment):
+            point.co = (*coordinates, 1.0)
 
     material = ensure_material("SpectraCurveMaterial", (1.0, 0.76, 0.24, 1.0))
     curve_data.materials.clear()
@@ -111,6 +142,7 @@ def _apply_object_metadata(obj, settings, mode):
     obj["spectra_formula"] = settings.expression
     obj["spectra_mode"] = mode
     obj["spectra_scene_mode"] = settings.scene_mode
+    obj["spectra_active_template"] = getattr(settings, "active_template", "CUSTOM")
     obj["spectra_collection_name"] = settings.collection_name
     obj["spectra_x_min"] = settings.x_min
     obj["spectra_x_max"] = settings.x_max
@@ -133,6 +165,11 @@ def _apply_object_metadata(obj, settings, mode):
     obj["spectra_formula_label"] = settings.formula_label
     obj["spectra_label_size"] = settings.label_size
     obj["spectra_show_labels"] = settings.show_labels
+    obj["spectra_coordinate_extent"] = settings.coordinate_extent
+    obj["spectra_coordinate_step"] = settings.coordinate_step
+    obj["spectra_coordinate_unit_scale"] = settings.coordinate_unit_scale
+    obj["spectra_coordinate_show_grid"] = settings.coordinate_show_grid
+    obj["spectra_coordinate_show_tick_labels"] = settings.coordinate_show_tick_labels
 
 
 def build_curve_graph(context, settings):
@@ -165,6 +202,10 @@ def build_surface_graph(context, settings):
 
 def is_spectra_object(obj):
     return bool(obj and obj.get(SPECTRA_TAG))
+
+
+def is_spectra_curve_object(obj):
+    return is_spectra_object(obj) and obj.get("spectra_mode") == "CURVE_2D"
 
 
 def update_graph_object(context, obj, settings):
@@ -200,7 +241,13 @@ def settings_from_object(obj):
         expression=obj.get("spectra_formula", "sin(x)"),
         graph_mode=graph_mode,
         scene_mode=scene_mode,
+        active_template=obj.get("spectra_active_template", "CUSTOM"),
         collection_name=obj.get("spectra_collection_name", "Spectra Graphs"),
+        coordinate_extent=int(obj.get("spectra_coordinate_extent", 10)),
+        coordinate_step=float(obj.get("spectra_coordinate_step", 1.0)),
+        coordinate_unit_scale=float(obj.get("spectra_coordinate_unit_scale", 1.0)),
+        coordinate_show_grid=bool(obj.get("spectra_coordinate_show_grid", True)),
+        coordinate_show_tick_labels=bool(obj.get("spectra_coordinate_show_tick_labels", True)),
         x_min=float(obj.get("spectra_x_min", -6.0)),
         x_max=float(obj.get("spectra_x_max", 6.0)),
         y_min=float(obj.get("spectra_y_min", -6.0)),

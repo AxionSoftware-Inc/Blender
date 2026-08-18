@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Spectra Science",
     "author": "OpenAI Codex",
-    "version": (0, 2, 1),
+    "version": (0, 3, 9),
     "blender": (4, 5, 0),
     "location": "View3D > Sidebar > Spectra",
     "description": "Scientific graphing and animation foundation for Blender.",
