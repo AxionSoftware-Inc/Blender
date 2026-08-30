@@ -5,17 +5,17 @@ from collections.abc import Callable
 from spectra.core.primitives import Polyline, Surface
 from spectra.core.scene import Scene
 from spectra.core.types import Color, Vec3
-from spectra.domains.mathematics.functions import Function1D, Function2D
+from spectra.domains.mathematics.functions import Function2D, RealFunction1D
 
 
 def compile_function1d(
-    function: Function1D,
+    function: RealFunction1D,
     *,
     samples: int = 128,
     primitive_id: str = "function",
     parameters: dict[str, float] | None = None,
 ) -> Scene:
-    """Compile a semantic Function1D into a renderer-independent Scene."""
+    """Compile any real 1D function contract into a renderer-independent Scene."""
     if samples < 2:
         raise ValueError("samples must be >= 2")
 
@@ -92,7 +92,7 @@ def sample_function(
 ) -> Scene:
     """Compatibility helper for raw callables during early migration.
 
-    New domain code should prefer Function1D + compile_function1d so that
+    New domain code should prefer a semantic RealFunction1D implementation so
     scientific meaning exists before visualization compilation.
     """
     if samples < 2:
