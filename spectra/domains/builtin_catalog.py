@@ -13,6 +13,7 @@ from spectra.domains.physics import (
     MechanicsDomain,
     ParticleSystemsDomain,
     QuantumDomain,
+    SpatialQuantumDomain,
     WavesDomain,
 )
 from spectra.domains.probability import ContinuousProbabilityDomain, ProbabilityDomain
@@ -204,6 +205,17 @@ def builtin_domain_catalog() -> DomainCatalog:
                     "physics.quantum.expectation_value",
                 ),
                 tags=("physics", "quantum"),
+            ),
+            DomainDescriptor(
+                name="physics.quantum.spatial",
+                factory=SpatialQuantumDomain,
+                provides=(
+                    "physics.quantum.spatial.make_wavefunction",
+                    "physics.quantum.spatial.normalize",
+                    "physics.quantum.spatial.position_distribution",
+                    "physics.quantum.spatial.probability_between",
+                ),
+                tags=("physics", "quantum", "wavefunction", "probability"),
             ),
         )
     )
