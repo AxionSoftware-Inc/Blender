@@ -3,7 +3,11 @@ import pytest
 from spectra.core.types import Vec3
 from spectra.core.units import KILOGRAM, METER_PER_SECOND, Quantity
 from spectra.domains import DomainRegistry, builtin_domain_catalog
-from spectra.domains.partial_differential_equations import UniformGrid1D, UniformGrid3D
+from spectra.domains.partial_differential_equations import (
+    ScalarPDESliceView3D,
+    UniformGrid1D,
+    UniformGrid3D,
+)
 from spectra.domains.physics import AcousticPressureProblem3D, SchrodingerProblem3D
 
 
@@ -12,9 +16,10 @@ def _grid() -> UniformGrid3D:
     return UniformGrid3D(axis, axis, axis)
 
 
-def test_acoustics_3d_reuses_wave_equation_and_zero_state_remains_zero() -> None:
+def test_acoustics_3d_reuses_wave_equation_and_generic_scalar_slice() -> None:
     registry = DomainRegistry()
-    loaded = builtin_domain_catalog().load(registry, ["physics.acoustics.3d"])
+    catalog = builtin_domain_catalog()
+    loaded = catalog.load(registry, ["physics.acoustics.3d"])
     grid = _grid()
     solve = registry.require("physics.acoustics.solve3d")
 
@@ -33,8 +38,21 @@ def test_acoustics_3d_reuses_wave_equation_and_zero_state_remains_zero() -> None
     assert solution.pressure_states[-1] == pytest.approx((0.0,) * grid.count)
     assert solution.pressure_rate_states[-1] == pytest.approx((0.0,) * grid.count)
 
+    catalog.load(registry, ["partial_differential_equations.slices3d"])
+    scalar_solution = registry.require("physics.acoustics.scalar_solution3d")(solution)
+    scene = registry.compile_scene(
+        ScalarPDESliceView3D(
+            solution=scalar_solution,
+            axis="z",
+            index=1,
+            name="acoustic_midplane",
+        )
+    )
+    assert len(scene.primitives) == 1
+    assert scene.timeline is not None
 
-def test_quantum_probability_current_3d_constant_free_state_is_zero() -> None:
+
+def test_quantum_probability_current_3d_constant_free_state_is_zero_and_conserved() -> None:
     registry = DomainRegistry()
     catalog = builtin_domain_catalog()
     loaded = catalog.load(registry, ["physics.quantum.probability_current3d"])
@@ -53,8 +71,10 @@ def test_quantum_probability_current_3d_constant_free_state_is_zero() -> None:
 
     flow = registry.require("physics.quantum.compute_probability_flow3d")(schrodinger)
     fields = registry.require("physics.quantum.probability_fields_from_flow3d")(flow)
+    continuity = registry.require("physics.quantum.continuity_diagnostics3d")(flow)
 
     assert "physics.quantum.schrodinger3d" in loaded
+    assert "partial_differential_equations.conservation3d" in loaded
     assert all(
         current == Vec3(0.0, 0.0, 0.0)
         for state in flow.current_states
@@ -62,3 +82,5 @@ def test_quantum_probability_current_3d_constant_free_state_is_zero() -> None:
     )
     assert fields.density.evaluate(Vec3(0.5, 0.5, 0.5), 0.05) == pytest.approx(1.0)
     assert fields.current.evaluate(Vec3(0.5, 0.5, 0.5), 0.05) == Vec3(0.0, 0.0, 0.0)
+    assert continuity.worst_max_abs_residual == pytest.approx(0.0)
+    assert continuity.worst_l2_residual == pytest.approx(0.0)
