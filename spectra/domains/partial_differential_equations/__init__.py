@@ -54,6 +54,8 @@ from spectra.domains.partial_differential_equations.field_adapters2d import (
 from spectra.domains.partial_differential_equations.field_adapters3d import (
     PDEFieldAdapters3DDomain,
     scalar_field_from_grid_3d,
+    time_scalar_field_from_grid_3d,
+    time_vector_field_from_grid_3d,
     vector_field_from_grid_3d,
 )
 from spectra.domains.partial_differential_equations.integrals2d import (
@@ -169,7 +171,9 @@ __all__ = [
     "second_derivative_1d",
     "slice_solution_3d",
     "time_scalar_field_from_grid_2d",
+    "time_scalar_field_from_grid_3d",
     "time_vector_field_from_grid_2d",
+    "time_vector_field_from_grid_3d",
     "upwind_advection_2d",
     "vector_field_from_grid_2d",
     "vector_field_from_grid_3d",
