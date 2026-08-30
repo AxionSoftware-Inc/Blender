@@ -135,6 +135,17 @@ It reuses the generic 3D curl operator and ODE/RK4 capability. Typed vacuum perm
 
 Maxwell solution history can be reconstructed as typed `E(x,t)` and `B(x,t)` fields, compiled into batched VectorGlyphSet animations, diagnosed for divergence/energy/Poynting magnitude, and passed to the existing Lorentz-force particle bridge.
 
+Charge/current sources are a separate semantic layer. Source-aware diagnostics compose generic grid divergence and continuity capabilities:
+
+```text
+rho(x,t), J(x,t)
+  -> Gauss residual: div(E) - rho/epsilon0
+  -> magnetic constraint: div(B)
+  -> charge continuity: d rho/dt + div(J)
+```
+
+The Maxwell time integrator therefore does not need to own source-conservation verification.
+
 This is a reference time-domain Maxwell solver, **not Yee-FDTD**. Numerical dispersion, staggered grids, absorbing boundaries, CFL-specific FDTD schemes, and production electromagnetic stability are future solver implementations behind the same semantic contracts.
 
 ## Chemistry and reaction-diffusion
@@ -155,6 +166,42 @@ ReactionNetwork
 ```
 
 Mass-action helpers use SI-consistent concentrations (`mol/m^3`). A reaction-rate constant's dimension depends on reaction order, so it is intentionally represented as an SI scalar rather than assigned a misleading fixed unit.
+
+## Cross-domain energy couplings
+
+Thermal physics is now a shared meeting point for multiple scientific domains rather than an isolated solver.
+
+### Thermochemical heating
+
+Reaction enthalpies are energy-per-amount quantities. A reaction-diffusion history can be converted into a volumetric heat field using
+
+```text
+q_dot = - sum_r DeltaH_r * reaction_rate_r
+```
+
+so an exothermic reaction (`DeltaH < 0`) produces positive heating. The resulting `W/m^3` field is passed directly to the existing heat-conduction problem.
+
+```text
+ReactionNetwork + concentration F(x,t)
+  -> reaction rates
+  -> thermochemical q_dot(x,t)
+  -> HeatConductionProblem3D
+  -> temperature F(x,t)
+  -> optional thermoelastic / solid-dynamic coupling
+```
+
+### Electrothermal/Joule heating
+
+Time-dependent Maxwell fields and current density reuse the same thermal contract:
+
+```text
+E(x,t) + J(x,t)
+  -> q_dot = J dot E
+  -> W/m^3 field
+  -> HeatConductionProblem3D
+```
+
+This creates a renderer-neutral path from electromagnetic simulation to temperature and then, if desired, to thermoelastic response without adding EM-specific logic to the heat solver.
 
 ## Domain discovery scalability
 
