@@ -27,6 +27,7 @@ class BackendCapabilities:
                     "surface",
                     "region",
                     "vector_glyph",
+                    "vector_glyph_set",
                     "text",
                     "group",
                     "camera",
