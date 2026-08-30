@@ -62,6 +62,17 @@ class Bounds3D:
     def bounding_sphere_radius(self) -> float:
         return self.diagonal * 0.5
 
+    @property
+    def corners(self) -> tuple[Vec3, ...]:
+        low = self.minimum
+        high = self.maximum
+        return tuple(
+            Vec3(x, y, z)
+            for x in (low.x, high.x)
+            for y in (low.y, high.y)
+            for z in (low.z, high.z)
+        )
+
     def include(self, other: "Bounds3D") -> "Bounds3D":
         return Bounds3D(
             minimum=Vec3(
@@ -81,8 +92,6 @@ class Bounds3D:
             raise ValueError("bounds padding factor must be finite and >= 1")
         half = self.size * (0.5 * factor)
         center = self.center
-        # Degenerate content still receives a small non-zero extent so camera
-        # fitting and clipping remain well-defined.
         epsilon = max(self.diagonal * 1e-6, 1e-6)
         half = Vec3(
             max(abs(half.x), epsilon),
@@ -92,16 +101,16 @@ class Bounds3D:
         return Bounds3D(center - half, center + half)
 
 
-def _scene_point(scene: Scene, primitive: Primitive, point: Vec3) -> Vec3:
-    local = primitive.transform.apply_point(point)
-    return scene.frame.point_to_parent(local)
+def _local_point(primitive: Primitive, point: Vec3) -> Vec3:
+    return primitive.transform.apply_point(point)
 
 
-def primitive_bounds(scene: Scene, primitive: Primitive) -> Bounds3D | None:
-    """Return conservative world/parent-space bounds for one visible primitive.
+def primitive_local_bounds(primitive: Primitive) -> Bounds3D | None:
+    """Return Scene-local bounds for one visible scientific primitive.
 
-    Groups currently organize references but do not contribute geometry. Camera
-    nodes are presentation controls and are excluded from content bounds.
+    Primitive transforms are applied, but the Scene coordinate frame is not.
+    Cameras and Groups do not contribute geometry. Polyline trim is intentionally
+    ignored so framing remains conservative during reveal animations.
     """
     if not primitive.visible or primitive.opacity <= 0.0:
         return None
@@ -109,62 +118,43 @@ def primitive_bounds(scene: Scene, primitive: Primitive) -> Bounds3D | None:
         return None
 
     if isinstance(primitive, Point):
-        center = _scene_point(scene, primitive, primitive.position)
+        center = _local_point(primitive, primitive.position)
         radius = abs(primitive.radius) * primitive.transform.max_abs_scale
-        # CoordinateFrame3D may itself contain scale/shear-like basis lengths;
-        # transform local radius along each parent basis for a conservative AABB.
-        extent_x = max(
-            abs(scene.frame.basis_x.x),
-            abs(scene.frame.basis_y.x),
-            abs(scene.frame.basis_z.x),
-        ) * radius
-        extent_y = max(
-            abs(scene.frame.basis_x.y),
-            abs(scene.frame.basis_y.y),
-            abs(scene.frame.basis_z.y),
-        ) * radius
-        extent_z = max(
-            abs(scene.frame.basis_x.z),
-            abs(scene.frame.basis_y.z),
-            abs(scene.frame.basis_z.z),
-        ) * radius
-        extent = Vec3(extent_x, extent_y, extent_z)
+        extent = Vec3(radius, radius, radius)
         return Bounds3D(center - extent, center + extent)
 
     if isinstance(primitive, Polyline):
-        return Bounds3D.from_points(
-            _scene_point(scene, primitive, point) for point in primitive.points
-        )
+        return Bounds3D.from_points(_local_point(primitive, point) for point in primitive.points)
 
     if isinstance(primitive, Surface):
-        return Bounds3D.from_points(
-            _scene_point(scene, primitive, vertex) for vertex in primitive.vertices
-        )
+        return Bounds3D.from_points(_local_point(primitive, vertex) for vertex in primitive.vertices)
 
     if isinstance(primitive, Region):
-        return Bounds3D.from_points(
-            _scene_point(scene, primitive, point) for point in primitive.boundary
-        )
+        return Bounds3D.from_points(_local_point(primitive, point) for point in primitive.boundary)
 
     if isinstance(primitive, VectorGlyph):
-        start = _scene_point(scene, primitive, primitive.origin)
-        end = _scene_point(scene, primitive, primitive.origin + primitive.vector)
+        start = _local_point(primitive, primitive.origin)
+        end = _local_point(primitive, primitive.origin + primitive.vector)
         return Bounds3D.from_points((start, end))
 
     if isinstance(primitive, TextLabel):
-        # Font metrics are renderer-dependent. Treat the anchor as content for
-        # framing; backends may add their own screen-space padding.
-        anchor = _scene_point(scene, primitive, primitive.position)
+        # Exact text bounds require renderer/font metrics. The anchor is still
+        # useful for scientific framing; backends may add screen-space padding.
+        anchor = _local_point(primitive, primitive.position)
         return Bounds3D(anchor, anchor)
 
     raise SceneBoundsError(f"unsupported primitive for bounds: {type(primitive).__qualname__}")
 
 
-def scene_bounds(scene: Scene, *, padding: float = 1.0) -> Bounds3D:
-    """Compute renderer-independent bounds of visible scientific content."""
+def scene_local_bounds(scene: Scene, *, padding: float = 1.0) -> Bounds3D:
+    """Bounds in the Scene's scientific coordinate space.
+
+    This is the correct space for renderer-independent camera fitting because
+    Camera transforms live in the same Scene-local coordinate system.
+    """
     combined: Bounds3D | None = None
     for primitive in scene.primitives:
-        bounds = primitive_bounds(scene, primitive)
+        bounds = primitive_local_bounds(primitive)
         if bounds is None:
             continue
         combined = bounds if combined is None else combined.include(bounds)
@@ -172,3 +162,25 @@ def scene_bounds(scene: Scene, *, padding: float = 1.0) -> Bounds3D:
     if combined is None:
         raise SceneBoundsError("Scene contains no visible geometric content")
     return combined if padding == 1.0 else combined.padded(padding)
+
+
+def _map_bounds_to_parent(scene: Scene, bounds: Bounds3D) -> Bounds3D:
+    return Bounds3D.from_points(scene.frame.point_to_parent(corner) for corner in bounds.corners)
+
+
+def primitive_bounds(scene: Scene, primitive: Primitive) -> Bounds3D | None:
+    """Return conservative parent/world-mapped bounds for one primitive.
+
+    This preserves the original public behavior of primitive_bounds while the
+    new primitive_local_bounds API makes coordinate-space ownership explicit.
+    """
+    local = primitive_local_bounds(primitive)
+    if local is None:
+        return None
+    return _map_bounds_to_parent(scene, local)
+
+
+def scene_bounds(scene: Scene, *, padding: float = 1.0) -> Bounds3D:
+    """Compute parent/world-mapped bounds of visible scientific content."""
+    local = scene_local_bounds(scene, padding=padding)
+    return _map_bounds_to_parent(scene, local)
