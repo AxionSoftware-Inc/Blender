@@ -183,7 +183,7 @@ class IncompressibleFlowViews2DDomain:
                 raise ValueError("pathline initial_time must lie inside flow solution time range")
             return pathline_type(
                 field=fields.velocity,
-                seed=seed,
+                initial_position=seed,
                 initial_time=start,
                 name=name or f"{solution.name}.pathline",
             )
