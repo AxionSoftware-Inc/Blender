@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from typing import Protocol, runtime_checkable
+from typing import Protocol, TYPE_CHECKING, runtime_checkable
+
+if TYPE_CHECKING:
+    from spectra.domains.registry import DomainRegistry
 
 
 @runtime_checkable
@@ -25,6 +28,3 @@ class DomainModule(Protocol):
     def register(self, registry: "DomainRegistry") -> None:
         """Register domain-owned semantic types, compilers, or capabilities."""
         ...
-
-
-from spectra.domains.registry import DomainRegistry  # noqa: E402  (protocol typing cycle)
