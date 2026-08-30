@@ -4,6 +4,9 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from typing import Any, TYPE_CHECKING
 
+from spectra.core.scene import Scene
+from spectra.visualization import SceneCompiler, VisualizationRegistry
+
 if TYPE_CHECKING:
     from spectra.domains.base import DomainModule
 
@@ -30,15 +33,15 @@ class DomainRegistry:
 
     The registry intentionally knows nothing about calculus, probability,
     statistics, physics, or any other particular field. Domains publish
-    semantics, compilers, and reusable capabilities under stable string keys.
-    Other domains consume those capabilities without importing implementation
-    internals from one another.
+    semantics, compilers, reusable capabilities, and visualization compilers
+    through stable engine contracts.
     """
 
     domains: dict[str, "DomainModule"] = field(default_factory=dict)
     semantic_types: dict[str, type[Any]] = field(default_factory=dict)
     compilers: dict[str, Compiler] = field(default_factory=dict)
     capabilities: dict[str, Capability] = field(default_factory=dict)
+    visualizations: VisualizationRegistry = field(default_factory=VisualizationRegistry)
 
     def add_domain(self, domain: "DomainModule") -> None:
         if domain.name in self.domains:
@@ -119,6 +122,21 @@ class DomainRegistry:
             return self.compilers[key]
         except KeyError as exc:
             raise KeyError(f"unknown compiler capability: {key}") from exc
+
+    def register_visualization(
+        self,
+        semantic_type: type[Any],
+        compiler: SceneCompiler,
+    ) -> None:
+        """Register the default renderer-independent Scene compiler for a semantic type."""
+        self.visualizations.register(semantic_type, compiler)
+
+    def can_visualize(self, value_or_type: Any) -> bool:
+        return self.visualizations.supports(value_or_type)
+
+    def compile_scene(self, semantic_object: Any) -> Scene:
+        """Compile a semantic object without the caller knowing its owning domain."""
+        return self.visualizations.compile(semantic_object)
 
     def provide(self, key: str, capability: Capability) -> None:
         """Publish reusable scientific/computation functionality.
