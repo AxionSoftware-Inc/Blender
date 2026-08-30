@@ -63,9 +63,12 @@ MASS = Dimension(mass=1)
 TIME = Dimension(time=1)
 CURRENT = Dimension(current=1)
 TEMPERATURE = Dimension(temperature=1)
+AMOUNT = Dimension(amount=1)
 CHARGE = CURRENT * TIME
 CHARGE_DENSITY = CHARGE / (LENGTH ** 3)
 CURRENT_DENSITY = CURRENT / (LENGTH ** 2)
+MOLAR_CONCENTRATION = AMOUNT / (LENGTH ** 3)
+MOLAR_REACTION_RATE = MOLAR_CONCENTRATION / TIME
 VELOCITY = LENGTH / TIME
 ACCELERATION = LENGTH / (TIME ** 2)
 FREQUENCY = TIME ** -1
@@ -242,6 +245,13 @@ AMPERE_PER_SQUARE_METER = Unit("ampere per square meter", "A/m^2", CURRENT_DENSI
 KELVIN = Unit("kelvin", "K", TEMPERATURE)
 KELVIN_PER_SECOND = Unit("kelvin per second", "K/s", TEMPERATURE_RATE)
 PER_KELVIN = Unit("per kelvin", "1/K", THERMAL_EXPANSION)
+MOLE = Unit("mole", "mol", AMOUNT)
+MOLE_PER_CUBIC_METER = Unit("mole per cubic meter", "mol/m^3", MOLAR_CONCENTRATION)
+MOLE_PER_CUBIC_METER_SECOND = Unit(
+    "mole per cubic meter second",
+    "mol/(m^3*s)",
+    MOLAR_REACTION_RATE,
+)
 COULOMB = Unit("coulomb", "C", CHARGE)
 COULOMB_PER_CUBIC_METER = Unit("coulomb per cubic meter", "C/m^3", CHARGE_DENSITY)
 NEWTON = Unit("newton", "N", FORCE)
