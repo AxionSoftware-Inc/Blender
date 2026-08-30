@@ -5,7 +5,7 @@ from typing import Any
 
 from .animation import Keyframe, Timeline, Track
 from .coordinates import CoordinateFrame3D, WORLD_FRAME
-from .primitives import Group, Point, Polyline, Primitive, Region, Surface, TextLabel, VectorGlyph
+from .primitives import Camera, Group, Point, Polyline, Primitive, Region, Surface, TextLabel, VectorGlyph
 from .scene import Scene
 from .transforms import Quaternion, Transform3D
 from .types import Color, Vec2, Vec3
@@ -195,6 +195,14 @@ def primitive_to_data(primitive: Primitive) -> dict[str, Any]:
         }
     if isinstance(primitive, Group):
         return common | {"children": list(primitive.children)}
+    if isinstance(primitive, Camera):
+        return common | {
+            "projection": primitive.projection,
+            "fov_y_radians": primitive.fov_y_radians,
+            "orthographic_scale": primitive.orthographic_scale,
+            "near_clip": primitive.near_clip,
+            "far_clip": primitive.far_clip,
+        }
     raise SceneSerializationError(f"unsupported primitive type: {type(primitive).__qualname__}")
 
 
@@ -264,6 +272,15 @@ def primitive_from_data(data: dict[str, Any]) -> Primitive:
         if not isinstance(children, list):
             raise SceneSerializationError("group children must be a list")
         return Group(**common, children=tuple(str(child) for child in children))
+    if kind == "camera":
+        return Camera(
+            **common,
+            projection=str(data.get("projection", "perspective")),  # type: ignore[arg-type]
+            fov_y_radians=float(data.get("fov_y_radians", 0.8726646259971648)),
+            orthographic_scale=float(data.get("orthographic_scale", 10.0)),
+            near_clip=float(data.get("near_clip", 0.01)),
+            far_clip=float(data.get("far_clip", 10000.0)),
+        )
     raise SceneSerializationError(f"unknown primitive kind: {kind}")
 
 
@@ -317,6 +334,7 @@ def scene_to_data(scene: Scene) -> dict[str, Any]:
         "schema": SCENE_SCHEMA,
         "version": SCENE_SCHEMA_VERSION,
         "frame": _frame_to_data(scene.frame),
+        "active_camera_id": scene.active_camera_id,
         "primitives": [primitive_to_data(primitive) for primitive in scene.primitives],
         "timeline": timeline_to_data(scene.timeline),
     }
@@ -334,10 +352,14 @@ def scene_from_data(data: dict[str, Any]) -> Scene:
     timeline = data.get("timeline", {})
     if not isinstance(timeline, dict):
         raise SceneSerializationError("scene timeline must be an object")
+    active_camera_id = data.get("active_camera_id")
+    if active_camera_id is not None:
+        active_camera_id = str(active_camera_id)
     return Scene(
         primitives=tuple(primitive_from_data(primitive) for primitive in primitives),
         timeline=timeline_from_data(timeline),
         frame=_frame_from_data(data.get("frame")),
+        active_camera_id=active_camera_id,
     )
 
 
