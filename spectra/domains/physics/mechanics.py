@@ -70,6 +70,8 @@ class MechanicsDomain:
     )
 
     def register(self, registry: DomainRegistry) -> None:
+        from spectra.domains.physics.mechanics_visualization import compile_trajectory_scene
+
         system_type = registry.require("ode.first_order_system")
         solve_ode = registry.require("ode.solve_rk4")
 
@@ -117,3 +119,4 @@ class MechanicsDomain:
         registry.register_semantic_type("physics.mechanics.trajectory", Trajectory)
         registry.provide("physics.mechanics.particle_problem", ParticleProblem)
         registry.provide("physics.mechanics.solve_particle", solve_particle)
+        registry.register_visualization(Trajectory, compile_trajectory_scene)
