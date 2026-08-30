@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 
 from .units import (
+    AMPERE,
     COULOMB,
     JOULE,
     KELVIN,
@@ -31,6 +32,10 @@ VACUUM_PERMITTIVITY = Quantity(
     1.0 / (4.0 * math.pi * COULOMB_CONSTANT.si_value),
     (COULOMB ** 2) / (NEWTON * (METER ** 2)),
 )
+VACUUM_PERMEABILITY = Quantity(
+    1.0 / (VACUUM_PERMITTIVITY.si_value * SPEED_OF_LIGHT.si_value ** 2),
+    NEWTON / (AMPERE ** 2),
+)
 GRAVITATIONAL_CONSTANT = Quantity(
     6.674_30e-11,
     (METER ** 3) / (KILOGRAM * (SECOND ** 2)),
@@ -45,5 +50,6 @@ __all__ = [
     "PLANCK_CONSTANT",
     "REDUCED_PLANCK_CONSTANT",
     "SPEED_OF_LIGHT",
+    "VACUUM_PERMEABILITY",
     "VACUUM_PERMITTIVITY",
 ]
