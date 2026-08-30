@@ -9,7 +9,7 @@ from spectra.domains.mathematics.fields import (
     TimeDependentScalarField3D,
     TimeDependentVectorField3D,
 )
-from spectra.domains.partial_differential_equations.domain3d import UniformGrid3D
+from spectra.domains.partial_differential_equations.domain3d import BoundaryMode3D, UniformGrid3D
 from spectra.domains.physics.schrodinger3d import SchrodingerSolution3D
 from spectra.domains.registry import DomainDependency, DomainRegistry
 
@@ -24,6 +24,7 @@ class QuantumProbabilityFlow3D:
     times: tuple[float, ...]
     density_states: tuple[tuple[float, ...], ...]
     current_states: tuple[tuple[Vec3, ...], ...]
+    boundary: BoundaryMode3D = "fixed"
     name: str = "quantum_probability_flow3d"
 
     def __post_init__(self) -> None:
@@ -38,6 +39,8 @@ class QuantumProbabilityFlow3D:
             raise ValueError("quantum current state length must match grid")
         if any(right <= left for left, right in zip(self.times, self.times[1:])):
             raise ValueError("quantum probability-flow times must be strictly increasing")
+        if self.boundary not in {"fixed", "periodic", "zero_gradient"}:
+            raise ValueError(f"unknown quantum probability-flow boundary mode: {self.boundary}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,7 +60,7 @@ class QuantumProbabilityCurrent3DDomain:
     """Probability density/current derived from generic Schrodinger and grid operators."""
 
     name = "physics.quantum.probability_current3d"
-    version = "2"
+    version = "3"
     dependencies = (
         DomainDependency("physics.quantum.schrodinger3d.solution"),
         DomainDependency("pde.gradient_grid_3d"),
@@ -104,6 +107,7 @@ class QuantumProbabilityCurrent3DDomain:
                 times=solution.times,
                 density_states=tuple(densities),
                 current_states=tuple(currents),
+                boundary=solution.boundary,
                 name=f"{solution.name}.probability_flow",
             )
 
@@ -130,13 +134,17 @@ class QuantumProbabilityCurrent3DDomain:
                 name=f"{flow.name}.fields",
             )
 
-        def continuity_diagnostics(flow: QuantumProbabilityFlow3D, *, boundary="fixed"):
+        def continuity_diagnostics(
+            flow: QuantumProbabilityFlow3D,
+            *,
+            boundary: BoundaryMode3D | None = None,
+        ):
             return continuity_history(
                 flow.grid,
                 flow.times,
                 flow.density_states,
                 flow.current_states,
-                boundary=boundary,
+                boundary=flow.boundary if boundary is None else boundary,
                 name=f"{flow.name}.continuity",
             )
 
@@ -159,15 +167,15 @@ class QuantumProbabilityCurrent3DDomain:
         registry.provide(
             "physics.quantum.compute_probability_flow3d",
             probability_flow,
-            version=2,
+            version=3,
         )
         registry.provide(
             "physics.quantum.probability_fields_from_flow3d",
             fields_from_flow,
-            version=2,
+            version=3,
         )
         registry.provide(
             "physics.quantum.continuity_diagnostics3d",
             continuity_diagnostics,
-            version=2,
+            version=3,
         )
