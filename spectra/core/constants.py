@@ -27,6 +27,10 @@ COULOMB_CONSTANT = Quantity(
     8.987_551_792_3e9,
     NEWTON * (METER ** 2) / (COULOMB ** 2),
 )
+VACUUM_PERMITTIVITY = Quantity(
+    1.0 / (4.0 * math.pi * COULOMB_CONSTANT.si_value),
+    (COULOMB ** 2) / (NEWTON * (METER ** 2)),
+)
 GRAVITATIONAL_CONSTANT = Quantity(
     6.674_30e-11,
     (METER ** 3) / (KILOGRAM * (SECOND ** 2)),
@@ -41,4 +45,5 @@ __all__ = [
     "PLANCK_CONSTANT",
     "REDUCED_PLANCK_CONSTANT",
     "SPEED_OF_LIGHT",
+    "VACUUM_PERMITTIVITY",
 ]
