@@ -39,6 +39,10 @@ class DomainRegistry:
     def add_domain(self, domain: "DomainModule") -> None:
         if domain.name in self.domains:
             raise ValueError(f"domain already registered: {domain.name}")
+
+        dependencies = tuple(getattr(domain, "dependencies", ()))
+        self.resolve_dependencies(dependencies)
+
         self.domains[domain.name] = domain
         try:
             domain.register(self)
