@@ -87,6 +87,7 @@ from spectra.domains.partial_differential_equations.slices3d import (
     ScalarPDESliceView3D,
     slice_solution_3d,
 )
+from spectra.domains.partial_differential_equations.solution_fields3d import PDESolutionFields3DDomain
 from spectra.domains.partial_differential_equations.stability2d import (
     ExplicitStability2D,
     Stability2DDomain,
@@ -127,6 +128,7 @@ __all__ = [
     "PDEOperators2DDomain",
     "PDEOperators3DDomain",
     "PDESlices3DDomain",
+    "PDESolutionFields3DDomain",
     "PartialDifferentialEquations2DDomain",
     "PartialDifferentialEquations3DDomain",
     "PartialDifferentialEquationsDomain",
