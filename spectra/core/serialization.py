@@ -9,6 +9,7 @@ from .primitives import (
     Camera,
     Group,
     Point,
+    PointCloud,
     Polyline,
     Primitive,
     Region,
@@ -171,6 +172,14 @@ def primitive_to_data(primitive: Primitive) -> dict[str, Any]:
             "radius": primitive.radius,
             "color": _color_to_data(primitive.color),
         }
+    if isinstance(primitive, PointCloud):
+        return common | {
+            "positions": [_vec3_to_data(position) for position in primitive.positions],
+            "radius": primitive.radius,
+            "color": _color_to_data(primitive.color),
+            "radii": list(primitive.radii),
+            "colors": [_color_to_data(color) for color in primitive.colors],
+        }
     if isinstance(primitive, Polyline):
         return common | {
             "points": [_vec3_to_data(point) for point in primitive.points],
@@ -246,6 +255,15 @@ def primitive_from_data(data: dict[str, Any]) -> Primitive:
             position=_vec3_from_data(data["position"]),
             radius=float(data.get("radius", 0.05)),
             color=_color_from_data(data["color"]),
+        )
+    if kind == "point_cloud":
+        return PointCloud(
+            **common,
+            positions=tuple(_vec3_from_data(position) for position in data["positions"]),
+            radius=float(data.get("radius", 0.05)),
+            color=_color_from_data(data["color"]),
+            radii=tuple(float(radius) for radius in data.get("radii", [])),
+            colors=tuple(_color_from_data(color) for color in data.get("colors", [])),
         )
     if kind == "polyline":
         return Polyline(
