@@ -4,7 +4,7 @@ from spectra.domains.physics.electromagnetism import (
     electric_field_from_point_charges,
 )
 from spectra.domains.physics.mechanics import MechanicsDomain, ParticleProblem, Trajectory
-from spectra.domains.physics.quantum import QuantumDomain, QuantumState
+from spectra.domains.physics.quantum import QuantumDomain, QuantumObservable, QuantumState
 
 __all__ = [
     "ElectromagnetismDomain",
@@ -14,5 +14,6 @@ __all__ = [
     "ParticleProblem",
     "Trajectory",
     "QuantumDomain",
+    "QuantumObservable",
     "QuantumState",
 ]
