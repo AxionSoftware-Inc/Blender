@@ -4,6 +4,7 @@ import json
 from typing import Any
 
 from .animation import Keyframe, Timeline, Track
+from .coordinates import CoordinateFrame3D, WORLD_FRAME
 from .primitives import Group, Point, Polyline, Primitive, Region, Surface, TextLabel, VectorGlyph
 from .scene import Scene
 from .transforms import Quaternion, Transform3D
@@ -66,6 +67,28 @@ def _transform_from_data(value: Any) -> Transform3D:
         translation=_vec3_from_data(value.get("translation", [0.0, 0.0, 0.0])),
         rotation=_quaternion_from_data(value.get("rotation", [1.0, 0.0, 0.0, 0.0])),
         scale=_vec3_from_data(value.get("scale", [1.0, 1.0, 1.0])),
+    )
+
+
+def _frame_to_data(frame: CoordinateFrame3D) -> dict[str, Any]:
+    return {
+        "origin": _vec3_to_data(frame.origin),
+        "basis_x": _vec3_to_data(frame.basis_x),
+        "basis_y": _vec3_to_data(frame.basis_y),
+        "basis_z": _vec3_to_data(frame.basis_z),
+    }
+
+
+def _frame_from_data(value: Any) -> CoordinateFrame3D:
+    if value is None:
+        return WORLD_FRAME
+    if not isinstance(value, dict):
+        raise SceneSerializationError("scene frame must be an object")
+    return CoordinateFrame3D(
+        origin=_vec3_from_data(value.get("origin", [0.0, 0.0, 0.0])),
+        basis_x=_vec3_from_data(value.get("basis_x", [1.0, 0.0, 0.0])),
+        basis_y=_vec3_from_data(value.get("basis_y", [0.0, 1.0, 0.0])),
+        basis_z=_vec3_from_data(value.get("basis_z", [0.0, 0.0, 1.0])),
     )
 
 
@@ -268,19 +291,22 @@ def timeline_to_data(timeline: Timeline) -> dict[str, Any]:
 def timeline_from_data(data: dict[str, Any]) -> Timeline:
     tracks = []
     for track_data in data.get("tracks", []):
-        keyframes = tuple(
-            Keyframe(
-                float(keyframe["time"]),
-                _decode_value(keyframe.get("value")),
-                str(keyframe.get("interpolation", "linear")),  # type: ignore[arg-type]
+        keyframes = []
+        for keyframe in track_data.get("keyframes", []):
+            decoded = _decode_value(keyframe.get("value"))
+            default_interpolation = "step" if isinstance(decoded, bool) else "linear"
+            keyframes.append(
+                Keyframe(
+                    float(keyframe["time"]),
+                    decoded,
+                    str(keyframe.get("interpolation", default_interpolation)),  # type: ignore[arg-type]
+                )
             )
-            for keyframe in track_data.get("keyframes", [])
-        )
         tracks.append(
             Track(
                 target_id=str(track_data["target_id"]),
                 property_path=str(track_data["property_path"]),
-                keyframes=keyframes,
+                keyframes=tuple(keyframes),
             )
         )
     return Timeline(duration=float(data.get("duration", 0.0)), tracks=tuple(tracks))
@@ -290,6 +316,7 @@ def scene_to_data(scene: Scene) -> dict[str, Any]:
     return {
         "schema": SCENE_SCHEMA,
         "version": SCENE_SCHEMA_VERSION,
+        "frame": _frame_to_data(scene.frame),
         "primitives": [primitive_to_data(primitive) for primitive in scene.primitives],
         "timeline": timeline_to_data(scene.timeline),
     }
@@ -310,6 +337,7 @@ def scene_from_data(data: dict[str, Any]) -> Scene:
     return Scene(
         primitives=tuple(primitive_from_data(primitive) for primitive in primitives),
         timeline=timeline_from_data(timeline),
+        frame=_frame_from_data(data.get("frame")),
     )
 
 
