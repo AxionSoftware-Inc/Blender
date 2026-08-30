@@ -125,6 +125,11 @@ from spectra.domains.physics.schrodinger2d import (
     SchrodingerProblem2D,
     SchrodingerSolution2D,
 )
+from spectra.domains.physics.schrodinger3d import (
+    Schrodinger3DDomain,
+    SchrodingerProblem3D,
+    SchrodingerSolution3D,
+)
 from spectra.domains.physics.vorticity_streamfunction import (
     VorticityStreamfunction2DDomain,
     VorticityStreamfunctionProblem2D,
@@ -134,6 +139,11 @@ from spectra.domains.physics.wave_equation2d import (
     WaveEquation2DDomain,
     WaveEquationProblem2D,
     WaveEquationSolution2D,
+)
+from spectra.domains.physics.wave_equation3d import (
+    WaveEquation3DDomain,
+    WaveEquationProblem3D,
+    WaveEquationSolution3D,
 )
 from spectra.domains.physics.waves import (
     HarmonicWave1D,
@@ -206,11 +216,14 @@ __all__ = [
     "RelativityDomain",
     "SPEED_OF_LIGHT",
     "Schrodinger2DDomain",
+    "Schrodinger3DDomain",
     "SchrodingerDomain",
     "SchrodingerProblem1D",
     "SchrodingerProblem2D",
+    "SchrodingerProblem3D",
     "SchrodingerSolution1D",
     "SchrodingerSolution2D",
+    "SchrodingerSolution3D",
     "SchwarzschildSpacetime",
     "SpacetimeEvent",
     "SpatialQuantumDomain",
@@ -225,8 +238,11 @@ __all__ = [
     "VorticityStreamfunctionSolution2D",
     "WaveAnimation1D",
     "WaveEquation2DDomain",
+    "WaveEquation3DDomain",
     "WaveEquationProblem2D",
+    "WaveEquationProblem3D",
     "WaveEquationSolution2D",
+    "WaveEquationSolution3D",
     "WaveProfile1D",
     "WaveSuperposition1D",
     "WavesDomain",
