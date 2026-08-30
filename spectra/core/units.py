@@ -75,6 +75,11 @@ PRESSURE = FORCE / (LENGTH ** 2)
 DENSITY = MASS / (LENGTH ** 3)
 KINEMATIC_VISCOSITY = (LENGTH ** 2) / TIME
 DYNAMIC_VISCOSITY = PRESSURE * TIME
+SPECIFIC_HEAT = ENERGY / (MASS * TEMPERATURE)
+THERMAL_CONDUCTIVITY = POWER / (LENGTH * TEMPERATURE)
+THERMAL_EXPANSION = TEMPERATURE ** -1
+TEMPERATURE_RATE = TEMPERATURE / TIME
+VOLUMETRIC_POWER = POWER / (LENGTH ** 3)
 ELECTRIC_FIELD = FORCE / CHARGE
 ELECTRIC_POTENTIAL = ENERGY / CHARGE
 MAGNETIC_FIELD = MASS / (CURRENT * (TIME ** 2))
@@ -232,10 +237,23 @@ KILOGRAM_PER_CUBIC_METER = Unit("kilogram per cubic meter", "kg/m^3", DENSITY)
 PASCAL_SECOND = Unit("pascal second", "Pa*s", DYNAMIC_VISCOSITY)
 AMPERE = Unit("ampere", "A", CURRENT)
 KELVIN = Unit("kelvin", "K", TEMPERATURE)
+KELVIN_PER_SECOND = Unit("kelvin per second", "K/s", TEMPERATURE_RATE)
+PER_KELVIN = Unit("per kelvin", "1/K", THERMAL_EXPANSION)
 COULOMB = Unit("coulomb", "C", CHARGE)
 NEWTON = Unit("newton", "N", FORCE)
 JOULE = Unit("joule", "J", ENERGY)
+JOULE_PER_KILOGRAM_KELVIN = Unit(
+    "joule per kilogram kelvin",
+    "J/(kg*K)",
+    SPECIFIC_HEAT,
+)
 WATT = Unit("watt", "W", POWER)
+WATT_PER_METER_KELVIN = Unit(
+    "watt per meter kelvin",
+    "W/(m*K)",
+    THERMAL_CONDUCTIVITY,
+)
+WATT_PER_CUBIC_METER = Unit("watt per cubic meter", "W/m^3", VOLUMETRIC_POWER)
 PASCAL = Unit("pascal", "Pa", PRESSURE)
 VOLT = Unit("volt", "V", ELECTRIC_POTENTIAL)
 NEWTON_PER_COULOMB = Unit("newton per coulomb", "N/C", ELECTRIC_FIELD)
