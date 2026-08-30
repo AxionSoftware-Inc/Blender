@@ -4,6 +4,11 @@ from spectra.domains.chemistry.domain import (
     ReactionNetwork,
     mass_action_reaction,
 )
+from spectra.domains.chemistry.kinetics import (
+    ReactionKineticsDomain,
+    ReactionKineticsProblem,
+    ReactionKineticsSolution,
+)
 from spectra.domains.chemistry.reaction_diffusion3d import (
     ReactionDiffusion3DDomain,
     ReactionDiffusionProblem3D,
@@ -17,6 +22,9 @@ from spectra.domains.chemistry.reaction_diffusion_views3d import (
 __all__ = [
     "ChemicalReaction",
     "ChemistryDomain",
+    "ReactionKineticsDomain",
+    "ReactionKineticsProblem",
+    "ReactionKineticsSolution",
     "ReactionDiffusion3DDomain",
     "ReactionDiffusionFields3D",
     "ReactionDiffusionProblem3D",
