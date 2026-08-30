@@ -5,7 +5,7 @@ import math
 
 from spectra.core.types import Vec3
 from spectra.domains.mathematics.fields import ScalarField3D, VectorField3D
-from spectra.domains.mathematics.functions import Function1D
+from spectra.domains.mathematics.functions import RealFunction1D
 from spectra.domains.registry import DomainDependency, DomainRegistry
 
 
@@ -16,7 +16,7 @@ class TangentSample:
     slope: float
 
 
-def derivative_at(function: Function1D, x: float, *, step: float | None = None) -> float:
+def derivative_at(function: RealFunction1D, x: float, *, step: float | None = None) -> float:
     if not function.domain.contains(x):
         raise ValueError("derivative point lies outside function domain")
 
@@ -37,18 +37,18 @@ def derivative_at(function: Function1D, x: float, *, step: float | None = None) 
     raise ValueError("function domain is too narrow for derivative sampling")
 
 
-def tangent_at(function: Function1D, x: float) -> TangentSample:
+def tangent_at(function: RealFunction1D, x: float) -> TangentSample:
     return TangentSample(x=x, y=function.evaluate(x), slope=derivative_at(function, x))
 
 
 def integrate(
-    function: Function1D,
+    function: RealFunction1D,
     *,
     start: float | None = None,
     end: float | None = None,
     steps: int = 512,
 ) -> float:
-    """Numerically integrate a Function1D using composite Simpson's rule.
+    """Numerically integrate any RealFunction1D using composite Simpson's rule.
 
     This is a deterministic reference implementation behind a capability
     boundary. A future NumPy/SciPy/native/GPU integrator can replace it without
@@ -127,12 +127,12 @@ def curl_at(
     dy = Vec3(0.0, h, 0.0)
     dz = Vec3(0.0, 0.0, h)
 
-    fx_plus_x = field.evaluate(position + dx)
-    fx_minus_x = field.evaluate(position - dx)
     fy_plus_y = field.evaluate(position + dy)
     fy_minus_y = field.evaluate(position - dy)
     fz_plus_z = field.evaluate(position + dz)
     fz_minus_z = field.evaluate(position - dz)
+    fx_plus_x = field.evaluate(position + dx)
+    fx_minus_x = field.evaluate(position - dx)
 
     dfz_dy = (fy_plus_y.z - fy_minus_y.z) / (2.0 * h)
     dfy_dz = (fz_plus_z.y - fz_minus_z.y) / (2.0 * h)
@@ -150,9 +150,9 @@ def curl_at(
 
 class CalculusDomain:
     name = "calculus"
-    version = "3"
+    version = "4"
     dependencies = (
-        DomainDependency("mathematics.function1d"),
+        DomainDependency("mathematics.real_function1d"),
         DomainDependency("mathematics.scalar_field3d"),
         DomainDependency("mathematics.vector_field3d"),
     )
@@ -161,7 +161,7 @@ class CalculusDomain:
         registry.register_semantic_type("calculus.tangent_sample", TangentSample)
         registry.provide("calculus.derivative_at", derivative_at)
         registry.provide("calculus.tangent_at", tangent_at)
-        registry.provide("calculus.integrate", integrate, version=2)
+        registry.provide("calculus.integrate", integrate, version=3)
         registry.provide("calculus.gradient_at", gradient_at, version=1)
         registry.provide("calculus.divergence_at", divergence_at, version=1)
         registry.provide("calculus.curl_at", curl_at, version=1)
