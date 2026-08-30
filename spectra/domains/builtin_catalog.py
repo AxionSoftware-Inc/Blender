@@ -91,6 +91,9 @@ from spectra.domains.physics.elastodynamics_diagnostics3d import (
 from spectra.domains.physics.elastodynamics_views3d import ElastodynamicsViews3DDomain
 from spectra.domains.physics.heat_conduction3d import HeatConduction3DDomain
 from spectra.domains.physics.heat_views3d import HeatConductionViews3DDomain
+from spectra.domains.physics.maxwell3d import Maxwell3DDomain
+from spectra.domains.physics.maxwell_diagnostics3d import MaxwellDiagnostics3DDomain
+from spectra.domains.physics.maxwell_views3d import MaxwellViews3DDomain
 from spectra.domains.physics.thermoelasticity3d import Thermoelasticity3DDomain
 from spectra.domains.physics.thermoelastodynamics3d import Thermoelastodynamics3DDomain
 from spectra.domains.potential_fields import PotentialFields3DDomain, PotentialFieldViews3DDomain
@@ -179,6 +182,9 @@ BUILTIN_DOMAIN_FACTORIES = (
     Thermoelasticity3DDomain,
     Thermoelastodynamics3DDomain,
     ElectromagnetismDomain,
+    Maxwell3DDomain,
+    MaxwellViews3DDomain,
+    MaxwellDiagnostics3DDomain,
     ElectrostaticPotential2DDomain,
     ElectrostaticPotential3DDomain,
     GravitationalPotential3DDomain,
@@ -241,6 +247,9 @@ BUILTIN_DOMAIN_TAGS = {
     "physics.thermoelasticity.3d": ("physics", "thermal", "solid-mechanics", "coupling", "3d"),
     "physics.thermoelastodynamics.3d": ("physics", "thermal", "solid-mechanics", "dynamics", "3d"),
     "electromagnetism": ("physics", "electromagnetism"),
+    "physics.electromagnetism.maxwell3d": ("physics", "electromagnetism", "maxwell", "dynamics", "3d"),
+    "physics.electromagnetism.maxwell_views3d": ("physics", "electromagnetism", "visualization", "3d"),
+    "physics.electromagnetism.maxwell_diagnostics3d": ("physics", "electromagnetism", "diagnostics", "3d"),
     "physics.electrostatic_potential.3d": ("physics", "electromagnetism", "potential", "3d"),
     "physics.gravitational_potential.3d": ("physics", "gravity", "potential", "3d"),
     "physics.wave_equation.3d": ("physics", "waves", "pde", "3d"),
