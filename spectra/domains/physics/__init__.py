@@ -3,12 +3,21 @@ from spectra.domains.physics.diffusion import (
     DiffusionProblem1D,
     DiffusionSolution1D,
 )
+from spectra.domains.physics.diffusion2d import (
+    Diffusion2DDomain,
+    DiffusionProblem2D,
+    DiffusionSolution2D,
+)
 from spectra.domains.physics.electromagnetism import (
     ElectromagnetismDomain,
     PlaneElectromagneticWave,
     PointCharge,
     SPEED_OF_LIGHT,
     electric_field_from_point_charges,
+)
+from spectra.domains.physics.general_relativity import (
+    GeneralRelativityDomain,
+    SchwarzschildSpacetime,
 )
 from spectra.domains.physics.mechanics import MechanicsDomain, ParticleProblem, Trajectory
 from spectra.domains.physics.particles import (
@@ -47,13 +56,18 @@ from spectra.domains.physics.waves import (
 )
 
 __all__ = [
+    "Diffusion2DDomain",
     "DiffusionDomain",
     "DiffusionProblem1D",
+    "DiffusionProblem2D",
     "DiffusionSolution1D",
+    "DiffusionSolution2D",
     "ElectromagnetismDomain",
+    "GeneralRelativityDomain",
     "PlaneElectromagneticWave",
     "PointCharge",
     "SPEED_OF_LIGHT",
+    "SchwarzschildSpacetime",
     "electric_field_from_point_charges",
     "MechanicsDomain",
     "ParticleProblem",
