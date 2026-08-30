@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import pytest
 
 from spectra.domains import DomainRegistry
+from spectra.domains.registry import DomainDependency
 
 
 @dataclass(frozen=True)
@@ -35,3 +36,28 @@ def test_duplicate_domain_registration_is_rejected() -> None:
 
     with pytest.raises(ValueError, match="domain already registered"):
         registry.add_domain(ExampleDomain())
+
+
+def test_one_domain_can_consume_another_domains_capability() -> None:
+    registry = DomainRegistry()
+    registry.provide("probability.expectation", lambda values: sum(values) / len(values))
+
+    expectation = registry.require("probability.expectation")
+    assert expectation([1.0, 2.0, 6.0]) == 3.0
+
+
+def test_dependency_resolution_supports_required_and_optional_capabilities() -> None:
+    registry = DomainRegistry()
+    registry.provide("linear_algebra.inner_product", lambda a, b: sum(x * y for x, y in zip(a, b)))
+
+    resolved = registry.resolve_dependencies(
+        [
+            DomainDependency("linear_algebra.inner_product"),
+            DomainDependency("probability.sample", optional=True),
+        ]
+    )
+    assert "linear_algebra.inner_product" in resolved
+    assert "probability.sample" not in resolved
+
+    with pytest.raises(KeyError, match="required capability"):
+        registry.resolve_dependencies([DomainDependency("complex.norm")])
