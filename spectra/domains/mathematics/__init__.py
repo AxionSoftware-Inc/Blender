@@ -1,5 +1,7 @@
 from spectra.domains.mathematics.domain import MathematicsDomain
 from spectra.domains.mathematics.field_views import (
+    ScalarFieldSurfaceView2D,
+    TimeScalarFieldSurfaceAnimation2D,
     TimeVectorFieldAnimation3D,
     VectorFieldView3D,
 )
@@ -25,8 +27,10 @@ __all__ = [
     "RectDomain2D",
     "RegularGrid3D",
     "ScalarField3D",
+    "ScalarFieldSurfaceView2D",
     "TimeDependentScalarField3D",
     "TimeDependentVectorField3D",
+    "TimeScalarFieldSurfaceAnimation2D",
     "TimeVectorFieldAnimation3D",
     "VectorField3D",
     "VectorFieldView3D",
