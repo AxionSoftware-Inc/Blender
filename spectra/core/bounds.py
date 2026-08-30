@@ -4,7 +4,18 @@ from dataclasses import dataclass
 import math
 from typing import Iterable
 
-from .primitives import Camera, Group, Point, Polyline, Primitive, Region, Surface, TextLabel, VectorGlyph
+from .primitives import (
+    Camera,
+    Group,
+    Point,
+    Polyline,
+    Primitive,
+    Region,
+    Surface,
+    TextLabel,
+    VectorGlyph,
+    VectorGlyphSet,
+)
 from .scene import Scene
 from .types import Vec3
 
@@ -137,9 +148,14 @@ def primitive_local_bounds(primitive: Primitive) -> Bounds3D | None:
         end = _local_point(primitive, primitive.origin + primitive.vector)
         return Bounds3D.from_points((start, end))
 
+    if isinstance(primitive, VectorGlyphSet):
+        points: list[Vec3] = []
+        for origin, vector in zip(primitive.origins, primitive.vectors, strict=True):
+            points.append(_local_point(primitive, origin))
+            points.append(_local_point(primitive, origin + vector))
+        return Bounds3D.from_points(points)
+
     if isinstance(primitive, TextLabel):
-        # Exact text bounds require renderer/font metrics. The anchor is still
-        # useful for scientific framing; backends may add screen-space padding.
         anchor = _local_point(primitive, primitive.position)
         return Bounds3D(anchor, anchor)
 
@@ -147,11 +163,7 @@ def primitive_local_bounds(primitive: Primitive) -> Bounds3D | None:
 
 
 def scene_local_bounds(scene: Scene, *, padding: float = 1.0) -> Bounds3D:
-    """Bounds in the Scene's scientific coordinate space.
-
-    This is the correct space for renderer-independent camera fitting because
-    Camera transforms live in the same Scene-local coordinate system.
-    """
+    """Bounds in the Scene's scientific coordinate space."""
     combined: Bounds3D | None = None
     for primitive in scene.primitives:
         bounds = primitive_local_bounds(primitive)
@@ -169,11 +181,7 @@ def _map_bounds_to_parent(scene: Scene, bounds: Bounds3D) -> Bounds3D:
 
 
 def primitive_bounds(scene: Scene, primitive: Primitive) -> Bounds3D | None:
-    """Return conservative parent/world-mapped bounds for one primitive.
-
-    This preserves the original public behavior of primitive_bounds while the
-    new primitive_local_bounds API makes coordinate-space ownership explicit.
-    """
+    """Return conservative parent/world-mapped bounds for one primitive."""
     local = primitive_local_bounds(primitive)
     if local is None:
         return None
