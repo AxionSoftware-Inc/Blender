@@ -18,6 +18,11 @@ from spectra.domains.physics.particles import (
     ParticleSystemsDomain,
 )
 from spectra.domains.physics.quantum import QuantumDomain, QuantumObservable, QuantumState
+from spectra.domains.physics.quantum_spatial import (
+    SpatialQuantumDomain,
+    SpatialWavefunction1D,
+    compile_spatial_wavefunction_scene,
+)
 from spectra.domains.physics.waves import (
     HarmonicWave1D,
     WaveAnimation1D,
@@ -46,6 +51,9 @@ __all__ = [
     "QuantumDomain",
     "QuantumObservable",
     "QuantumState",
+    "SpatialQuantumDomain",
+    "SpatialWavefunction1D",
+    "compile_spatial_wavefunction_scene",
     "HarmonicWave1D",
     "WaveAnimation1D",
     "WaveProfile1D",
