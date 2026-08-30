@@ -127,7 +127,7 @@ class ElasticityDomain:
     """Small-strain isotropic elasticity composed from vector calculus and tensors."""
 
     name = "physics.elasticity"
-    version = "1"
+    version = "2"
     dependencies = (
         DomainDependency("calculus.jacobian_at_3d"),
         DomainDependency("tensor.tensor"),
@@ -167,6 +167,8 @@ class ElasticityDomain:
         registry.register_semantic_type("physics.elasticity.strain_tensor3d", StrainTensor3D)
         registry.register_semantic_type("physics.elasticity.stress_tensor3d", StressTensor3D)
         registry.register_semantic_type("physics.elasticity.material", IsotropicElasticMaterial)
+        registry.provide("physics.elasticity.strain_tensor3d", StrainTensor3D, version=2)
+        registry.provide("physics.elasticity.stress_tensor3d", StressTensor3D, version=2)
         registry.provide("physics.elasticity.material", IsotropicElasticMaterial)
         registry.provide("physics.elasticity.small_strain_at", small_strain_at)
         registry.provide("physics.elasticity.stress_from_strain", stress_from_strain)
