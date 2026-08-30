@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from spectra.core.expressions import compile_expression
 from spectra.domains.mathematics.field_views import (
+    ScalarFieldSurfaceView2D,
+    TimeScalarFieldSurfaceAnimation2D,
     TimeVectorFieldAnimation3D,
     VectorFieldView3D,
 )
@@ -27,6 +29,8 @@ class MathematicsDomain:
         # types without making the domain module cyclic at import time.
         from spectra.compiler import compile_function1d, compile_function2d
         from spectra.domains.mathematics.field_visualization import (
+            compile_scalar_field_surface_scene,
+            compile_time_scalar_field_surface_animation_scene,
             compile_time_vector_field_animation_scene,
             compile_vector_field_view_scene,
         )
@@ -57,6 +61,14 @@ class MathematicsDomain:
             "mathematics.time_vector_field_animation3d",
             TimeVectorFieldAnimation3D,
         )
+        registry.register_semantic_type(
+            "mathematics.scalar_field_surface_view2d",
+            ScalarFieldSurfaceView2D,
+        )
+        registry.register_semantic_type(
+            "mathematics.time_scalar_field_surface_animation2d",
+            TimeScalarFieldSurfaceAnimation2D,
+        )
 
         registry.provide("mathematics.compile_expression", compile_expression)
         registry.provide("mathematics.interval", Interval)
@@ -75,6 +87,14 @@ class MathematicsDomain:
             "mathematics.time_vector_field_animation3d",
             TimeVectorFieldAnimation3D,
         )
+        registry.provide(
+            "mathematics.scalar_field_surface_view2d",
+            ScalarFieldSurfaceView2D,
+        )
+        registry.provide(
+            "mathematics.time_scalar_field_surface_animation2d",
+            TimeScalarFieldSurfaceAnimation2D,
+        )
 
         registry.register_visualization(Function1D, compile_function1d)
         registry.register_visualization(Function2D, compile_function2d)
@@ -84,4 +104,12 @@ class MathematicsDomain:
         registry.register_visualization(
             TimeVectorFieldAnimation3D,
             compile_time_vector_field_animation_scene,
+        )
+        registry.register_visualization(
+            ScalarFieldSurfaceView2D,
+            compile_scalar_field_surface_scene,
+        )
+        registry.register_visualization(
+            TimeScalarFieldSurfaceAnimation2D,
+            compile_time_scalar_field_surface_animation_scene,
         )
