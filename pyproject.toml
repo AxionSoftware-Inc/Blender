@@ -9,6 +9,9 @@ description = "Renderer-independent semantic engine for scientific visualization
 requires-python = ">=3.11"
 dependencies = []
 
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
 [tool.setuptools.packages.find]
 include = ["spectra*"]
 
