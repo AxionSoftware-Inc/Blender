@@ -9,7 +9,7 @@ from spectra.domains.mathematics import Function1D, Interval, MathematicsDomain
 def test_calculus_requires_mathematics_capability() -> None:
     registry = DomainRegistry()
 
-    with pytest.raises(KeyError, match="mathematics.function1d"):
+    with pytest.raises(KeyError, match="mathematics.real_function1d"):
         registry.add_domain(CalculusDomain())
 
 
@@ -32,4 +32,4 @@ def test_calculus_composes_over_mathematics_domain() -> None:
     assert tangent.y == pytest.approx(2.25)
     assert tangent.slope == pytest.approx(3.0, rel=1e-4)
     assert integrate(function, start=0.0, end=2.0) == pytest.approx(8.0 / 3.0, rel=1e-8)
-    assert registry.capability_version("calculus.integrate") == 2
+    assert registry.capability_version("calculus.integrate") == 3

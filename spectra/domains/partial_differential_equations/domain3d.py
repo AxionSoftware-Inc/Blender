@@ -214,5 +214,7 @@ class PartialDifferentialEquations3DDomain:
         registry.register_semantic_type("pde.scalar_problem3d", ScalarPDEProblem3D)
         registry.register_semantic_type("pde.scalar_solution3d", ScalarPDESolution3D)
         registry.provide("pde.uniform_grid3d", UniformGrid3D)
+        registry.provide("pde.scalar_problem3d", ScalarPDEProblem3D)
+        registry.provide("pde.scalar_solution3d", ScalarPDESolution3D)
         registry.provide("pde.laplacian_3d", laplacian_3d)
         registry.provide("pde.solve_method_of_lines_3d", solve_method_of_lines_3d)

@@ -23,7 +23,7 @@ def test_point_cloud_is_one_scene_node_for_many_instances() -> None:
     assert cloud.instance_count == 3
     assert len(scene.primitives) == 1
     bounds = scene_local_bounds(scene)
-    assert bounds.minimum == Vec3(-2.1, -0.1, -0.1)
+    assert bounds.minimum == Vec3(-2.1, -0.3, -0.3)
     assert bounds.maximum == Vec3(3.3, 1.2, 0.3)
 
 

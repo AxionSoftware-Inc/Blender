@@ -5,6 +5,7 @@ from spectra.domains.differential_equations import DifferentialEquationsDomain
 from spectra.domains.mathematics import MathematicsDomain
 from spectra.domains.partial_differential_equations import (
     EllipticPDE2DDomain,
+    PDEFieldAdapters2DDomain,
     PDEOperators2DDomain,
     PartialDifferentialEquations2DDomain,
     PartialDifferentialEquationsDomain,
@@ -23,6 +24,7 @@ def test_charge_free_linear_potential_produces_uniform_electric_field() -> None:
         (
             ElectrostaticPotential2DDomain(),
             EllipticPDE2DDomain(),
+            PDEFieldAdapters2DDomain(),
             PDEOperators2DDomain(),
             PartialDifferentialEquations2DDomain(),
             PartialDifferentialEquationsDomain(),
