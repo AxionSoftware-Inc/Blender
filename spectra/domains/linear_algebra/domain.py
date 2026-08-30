@@ -51,6 +51,10 @@ class MatrixN:
         width = len(self.values[0])
         if any(len(row) != width for row in self.values):
             raise ValueError("matrix rows must have equal lengths")
+        normalized = tuple(tuple(float(value) for value in row) for row in self.values)
+        if not all(math.isfinite(value) for row in normalized for value in row):
+            raise ValueError("matrix values must be finite")
+        object.__setattr__(self, "values", normalized)
 
     @classmethod
     def of(cls, rows: Iterable[Iterable[float]]) -> "MatrixN":
@@ -68,6 +72,10 @@ class MatrixN:
     def shape(self) -> tuple[int, int]:
         return (self.rows, self.columns)
 
+    @property
+    def is_square(self) -> bool:
+        return self.rows == self.columns
+
 
 @dataclass(frozen=True)
 class ComplexMatrixN:
@@ -79,6 +87,14 @@ class ComplexMatrixN:
         width = len(self.values[0])
         if any(len(row) != width for row in self.values):
             raise ValueError("matrix rows must have equal lengths")
+        normalized = tuple(tuple(complex(value) for value in row) for row in self.values)
+        if not all(
+            math.isfinite(value.real) and math.isfinite(value.imag)
+            for row in normalized
+            for value in row
+        ):
+            raise ValueError("complex matrix values must be finite")
+        object.__setattr__(self, "values", normalized)
 
     @classmethod
     def of(cls, rows: Iterable[Iterable[complex]]) -> "ComplexMatrixN":
@@ -162,7 +178,12 @@ def complex_matrix_vector_product(
 
 
 def transpose(matrix: MatrixN) -> MatrixN:
-    return MatrixN(tuple(tuple(matrix.values[row][column] for row in range(matrix.rows)) for column in range(matrix.columns)))
+    return MatrixN(
+        tuple(
+            tuple(matrix.values[row][column] for row in range(matrix.rows))
+            for column in range(matrix.columns)
+        )
+    )
 
 
 def conjugate_transpose(matrix: ComplexMatrixN) -> ComplexMatrixN:
@@ -172,6 +193,154 @@ def conjugate_transpose(matrix: ComplexMatrixN) -> ComplexMatrixN:
             for column in range(matrix.columns)
         )
     )
+
+
+def determinant(matrix: MatrixN, *, tolerance: float = 1e-12) -> float:
+    """Determinant through pivoted Gaussian elimination."""
+    if not matrix.is_square:
+        raise ValueError("determinant requires a square matrix")
+    if tolerance < 0.0:
+        raise ValueError("tolerance cannot be negative")
+
+    work = [list(row) for row in matrix.values]
+    sign = 1.0
+    result = 1.0
+    size = matrix.rows
+    for pivot_column in range(size):
+        pivot_row = max(
+            range(pivot_column, size),
+            key=lambda row: abs(work[row][pivot_column]),
+        )
+        pivot = work[pivot_row][pivot_column]
+        if abs(pivot) <= tolerance:
+            return 0.0
+        if pivot_row != pivot_column:
+            work[pivot_column], work[pivot_row] = work[pivot_row], work[pivot_column]
+            sign *= -1.0
+        pivot = work[pivot_column][pivot_column]
+        result *= pivot
+        for row in range(pivot_column + 1, size):
+            factor = work[row][pivot_column] / pivot
+            for column in range(pivot_column + 1, size):
+                work[row][column] -= factor * work[pivot_column][column]
+    return float(sign * result)
+
+
+def inverse(matrix: MatrixN, *, tolerance: float = 1e-12) -> MatrixN:
+    """Inverse through pivoted Gauss-Jordan elimination."""
+    if not matrix.is_square:
+        raise ValueError("matrix inverse requires a square matrix")
+    if tolerance < 0.0:
+        raise ValueError("tolerance cannot be negative")
+
+    size = matrix.rows
+    work = [
+        list(matrix.values[row])
+        + [1.0 if row == column else 0.0 for column in range(size)]
+        for row in range(size)
+    ]
+
+    for pivot_column in range(size):
+        pivot_row = max(
+            range(pivot_column, size),
+            key=lambda row: abs(work[row][pivot_column]),
+        )
+        if abs(work[pivot_row][pivot_column]) <= tolerance:
+            raise ValueError("matrix is singular and cannot be inverted")
+        if pivot_row != pivot_column:
+            work[pivot_column], work[pivot_row] = work[pivot_row], work[pivot_column]
+
+        pivot = work[pivot_column][pivot_column]
+        work[pivot_column] = [value / pivot for value in work[pivot_column]]
+        for row in range(size):
+            if row == pivot_column:
+                continue
+            factor = work[row][pivot_column]
+            if factor == 0.0:
+                continue
+            work[row] = [
+                value - factor * pivot_value
+                for value, pivot_value in zip(work[row], work[pivot_column], strict=True)
+            ]
+
+    return MatrixN(
+        tuple(tuple(row[size:]) for row in work)
+    )
+
+
+def complex_determinant(
+    matrix: ComplexMatrixN,
+    *,
+    tolerance: float = 1e-12,
+) -> complex:
+    if not matrix.is_square:
+        raise ValueError("determinant requires a square matrix")
+    if tolerance < 0.0:
+        raise ValueError("tolerance cannot be negative")
+
+    work = [list(row) for row in matrix.values]
+    sign = 1.0 + 0.0j
+    result = 1.0 + 0.0j
+    size = matrix.rows
+    for pivot_column in range(size):
+        pivot_row = max(
+            range(pivot_column, size),
+            key=lambda row: abs(work[row][pivot_column]),
+        )
+        pivot = work[pivot_row][pivot_column]
+        if abs(pivot) <= tolerance:
+            return 0.0 + 0.0j
+        if pivot_row != pivot_column:
+            work[pivot_column], work[pivot_row] = work[pivot_row], work[pivot_column]
+            sign *= -1.0
+        pivot = work[pivot_column][pivot_column]
+        result *= pivot
+        for row in range(pivot_column + 1, size):
+            factor = work[row][pivot_column] / pivot
+            for column in range(pivot_column + 1, size):
+                work[row][column] -= factor * work[pivot_column][column]
+    return sign * result
+
+
+def complex_inverse(
+    matrix: ComplexMatrixN,
+    *,
+    tolerance: float = 1e-12,
+) -> ComplexMatrixN:
+    if not matrix.is_square:
+        raise ValueError("matrix inverse requires a square matrix")
+    if tolerance < 0.0:
+        raise ValueError("tolerance cannot be negative")
+
+    size = matrix.rows
+    work = [
+        list(matrix.values[row])
+        + [1.0 + 0.0j if row == column else 0.0 + 0.0j for column in range(size)]
+        for row in range(size)
+    ]
+    for pivot_column in range(size):
+        pivot_row = max(
+            range(pivot_column, size),
+            key=lambda row: abs(work[row][pivot_column]),
+        )
+        if abs(work[pivot_row][pivot_column]) <= tolerance:
+            raise ValueError("matrix is singular and cannot be inverted")
+        if pivot_row != pivot_column:
+            work[pivot_column], work[pivot_row] = work[pivot_row], work[pivot_column]
+
+        pivot = work[pivot_column][pivot_column]
+        work[pivot_column] = [value / pivot for value in work[pivot_column]]
+        for row in range(size):
+            if row == pivot_column:
+                continue
+            factor = work[row][pivot_column]
+            if factor == 0.0:
+                continue
+            work[row] = [
+                value - factor * pivot_value
+                for value, pivot_value in zip(work[row], work[pivot_column], strict=True)
+            ]
+    return ComplexMatrixN(tuple(tuple(row[size:]) for row in work))
 
 
 def is_hermitian(matrix: ComplexMatrixN, *, tolerance: float = 1e-9) -> bool:
@@ -206,7 +375,7 @@ def complex_identity(size: int) -> ComplexMatrixN:
 
 class LinearAlgebraDomain:
     name = "linear_algebra"
-    version = "2"
+    version = "3"
     dependencies = ()
 
     def register(self, registry: DomainRegistry) -> None:
@@ -226,8 +395,21 @@ class LinearAlgebraDomain:
         registry.provide("linear_algebra.normalize", normalize)
         registry.provide("linear_algebra.normalize_complex", normalize_complex)
         registry.provide("linear_algebra.matrix_vector_product", matrix_vector_product)
-        registry.provide("linear_algebra.complex_matrix_vector_product", complex_matrix_vector_product, version=2)
+        registry.provide(
+            "linear_algebra.complex_matrix_vector_product",
+            complex_matrix_vector_product,
+            version=2,
+        )
+        registry.provide("linear_algebra.transpose", transpose, version=3)
+        registry.provide("linear_algebra.determinant", determinant, version=3)
+        registry.provide("linear_algebra.inverse", inverse, version=3)
+        registry.provide("linear_algebra.complex_determinant", complex_determinant, version=3)
+        registry.provide("linear_algebra.complex_inverse", complex_inverse, version=3)
         registry.provide("linear_algebra.conjugate_transpose", conjugate_transpose, version=2)
         registry.provide("linear_algebra.is_hermitian", is_hermitian, version=2)
-        registry.provide("linear_algebra.complex_quadratic_form", complex_quadratic_form, version=2)
+        registry.provide(
+            "linear_algebra.complex_quadratic_form",
+            complex_quadratic_form,
+            version=2,
+        )
         registry.provide("linear_algebra.complex_identity", complex_identity, version=2)
