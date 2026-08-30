@@ -64,6 +64,8 @@ TIME = Dimension(time=1)
 CURRENT = Dimension(current=1)
 TEMPERATURE = Dimension(temperature=1)
 CHARGE = CURRENT * TIME
+CHARGE_DENSITY = CHARGE / (LENGTH ** 3)
+CURRENT_DENSITY = CURRENT / (LENGTH ** 2)
 VELOCITY = LENGTH / TIME
 ACCELERATION = LENGTH / (TIME ** 2)
 FREQUENCY = TIME ** -1
@@ -236,10 +238,12 @@ KILOGRAM = Unit("kilogram", "kg", MASS)
 KILOGRAM_PER_CUBIC_METER = Unit("kilogram per cubic meter", "kg/m^3", DENSITY)
 PASCAL_SECOND = Unit("pascal second", "Pa*s", DYNAMIC_VISCOSITY)
 AMPERE = Unit("ampere", "A", CURRENT)
+AMPERE_PER_SQUARE_METER = Unit("ampere per square meter", "A/m^2", CURRENT_DENSITY)
 KELVIN = Unit("kelvin", "K", TEMPERATURE)
 KELVIN_PER_SECOND = Unit("kelvin per second", "K/s", TEMPERATURE_RATE)
 PER_KELVIN = Unit("per kelvin", "1/K", THERMAL_EXPANSION)
 COULOMB = Unit("coulomb", "C", CHARGE)
+COULOMB_PER_CUBIC_METER = Unit("coulomb per cubic meter", "C/m^3", CHARGE_DENSITY)
 NEWTON = Unit("newton", "N", FORCE)
 JOULE = Unit("joule", "J", ENERGY)
 JOULE_PER_KILOGRAM_KELVIN = Unit(
