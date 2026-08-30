@@ -14,6 +14,7 @@ PrimitiveKind = Literal[
     "surface",
     "region",
     "vector_glyph",
+    "vector_glyph_set",
     "text",
     "group",
     "camera",
@@ -99,10 +100,44 @@ class Region(Primitive):
 
 @dataclass(frozen=True, slots=True)
 class VectorGlyph(Primitive):
+    """Single vector arrow primitive.
+
+    Kept for small scenes and direct annotations. Dense fields should prefer
+    VectorGlyphSet so backends can use GPU/native instancing efficiently.
+    """
+
     origin: Vec3 = Vec3(0.0, 0.0, 0.0)
     vector: Vec3 = Vec3(1.0, 0.0, 0.0)
     color: Color = Color(1.0, 1.0, 1.0, 1.0)
     kind: PrimitiveKind = field(default="vector_glyph", init=False)
+
+
+@dataclass(frozen=True, slots=True)
+class VectorGlyphSet(Primitive):
+    """Batched vector arrows intended for native/GPU instancing.
+
+    Origins and vectors are parallel arrays. A single default color keeps the
+    representation compact; optional per-instance colors may override it.
+    """
+
+    origins: tuple[Vec3, ...] = ()
+    vectors: tuple[Vec3, ...] = ()
+    color: Color = Color(1.0, 1.0, 1.0, 1.0)
+    colors: tuple[Color, ...] = ()
+    kind: PrimitiveKind = field(default="vector_glyph_set", init=False)
+
+    def __post_init__(self) -> None:
+        Primitive.__post_init__(self)
+        if not self.origins:
+            raise ValueError("VectorGlyphSet requires at least one instance")
+        if len(self.origins) != len(self.vectors):
+            raise ValueError("VectorGlyphSet origins and vectors must have equal lengths")
+        if self.colors and len(self.colors) != len(self.origins):
+            raise ValueError("VectorGlyphSet per-instance colors must match instance count")
+
+    @property
+    def instance_count(self) -> int:
+        return len(self.origins)
 
 
 @dataclass(frozen=True, slots=True)
