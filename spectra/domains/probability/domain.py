@@ -50,8 +50,11 @@ class ProbabilityDomain:
     dependencies = ()
 
     def register(self, registry: DomainRegistry) -> None:
+        from spectra.domains.probability.visualization import compile_distribution_scene
+
         registry.register_semantic_type("probability.outcome", Outcome)
         registry.register_semantic_type("probability.discrete_distribution", DiscreteDistribution)
         registry.provide("probability.discrete_distribution", DiscreteDistribution)
         registry.provide("probability.expectation", expectation)
         registry.provide("probability.variance", variance)
+        registry.register_visualization(DiscreteDistribution, compile_distribution_scene)
