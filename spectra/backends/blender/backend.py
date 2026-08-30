@@ -13,12 +13,14 @@ from spectra.core.primitives import (
     Group,
     Light,
     Point,
+    PointCloud,
     Polyline,
     Primitive,
     Region,
     Surface,
     TextLabel,
     VectorGlyph,
+    VectorGlyphSet,
 )
 from spectra.core.scene import Scene
 from spectra.core.transforms import Transform3D
@@ -44,9 +46,13 @@ class BlenderBackend:
 
     `bpy`/`mathutils` are imported lazily, so importing this package in normal
     Python remains safe. Timeline evaluation stays in Spectra; this backend sees
-    only static Scene snapshots. `apply()` currently rebuilds the backend-owned
-    collection deliberately. Incremental updates and dense GPU/native instancing
-    come after this first architecture-proving vertical slice.
+    only static Scene snapshots.
+
+    Dense PointCloud and VectorGlyphSet values are mapped to one Blender object
+    per Spectra primitive, never one Blender object per instance. The current
+    reference implementation expands PointCloud instances into one mesh and uses
+    one multi-spline Curve for VectorGlyphSet. Native Geometry-Nodes/GPU
+    instancing can replace these mappings later without changing Core semantics.
     """
 
     name = "blender"
@@ -54,10 +60,12 @@ class BlenderBackend:
         frozenset(
             {
                 "point",
+                "point_cloud",
                 "polyline",
                 "surface",
                 "region",
                 "vector_glyph",
+                "vector_glyph_set",
                 "text",
                 "group",
                 "camera",
@@ -190,8 +198,13 @@ def _create_primitive(
     material_sources: dict[str, Material],
     material_map: dict[str, Any],
 ) -> Any:
+    batch_materials_handled = False
+
     if isinstance(primitive, Point):
         obj = _create_point(bpy, collection, primitive)
+    elif isinstance(primitive, PointCloud):
+        obj = _create_point_cloud(bpy, handle, collection, primitive, material_sources)
+        batch_materials_handled = bool(primitive.colors)
     elif isinstance(primitive, Polyline):
         obj = _create_polyline(bpy, collection, primitive)
     elif isinstance(primitive, Surface):
@@ -200,6 +213,9 @@ def _create_primitive(
         obj = _create_region(bpy, collection, primitive)
     elif isinstance(primitive, VectorGlyph):
         obj = _create_vector_glyph(bpy, collection, primitive)
+    elif isinstance(primitive, VectorGlyphSet):
+        obj = _create_vector_glyph_set(bpy, handle, collection, primitive, material_sources)
+        batch_materials_handled = bool(primitive.colors)
     elif isinstance(primitive, TextLabel):
         obj = _create_text(bpy, collection, primitive)
     elif isinstance(primitive, Group):
@@ -223,17 +239,18 @@ def _create_primitive(
     obj.hide_viewport = not primitive.visible
     obj.hide_render = not primitive.visible
 
-    native_material = _resolve_material(
-        bpy,
-        handle,
-        primitive,
-        material_sources,
-        material_map,
-    )
-    if native_material is not None and getattr(obj, "data", None) is not None:
-        materials = getattr(obj.data, "materials", None)
-        if materials is not None:
-            materials.append(native_material)
+    if not batch_materials_handled:
+        native_material = _resolve_material(
+            bpy,
+            handle,
+            primitive,
+            material_sources,
+            material_map,
+        )
+        if native_material is not None and getattr(obj, "data", None) is not None:
+            materials = getattr(obj.data, "materials", None)
+            if materials is not None:
+                materials.append(native_material)
     return obj
 
 
@@ -242,25 +259,110 @@ def _object_name(primitive: Primitive) -> str:
 
 
 def _create_point(bpy: Any, collection: Any, point: Point) -> Any:
-    r = point.radius
-    c = point.position
-    vertices = [
-        (c.x + r, c.y, c.z),
-        (c.x - r, c.y, c.z),
-        (c.x, c.y + r, c.z),
-        (c.x, c.y - r, c.z),
-        (c.x, c.y, c.z + r),
-        (c.x, c.y, c.z - r),
-    ]
-    faces = [
-        (0, 2, 4), (2, 1, 4), (1, 3, 4), (3, 0, 4),
-        (2, 0, 5), (1, 2, 5), (3, 1, 5), (0, 3, 5),
-    ]
+    vertices, faces = _octahedron_geometry(point.position.x, point.position.y, point.position.z, point.radius)
     mesh = bpy.data.meshes.new(f"{_object_name(point)}::mesh")
     mesh.from_pydata(vertices, [], faces)
     mesh.update()
     obj = bpy.data.objects.new(_object_name(point), mesh)
     collection.objects.link(obj)
+    return obj
+
+
+def _octahedron_geometry(x: float, y: float, z: float, radius: float) -> tuple[list[tuple[float, float, float]], list[tuple[int, int, int]]]:
+    vertices = [
+        (x + radius, y, z),
+        (x - radius, y, z),
+        (x, y + radius, z),
+        (x, y - radius, z),
+        (x, y, z + radius),
+        (x, y, z - radius),
+    ]
+    faces = [
+        (0, 2, 4), (2, 1, 4), (1, 3, 4), (3, 0, 4),
+        (2, 0, 5), (1, 2, 5), (3, 1, 5), (0, 3, 5),
+    ]
+    return vertices, faces
+
+
+def _batch_color_materials(
+    bpy: Any,
+    handle: BlenderHandle,
+    primitive: Primitive,
+    colors: tuple[Color, ...],
+    material_sources: dict[str, Material],
+) -> tuple[list[Any], dict[Color, int]]:
+    unique_colors = tuple(dict.fromkeys(colors))
+    # Protect Blender from accidental creation of thousands of material slots.
+    # A future color-attribute shader path can remove this temporary guard.
+    if len(unique_colors) > 256:
+        raise RuntimeError(
+            "Blender reference backend currently supports at most 256 unique "
+            "per-instance colors per batched primitive"
+        )
+
+    native_materials: list[Any] = []
+    indices: dict[Color, int] = {}
+    source = material_sources.get(primitive.material_id) if primitive.material_id else None
+    for index, color in enumerate(unique_colors):
+        if source is None:
+            derived = Material(
+                id=f"batch::{primitive.id}::{index}",
+                base_color=Color(color.r, color.g, color.b, color.a * primitive.opacity),
+                shading="unlit",
+            )
+        else:
+            derived = replace(
+                source,
+                id=f"{source.id}::batch::{primitive.id}::{index}",
+                base_color=Color(color.r, color.g, color.b, color.a * primitive.opacity),
+            )
+        native_materials.append(_create_material(bpy, handle, derived))
+        indices[color] = index
+    return native_materials, indices
+
+
+def _create_point_cloud(
+    bpy: Any,
+    handle: BlenderHandle,
+    collection: Any,
+    cloud: PointCloud,
+    material_sources: dict[str, Material],
+) -> Any:
+    vertices: list[tuple[float, float, float]] = []
+    faces: list[tuple[int, int, int]] = []
+    face_particle_indices: list[int] = []
+
+    for index, position in enumerate(cloud.positions):
+        radius = cloud.radii[index] if cloud.radii else cloud.radius
+        local_vertices, local_faces = _octahedron_geometry(
+            position.x,
+            position.y,
+            position.z,
+            radius,
+        )
+        offset = len(vertices)
+        vertices.extend(local_vertices)
+        faces.extend(tuple(offset + vertex for vertex in face) for face in local_faces)
+        face_particle_indices.extend([index] * len(local_faces))
+
+    mesh = bpy.data.meshes.new(f"{_object_name(cloud)}::mesh")
+    mesh.from_pydata(vertices, [], faces)
+    mesh.update()
+    obj = bpy.data.objects.new(_object_name(cloud), mesh)
+    collection.objects.link(obj)
+
+    if cloud.colors:
+        native_materials, indices = _batch_color_materials(
+            bpy,
+            handle,
+            cloud,
+            cloud.colors,
+            material_sources,
+        )
+        for material in native_materials:
+            mesh.materials.append(material)
+        for polygon, particle_index in zip(mesh.polygons, face_particle_indices, strict=True):
+            polygon.material_index = indices[cloud.colors[particle_index]]
     return obj
 
 
@@ -324,6 +426,44 @@ def _create_vector_glyph(bpy: Any, collection: Any, glyph: VectorGlyph) -> Any:
     spline.points[0].co = (glyph.origin.x, glyph.origin.y, glyph.origin.z, 1.0)
     spline.points[1].co = (endpoint.x, endpoint.y, endpoint.z, 1.0)
     obj = bpy.data.objects.new(_object_name(glyph), curve)
+    collection.objects.link(obj)
+    return obj
+
+
+def _create_vector_glyph_set(
+    bpy: Any,
+    handle: BlenderHandle,
+    collection: Any,
+    glyphs: VectorGlyphSet,
+    material_sources: dict[str, Material],
+) -> Any:
+    curve = bpy.data.curves.new(f"{_object_name(glyphs)}::curve", "CURVE")
+    curve.dimensions = "3D"
+    curve.bevel_depth = 0.01
+    curve.bevel_resolution = 1
+
+    material_indices: dict[Color, int] = {}
+    if glyphs.colors:
+        native_materials, material_indices = _batch_color_materials(
+            bpy,
+            handle,
+            glyphs,
+            glyphs.colors,
+            material_sources,
+        )
+        for material in native_materials:
+            curve.materials.append(material)
+
+    for index, (origin, vector) in enumerate(zip(glyphs.origins, glyphs.vectors, strict=True)):
+        endpoint = origin + vector
+        spline = curve.splines.new("POLY")
+        spline.points.add(1)
+        spline.points[0].co = (origin.x, origin.y, origin.z, 1.0)
+        spline.points[1].co = (endpoint.x, endpoint.y, endpoint.z, 1.0)
+        if glyphs.colors:
+            spline.material_index = material_indices[glyphs.colors[index]]
+
+    obj = bpy.data.objects.new(_object_name(glyphs), curve)
     collection.objects.link(obj)
     return obj
 
