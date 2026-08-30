@@ -1,6 +1,8 @@
 from spectra.domains.physics.electromagnetism import (
     ElectromagnetismDomain,
+    PlaneElectromagneticWave,
     PointCharge,
+    SPEED_OF_LIGHT,
     electric_field_from_point_charges,
 )
 from spectra.domains.physics.mechanics import MechanicsDomain, ParticleProblem, Trajectory
@@ -22,7 +24,9 @@ from spectra.domains.physics.waves import (
 
 __all__ = [
     "ElectromagnetismDomain",
+    "PlaneElectromagneticWave",
     "PointCharge",
+    "SPEED_OF_LIGHT",
     "electric_field_from_point_charges",
     "MechanicsDomain",
     "ParticleProblem",
