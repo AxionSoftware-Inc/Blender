@@ -23,6 +23,7 @@ class BackendCapabilities:
             frozenset(
                 {
                     "point",
+                    "point_cloud",
                     "polyline",
                     "surface",
                     "region",
