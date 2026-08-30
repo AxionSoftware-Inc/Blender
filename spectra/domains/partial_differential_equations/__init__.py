@@ -10,6 +10,16 @@ from spectra.domains.partial_differential_equations.complex2d import (
     ComplexPDEProblem2D,
     ComplexPDESolution2D,
 )
+from spectra.domains.partial_differential_equations.complex3d import (
+    ComplexPDE3DDomain,
+    ComplexPDEProblem3D,
+    ComplexPDESolution3D,
+)
+from spectra.domains.partial_differential_equations.complex_views3d import (
+    ComplexPDESliceView3D,
+    ComplexPDEViews3DDomain,
+    scalar_solution_from_complex_view,
+)
 from spectra.domains.partial_differential_equations.deposition3d import (
     PointSource3D,
     SourceDeposition3DDomain,
@@ -70,6 +80,12 @@ from spectra.domains.partial_differential_equations.integrals2d import (
     integrate_vector_magnitude_squared_grid_2d,
     scalar_l2_norm_grid_2d,
 )
+from spectra.domains.partial_differential_equations.integrals3d import (
+    GridIntegrals3DDomain,
+    integrate_scalar_grid_3d,
+    integrate_vector_magnitude_squared_grid_3d,
+    scalar_l2_norm_grid_3d,
+)
 from spectra.domains.partial_differential_equations.operators2d import (
     PDEOperators2DDomain,
     curl_grid_2d,
@@ -87,6 +103,11 @@ from spectra.domains.partial_differential_equations.second_order2d import (
     SecondOrderPDE2DDomain,
     SecondOrderScalarPDEProblem2D,
     SecondOrderScalarPDESolution2D,
+)
+from spectra.domains.partial_differential_equations.second_order3d import (
+    SecondOrderPDE3DDomain,
+    SecondOrderScalarPDEProblem3D,
+    SecondOrderScalarPDESolution3D,
 )
 from spectra.domains.partial_differential_equations.slices3d import (
     PDESlices3DDomain,
@@ -106,6 +127,12 @@ from spectra.domains.partial_differential_equations.transport2d import (
     Transport2DDomain,
     upwind_advection_2d,
 )
+from spectra.domains.partial_differential_equations.transport3d import (
+    AdvectionDiffusionProblem3D,
+    AdvectionDiffusionSolution3D,
+    Transport3DDomain,
+    upwind_advection_3d,
+)
 from spectra.domains.partial_differential_equations.visualization import (
     compile_scalar_pde_solution_scene,
 )
@@ -115,20 +142,28 @@ from spectra.domains.partial_differential_equations.visualization2d import (
 
 __all__ = [
     "AdvectionDiffusionProblem2D",
+    "AdvectionDiffusionProblem3D",
     "AdvectionDiffusionSolution2D",
+    "AdvectionDiffusionSolution3D",
     "BoundaryMode1D",
     "BoundaryMode2D",
     "BoundaryMode3D",
     "ComplexPDE2DDomain",
+    "ComplexPDE3DDomain",
     "ComplexPDEProblem1D",
     "ComplexPDEProblem2D",
+    "ComplexPDEProblem3D",
+    "ComplexPDESliceView3D",
     "ComplexPDESolution1D",
     "ComplexPDESolution2D",
+    "ComplexPDESolution3D",
+    "ComplexPDEViews3DDomain",
     "ComplexPartialDifferentialEquationsDomain",
     "EllipticPDE2DDomain",
     "EllipticPDE3DDomain",
     "ExplicitStability2D",
     "GridIntegrals2DDomain",
+    "GridIntegrals3DDomain",
     "PDEFieldAdapters2DDomain",
     "PDEFieldAdapters3DDomain",
     "PDEOperators2DDomain",
@@ -151,11 +186,15 @@ __all__ = [
     "ScalarPDESolution2D",
     "ScalarPDESolution3D",
     "SecondOrderPDE2DDomain",
+    "SecondOrderPDE3DDomain",
     "SecondOrderScalarPDEProblem2D",
+    "SecondOrderScalarPDEProblem3D",
     "SecondOrderScalarPDESolution2D",
+    "SecondOrderScalarPDESolution3D",
     "SourceDeposition3DDomain",
     "Stability2DDomain",
     "Transport2DDomain",
+    "Transport3DDomain",
     "UniformGrid1D",
     "UniformGrid2D",
     "UniformGrid3D",
@@ -174,12 +213,16 @@ __all__ = [
     "gradient_grid_2d",
     "gradient_grid_3d",
     "integrate_scalar_grid_2d",
+    "integrate_scalar_grid_3d",
     "integrate_vector_magnitude_squared_grid_2d",
+    "integrate_vector_magnitude_squared_grid_3d",
     "laplacian_2d",
     "laplacian_3d",
     "scalar_field_from_grid_2d",
     "scalar_field_from_grid_3d",
     "scalar_l2_norm_grid_2d",
+    "scalar_l2_norm_grid_3d",
+    "scalar_solution_from_complex_view",
     "second_derivative_1d",
     "slice_solution_3d",
     "time_scalar_field_from_grid_2d",
@@ -187,6 +230,7 @@ __all__ = [
     "time_vector_field_from_grid_2d",
     "time_vector_field_from_grid_3d",
     "upwind_advection_2d",
+    "upwind_advection_3d",
     "vector_field_from_grid_2d",
     "vector_field_from_grid_3d",
     "vector_upwind_advection_grid_2d",
