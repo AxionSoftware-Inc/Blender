@@ -38,6 +38,11 @@ from spectra.domains.physics.electrostatic_potential2d import (
     ElectrostaticPotentialProblem2D,
     ElectrostaticPotentialSolution2D,
 )
+from spectra.domains.physics.electrostatic_potential3d import (
+    ElectrostaticPotential3DDomain,
+    ElectrostaticPotentialProblem3D,
+    ElectrostaticPotentialSolution3D,
+)
 from spectra.domains.physics.fluid_diagnostics import (
     FlowHistoryDiagnostics2D,
     FluidDiagnostics2DDomain,
@@ -143,8 +148,11 @@ __all__ = [
     "ElasticityFieldsDomain",
     "ElectromagnetismDomain",
     "ElectrostaticPotential2DDomain",
+    "ElectrostaticPotential3DDomain",
     "ElectrostaticPotentialProblem2D",
+    "ElectrostaticPotentialProblem3D",
     "ElectrostaticPotentialSolution2D",
+    "ElectrostaticPotentialSolution3D",
     "FlowHistoryDiagnostics2D",
     "FlowInvariantHistory2D",
     "FlowInvariantSnapshot2D",
