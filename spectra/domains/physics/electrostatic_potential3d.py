@@ -25,14 +25,6 @@ COULOMB_PER_CUBIC_METER = COULOMB / (METER ** 3)
 
 @dataclass(frozen=True, slots=True)
 class ElectrostaticPotentialProblem3D:
-    """Electrostatic Poisson problem on a regular 3D grid.
-
-    Charge-density samples are volume density values. Potential values are SI
-    volts internally. Fixed boundaries preserve `potential_initial_values` at
-    the outer grid cells; periodic/zero-gradient problems require the usual
-    zero-mean Poisson compatibility and are mean-centered before solving.
-    """
-
     grid: UniformGrid3D
     charge_density: tuple[float, ...]
     charge_density_unit: Unit = COULOMB_PER_CUBIC_METER
@@ -80,8 +72,9 @@ class ElectrostaticPotential3DDomain:
     """3D electrostatics composed from generic elliptic/PDE field capabilities."""
 
     name = "physics.electrostatic_potential.3d"
-    version = "1"
+    version = "2"
     dependencies = (
+        DomainDependency("physics.potential_field3d"),
         DomainDependency("pde.poisson_problem3d"),
         DomainDependency("pde.solve_poisson_3d"),
         DomainDependency("pde.gradient_grid_3d"),
@@ -90,6 +83,7 @@ class ElectrostaticPotential3DDomain:
     )
 
     def register(self, registry: DomainRegistry) -> None:
+        potential_field_type = registry.require("physics.potential_field3d")
         poisson_problem_type = registry.require("pde.poisson_problem3d")
         solve_poisson = registry.require("pde.solve_poisson_3d")
         gradient = registry.require("pde.gradient_grid_3d")
@@ -158,6 +152,13 @@ class ElectrostaticPotential3DDomain:
                 outside="clamp",
             )
 
+        def potential_model(solution: ElectrostaticPotentialSolution3D):
+            return potential_field_type(
+                potential=potential_field(solution),
+                field=electric_field(solution),
+                name=solution.name,
+            )
+
         registry.register_semantic_type(
             "physics.electrostatic_potential.problem3d",
             ElectrostaticPotentialProblem3D,
@@ -181,4 +182,9 @@ class ElectrostaticPotential3DDomain:
         registry.provide(
             "physics.electrostatic_potential.vector_field3d",
             electric_field,
+        )
+        registry.provide(
+            "physics.electrostatic_potential.potential_field3d",
+            potential_model,
+            version=2,
         )
