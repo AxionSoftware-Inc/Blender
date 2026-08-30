@@ -4,7 +4,13 @@ from dataclasses import dataclass
 import math
 
 from spectra.core.types import Vec3
-from spectra.core.units import DENSITY, METER_PER_SECOND_SQUARED, Quantity
+from spectra.core.units import (
+    ACCELERATION,
+    DENSITY,
+    METER_PER_SECOND_SQUARED,
+    TEMPERATURE,
+    Quantity,
+)
 from spectra.domains.mathematics.fields import TimeDependentScalarField3D, TimeDependentVectorField3D
 from spectra.domains.partial_differential_equations.domain3d import BoundaryMode3D, UniformGrid3D
 from spectra.domains.physics.elastodynamics3d import (
@@ -36,6 +42,12 @@ class ThermoelastodynamicsProblem3D:
             raise ValueError("thermoelastodynamic velocity sample count must match grid")
         if self.density.unit.dimension != DENSITY or self.density.si_value <= 0.0:
             raise ValueError("thermoelastodynamic density must be positive")
+        if self.temperature.output_unit is not None:
+            if self.temperature.output_unit.dimension != TEMPERATURE:
+                raise ValueError("thermoelastodynamic temperature field must use temperature units")
+        if self.external_body_acceleration is not None and self.external_body_acceleration.output_unit is not None:
+            if self.external_body_acceleration.output_unit.dimension != ACCELERATION:
+                raise ValueError("external body field must represent acceleration")
         if not math.isfinite(self.gradient_step) or self.gradient_step <= 0.0:
             raise ValueError("thermoelastic gradient step must be finite and positive")
         if not math.isfinite(self.initial_time):
@@ -75,6 +87,13 @@ class ThermoelastodynamicsSolution3D:
         return self.elastodynamics.name
 
 
+def _vector_to_si(field: TimeDependentVectorField3D, value: Vec3) -> Vec3:
+    unit = field.output_unit
+    if unit is None:
+        return value
+    return Vec3(unit.to_si(value.x), unit.to_si(value.y), unit.to_si(value.z))
+
+
 class Thermoelastodynamics3DDomain:
     """One-way temperature-to-solid coupling composed over generic field calculus."""
 
@@ -108,9 +127,12 @@ class Thermoelastodynamics3DDomain:
                     position,
                     step=problem.gradient_step,
                 )
+                if problem.temperature.output_unit is not None:
+                    grad_temperature = grad_temperature * problem.temperature.output_unit.scale_to_si
                 thermal = grad_temperature * coefficient
                 if problem.external_body_acceleration is not None:
-                    thermal = thermal + problem.external_body_acceleration.evaluate(position, time)
+                    external = problem.external_body_acceleration.evaluate(position, time)
+                    thermal = thermal + _vector_to_si(problem.external_body_acceleration, external)
                 return thermal
 
             return TimeDependentVectorField3D(
