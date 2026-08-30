@@ -4,7 +4,7 @@ This document records the modular scientific-domain architecture used by Spectra
 
 ## Core rule
 
-Spectra Core must remain small and renderer-independent. It owns generic infrastructure such as values, units, coordinate frames, scene primitives, timelines, expressions, and domain registration. It must not become a giant implementation of calculus, probability, statistics, linear algebra, mechanics, electromagnetism, quantum physics, or future scientific fields.
+Spectra Core must remain small and renderer-independent. It owns generic infrastructure such as values, units, coordinate frames, scene primitives, timelines, expressions, scene serialization, and domain registration. It must not become a giant implementation of calculus, probability, statistics, linear algebra, mechanics, electromagnetism, quantum physics, or future scientific fields.
 
 Scientific knowledge lives in pluggable domains.
 
@@ -14,13 +14,16 @@ Spectra Core
       -> mathematics
       -> calculus
       -> probability
+      -> statistics
       -> linear_algebra
       -> differential_equations
       -> mechanics
       -> electromagnetism
       -> quantum
       -> future domains
+  -> semantic visualization dispatch
   -> generic Scene
+  -> versioned Scene document
   -> renderer backend
 ```
 
@@ -30,6 +33,7 @@ A domain publishes stable capabilities under names such as:
 
 - `mathematics.vector_field3d`
 - `probability.discrete_distribution`
+- `statistics.histogram`
 - `linear_algebra.normalize_complex`
 - `ode.solve_rk4`
 - `physics.mechanics.solve_particle`
@@ -43,6 +47,24 @@ The capability contract is the dependency boundary. The implementation behind it
 `DomainRegistry.add_domains(...)` accepts modules in arbitrary order and resolves the dependency graph from published capabilities. This is required for scalability: a future product may load dozens or hundreds of domains and should not depend on a manually maintained initialization sequence.
 
 Missing providers or dependency cycles must fail with a diagnostic rather than silently degrading the scientific model.
+
+## Semantic visualization dispatch
+
+Callers should not need a growing switch statement such as `if calculus ... elif probability ... elif mechanics ...` to decide how a scientific object becomes a scene.
+
+Domains register their default renderer-independent visualization compilers with the engine. `DomainRegistry.compile_scene(object)` dispatches by semantic type through `VisualizationRegistry`.
+
+Current examples include:
+
+```text
+Function1D            -> Polyline Scene
+Function2D            -> indexed Surface Scene
+DiscreteDistribution  -> stems/labels Scene
+Histogram             -> Region/label Scene
+Trajectory            -> Polyline/Point Scene
+```
+
+Some semantic objects do not have one canonical default visualization. For example a `VectorField3D` needs a sampling grid or another visualization policy. Those remain explicit visualization compositions rather than forcing arbitrary defaults into the semantic type.
 
 ## Current composition proofs
 
@@ -58,6 +80,19 @@ probability.discrete_distribution
 ```
 
 Quantum state construction and measurement probabilities therefore reuse the mathematical domains instead of reimplementing vector normalization or probability distributions.
+
+### Statistics
+
+`StatisticsDomain` owns dataset, summary, and histogram semantics while reusing probability for empirical distributions.
+
+```text
+Dataset1D
+   -> statistics summary / histogram
+   -> statistics.empirical_distribution
+   -> probability.discrete_distribution
+```
+
+This is an example of a higher-level mathematical subject building on another domain instead of forcing both into Core.
 
 ### Electromagnetism
 
@@ -88,9 +123,24 @@ The current RK4 implementation is a deterministic reference solver. A more advan
 
 ## Units and coordinates
 
-Physical domains must not hide units in renderer coordinates. Spectra Core now contains dimensional `Unit` / `Quantity` types and renderer-independent `CoordinateFrame3D`.
+Physical domains must not hide units in renderer coordinates. Spectra Core contains dimensional `Unit` / `Quantity` types and renderer-independent `CoordinateFrame3D`.
 
 Scientific coordinates remain scientific data. A renderer backend is responsible for mapping them into Blender units, WebGPU world coordinates, Unreal coordinates, or another native representation.
+
+## Scene transport contract
+
+A generic `Scene` is not only an in-process Python object. Spectra provides a versioned `spectra.scene` JSON representation for primitives and timelines.
+
+That transport boundary allows the same compiled scene to be consumed by:
+
+- a Blender adapter;
+- a realtime/WebGPU renderer;
+- a CLI or render worker;
+- a remote render service;
+- saved lesson/project documents;
+- tests and inspection tooling.
+
+Do not serialize renderer-native Blender/Unreal/WebGPU objects into the scientific document. The document describes Spectra primitives and engine time.
 
 ## Where new subjects belong
 
@@ -128,10 +178,13 @@ Domain semantics do not create Blender objects. Domain visualization compilers l
 
 - `Point`
 - `Polyline`
+- `Surface`
 - `Region`
 - `VectorGlyph`
 - `TextLabel`
-- later surfaces, volumes, particles, instanced glyphs, trails, cameras, and other reusable primitives
+- `Group`
+
+Later reusable primitives may include volumes, particles, instanced glyph sets, trails, cameras, and lights when multiple domains demonstrate the need.
 
 Backends consume the generic scene.
 
@@ -145,9 +198,10 @@ Ideally a new module consists mostly of:
 2. declared capability dependencies;
 3. computation/relationships specific to that subject;
 4. compositions into existing visual primitives;
-5. tests.
+5. optional semantic-to-Scene registrations;
+6. tests.
 
-It should not require rewriting the engine, renderer, animation system, unit model, or every previously implemented subject.
+It should not require rewriting the engine, renderer, animation system, unit model, scene transport, or every previously implemented subject.
 
 ## Continuation checklist
 
@@ -158,6 +212,8 @@ When another agent/session continues development:
 3. Prefer domain capabilities over cross-domain implementation imports.
 4. Use `DomainRegistry.add_domains(...)` for dependency-resolved module loading.
 5. Reuse existing mathematical semantics before creating new physics-specific equivalents.
-6. Compile semantics to generic `Scene` primitives before touching Blender/WebGPU.
-7. Add tests that demonstrate cross-domain reuse.
-8. Change Core only for abstractions proven universal across domains.
+6. Register a default semantic visualization only when the object has a sensible canonical view.
+7. Compile semantics to generic `Scene` primitives before touching Blender/WebGPU.
+8. Keep Scene JSON renderer-independent and versioned.
+9. Add tests that demonstrate cross-domain reuse.
+10. Change Core only for abstractions proven universal across domains.
