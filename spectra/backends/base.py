@@ -16,6 +16,7 @@ class BackendCapabilities:
 
     primitive_kinds: frozenset[PrimitiveKind]
     supports_group_hierarchy: bool = True
+    supports_materials: bool = True
 
     @classmethod
     def all_core_primitives(cls) -> "BackendCapabilities":
@@ -32,6 +33,7 @@ class BackendCapabilities:
                     "text",
                     "group",
                     "camera",
+                    "light",
                 }
             )
         )
@@ -80,3 +82,5 @@ def validate_backend_compatibility(scene: Scene, capabilities: BackendCapabiliti
         primitive.kind == "group" for primitive in scene.primitives
     ):
         raise BackendCompatibilityError("backend does not support Scene group hierarchy")
+    if scene.materials and not capabilities.supports_materials:
+        raise BackendCompatibilityError("backend does not support Scene materials")
