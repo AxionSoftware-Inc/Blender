@@ -5,15 +5,26 @@ from typing import Any
 
 from .animation import Keyframe, Timeline, Track
 from .coordinates import CoordinateFrame3D, WORLD_FRAME
-from .primitives import Camera, Group, Point, Polyline, Primitive, Region, Surface, TextLabel, VectorGlyph
+from .primitives import (
+    Camera,
+    Group,
+    Point,
+    Polyline,
+    Primitive,
+    Region,
+    Surface,
+    TextLabel,
+    VectorGlyph,
+    VectorGlyphSet,
+)
 from .scene import Scene
 from .transforms import Quaternion, Transform3D
 from .types import Color, Vec2, Vec3
 
 
 SCENE_SCHEMA = "spectra.scene"
-SCENE_SCHEMA_VERSION = 2
-SUPPORTED_SCENE_SCHEMA_VERSIONS = {1, 2}
+SCENE_SCHEMA_VERSION = 3
+SUPPORTED_SCENE_SCHEMA_VERSIONS = {1, 2, 3}
 
 
 class SceneSerializationError(ValueError):
@@ -186,6 +197,13 @@ def primitive_to_data(primitive: Primitive) -> dict[str, Any]:
             "vector": _vec3_to_data(primitive.vector),
             "color": _color_to_data(primitive.color),
         }
+    if isinstance(primitive, VectorGlyphSet):
+        return common | {
+            "origins": [_vec3_to_data(origin) for origin in primitive.origins],
+            "vectors": [_vec3_to_data(vector) for vector in primitive.vectors],
+            "color": _color_to_data(primitive.color),
+            "colors": [_color_to_data(color) for color in primitive.colors],
+        }
     if isinstance(primitive, TextLabel):
         return common | {
             "text": primitive.text,
@@ -258,6 +276,14 @@ def primitive_from_data(data: dict[str, Any]) -> Primitive:
             origin=_vec3_from_data(data["origin"]),
             vector=_vec3_from_data(data["vector"]),
             color=_color_from_data(data["color"]),
+        )
+    if kind == "vector_glyph_set":
+        return VectorGlyphSet(
+            **common,
+            origins=tuple(_vec3_from_data(origin) for origin in data["origins"]),
+            vectors=tuple(_vec3_from_data(vector) for vector in data["vectors"]),
+            color=_color_from_data(data["color"]),
+            colors=tuple(_color_from_data(color) for color in data.get("colors", [])),
         )
     if kind == "text":
         return TextLabel(
