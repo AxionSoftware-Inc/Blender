@@ -6,11 +6,13 @@ from typing import Any
 from .animation import Keyframe, Timeline, Track
 from .primitives import Group, Point, Polyline, Primitive, Region, Surface, TextLabel, VectorGlyph
 from .scene import Scene
+from .transforms import Quaternion, Transform3D
 from .types import Color, Vec2, Vec3
 
 
 SCENE_SCHEMA = "spectra.scene"
-SCENE_SCHEMA_VERSION = 1
+SCENE_SCHEMA_VERSION = 2
+SUPPORTED_SCENE_SCHEMA_VERSIONS = {1, 2}
 
 
 class SceneSerializationError(ValueError):
@@ -37,6 +39,36 @@ def _color_from_data(value: Any) -> Color:
     return Color(*(float(component) for component in value))
 
 
+def _quaternion_to_data(value: Quaternion) -> list[float]:
+    return [value.w, value.x, value.y, value.z]
+
+
+def _quaternion_from_data(value: Any) -> Quaternion:
+    if not isinstance(value, list) or len(value) != 4:
+        raise SceneSerializationError("expected a four-component quaternion")
+    return Quaternion(*(float(component) for component in value))
+
+
+def _transform_to_data(value: Transform3D) -> dict[str, Any]:
+    return {
+        "translation": _vec3_to_data(value.translation),
+        "rotation": _quaternion_to_data(value.rotation),
+        "scale": _vec3_to_data(value.scale),
+    }
+
+
+def _transform_from_data(value: Any) -> Transform3D:
+    if value is None:
+        return Transform3D()
+    if not isinstance(value, dict):
+        raise SceneSerializationError("primitive transform must be an object")
+    return Transform3D(
+        translation=_vec3_from_data(value.get("translation", [0.0, 0.0, 0.0])),
+        rotation=_quaternion_from_data(value.get("rotation", [1.0, 0.0, 0.0, 0.0])),
+        scale=_vec3_from_data(value.get("scale", [1.0, 1.0, 1.0])),
+    )
+
+
 def _encode_value(value: Any) -> Any:
     if value is None or isinstance(value, (bool, int, float, str)):
         return value
@@ -46,6 +78,10 @@ def _encode_value(value: Any) -> Any:
         return {"$type": "vec3", "value": _vec3_to_data(value)}
     if isinstance(value, Color):
         return {"$type": "color", "value": _color_to_data(value)}
+    if isinstance(value, Quaternion):
+        return {"$type": "quaternion", "value": _quaternion_to_data(value)}
+    if isinstance(value, Transform3D):
+        return {"$type": "transform3d", "value": _transform_to_data(value)}
     if isinstance(value, tuple):
         return {"$type": "tuple", "items": [_encode_value(item) for item in value]}
     if isinstance(value, list):
@@ -73,6 +109,10 @@ def _decode_value(value: Any) -> Any:
         return _vec3_from_data(value.get("value"))
     if marker == "color":
         return _color_from_data(value.get("value"))
+    if marker == "quaternion":
+        return _quaternion_from_data(value.get("value"))
+    if marker == "transform3d":
+        return _transform_from_data(value.get("value"))
     if marker == "tuple":
         items = value.get("items")
         if not isinstance(items, list):
@@ -88,6 +128,8 @@ def primitive_to_data(primitive: Primitive) -> dict[str, Any]:
         "id": primitive.id,
         "kind": primitive.kind,
         "visible": primitive.visible,
+        "opacity": primitive.opacity,
+        "transform": _transform_to_data(primitive.transform),
     }
     if isinstance(primitive, Point):
         return common | {
@@ -101,6 +143,8 @@ def primitive_to_data(primitive: Primitive) -> dict[str, Any]:
             "width": primitive.width,
             "color": _color_to_data(primitive.color),
             "closed": primitive.closed,
+            "trim_start": primitive.trim_start,
+            "trim_end": primitive.trim_end,
         }
     if isinstance(primitive, Surface):
         return common | {
@@ -131,58 +175,62 @@ def primitive_to_data(primitive: Primitive) -> dict[str, Any]:
     raise SceneSerializationError(f"unsupported primitive type: {type(primitive).__qualname__}")
 
 
+def _primitive_common(data: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": str(data["id"]),
+        "visible": bool(data.get("visible", True)),
+        "opacity": float(data.get("opacity", 1.0)),
+        "transform": _transform_from_data(data.get("transform")),
+    }
+
+
 def primitive_from_data(data: dict[str, Any]) -> Primitive:
     try:
-        primitive_id = str(data["id"])
         kind = str(data["kind"])
+        common = _primitive_common(data)
     except KeyError as exc:
         raise SceneSerializationError(f"primitive missing field: {exc.args[0]}") from exc
-    visible = bool(data.get("visible", True))
 
     if kind == "point":
         return Point(
-            id=primitive_id,
-            visible=visible,
+            **common,
             position=_vec3_from_data(data["position"]),
             radius=float(data.get("radius", 0.05)),
             color=_color_from_data(data["color"]),
         )
     if kind == "polyline":
         return Polyline(
-            id=primitive_id,
-            visible=visible,
+            **common,
             points=tuple(_vec3_from_data(point) for point in data["points"]),
             width=float(data.get("width", 0.02)),
             color=_color_from_data(data["color"]),
             closed=bool(data.get("closed", False)),
+            trim_start=float(data.get("trim_start", 0.0)),
+            trim_end=float(data.get("trim_end", 1.0)),
         )
     if kind == "surface":
         return Surface(
-            id=primitive_id,
-            visible=visible,
+            **common,
             vertices=tuple(_vec3_from_data(vertex) for vertex in data["vertices"]),
             triangles=tuple(tuple(int(index) for index in triangle) for triangle in data["triangles"]),
             color=_color_from_data(data["color"]),
         )
     if kind == "region":
         return Region(
-            id=primitive_id,
-            visible=visible,
+            **common,
             boundary=tuple(_vec3_from_data(point) for point in data["boundary"]),
             color=_color_from_data(data["color"]),
         )
     if kind == "vector_glyph":
         return VectorGlyph(
-            id=primitive_id,
-            visible=visible,
+            **common,
             origin=_vec3_from_data(data["origin"]),
             vector=_vec3_from_data(data["vector"]),
             color=_color_from_data(data["color"]),
         )
     if kind == "text":
         return TextLabel(
-            id=primitive_id,
-            visible=visible,
+            **common,
             text=str(data.get("text", "")),
             position=_vec3_from_data(data["position"]),
             size=float(data.get("size", 1.0)),
@@ -192,7 +240,7 @@ def primitive_from_data(data: dict[str, Any]) -> Primitive:
         children = data.get("children", [])
         if not isinstance(children, list):
             raise SceneSerializationError("group children must be a list")
-        return Group(id=primitive_id, visible=visible, children=tuple(str(child) for child in children))
+        return Group(**common, children=tuple(str(child) for child in children))
     raise SceneSerializationError(f"unknown primitive kind: {kind}")
 
 
@@ -204,7 +252,11 @@ def timeline_to_data(timeline: Timeline) -> dict[str, Any]:
                 "target_id": track.target_id,
                 "property_path": track.property_path,
                 "keyframes": [
-                    {"time": keyframe.time, "value": _encode_value(keyframe.value)}
+                    {
+                        "time": keyframe.time,
+                        "value": _encode_value(keyframe.value),
+                        "interpolation": keyframe.interpolation,
+                    }
                     for keyframe in track.keyframes
                 ],
             }
@@ -217,7 +269,11 @@ def timeline_from_data(data: dict[str, Any]) -> Timeline:
     tracks = []
     for track_data in data.get("tracks", []):
         keyframes = tuple(
-            Keyframe(float(keyframe["time"]), _decode_value(keyframe.get("value")))
+            Keyframe(
+                float(keyframe["time"]),
+                _decode_value(keyframe.get("value")),
+                str(keyframe.get("interpolation", "linear")),  # type: ignore[arg-type]
+            )
             for keyframe in track_data.get("keyframes", [])
         )
         tracks.append(
@@ -242,10 +298,9 @@ def scene_to_data(scene: Scene) -> dict[str, Any]:
 def scene_from_data(data: dict[str, Any]) -> Scene:
     if data.get("schema") != SCENE_SCHEMA:
         raise SceneSerializationError("not a Spectra scene document")
-    if data.get("version") != SCENE_SCHEMA_VERSION:
-        raise SceneSerializationError(
-            f"unsupported Spectra scene version: {data.get('version')}"
-        )
+    version = data.get("version")
+    if version not in SUPPORTED_SCENE_SCHEMA_VERSIONS:
+        raise SceneSerializationError(f"unsupported Spectra scene version: {version}")
     primitives = data.get("primitives", [])
     if not isinstance(primitives, list):
         raise SceneSerializationError("scene primitives must be a list")
