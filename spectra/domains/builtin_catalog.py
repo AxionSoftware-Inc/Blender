@@ -28,6 +28,7 @@ from spectra.domains.partial_differential_equations import (
     PartialDifferentialEquations3DDomain,
     PartialDifferentialEquationsDomain,
     SecondOrderPDE2DDomain,
+    SourceDeposition3DDomain,
     Stability2DDomain,
     Transport2DDomain,
 )
@@ -95,6 +96,7 @@ BUILTIN_DOMAIN_FACTORIES = (
     PDEFieldAdapters2DDomain,
     PDEFieldAdapters3DDomain,
     PDESolutionFields3DDomain,
+    SourceDeposition3DDomain,
     GridIntegrals2DDomain,
     Stability2DDomain,
     EllipticPDE2DDomain,
@@ -151,6 +153,7 @@ BUILTIN_DOMAIN_TAGS = {
     "partial_differential_equations.2d": ("math", "pde", "2d"),
     "partial_differential_equations.3d": ("math", "pde", "3d"),
     "partial_differential_equations.solution_fields3d": ("math", "pde", "fields", "3d"),
+    "partial_differential_equations.deposition3d": ("math", "pde", "sampling", "particles", "3d"),
     "physics.potential_fields.3d": ("physics", "fields", "potential", "3d"),
     "physics.potential_fields.views3d": ("physics", "fields", "visualization", "3d"),
     "physics.field_particles": ("physics", "mechanics", "fields", "particles"),
