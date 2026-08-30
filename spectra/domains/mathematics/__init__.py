@@ -1,4 +1,9 @@
 from spectra.domains.mathematics.domain import MathematicsDomain
+from spectra.domains.mathematics.field_slices3d import (
+    MathematicsFieldSlices3DDomain,
+    ScalarFieldSliceSurface3D,
+    compile_scalar_field_slice_surface_scene,
+)
 from spectra.domains.mathematics.field_views import (
     ScalarFieldSurfaceView2D,
     TimeScalarFieldSurfaceAnimation2D,
@@ -44,6 +49,7 @@ __all__ = [
     "Function2D",
     "Interval",
     "MathematicsDomain",
+    "MathematicsFieldSlices3DDomain",
     "ParametricCurve3D",
     "ParametricSurface3D",
     "RealFunction1D",
@@ -52,6 +58,7 @@ __all__ = [
     "ScalarField2D",
     "ScalarField3D",
     "ScalarFieldHeightView2D",
+    "ScalarFieldSliceSurface3D",
     "ScalarFieldSurfaceView2D",
     "TimeDependentScalarField2D",
     "TimeDependentScalarField3D",
@@ -65,4 +72,5 @@ __all__ = [
     "VectorField3D",
     "VectorFieldView2D",
     "VectorFieldView3D",
+    "compile_scalar_field_slice_surface_scene",
 ]
