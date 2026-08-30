@@ -10,6 +10,7 @@ from .types import Color, Vec2, Vec3
 
 T = TypeVar("T")
 Interpolation = Literal["step", "linear", "smooth"]
+_VALID_INTERPOLATIONS = {"step", "linear", "smooth"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -21,6 +22,8 @@ class Keyframe(Generic[T]):
     def __post_init__(self) -> None:
         if not math.isfinite(self.time):
             raise ValueError("Animation keyframe time must be finite")
+        if self.interpolation not in _VALID_INTERPOLATIONS:
+            raise ValueError(f"unknown animation interpolation: {self.interpolation}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -135,6 +138,8 @@ def interpolate_values(
     interpolation: Interpolation = "linear",
 ) -> T:
     """Interpolate engine-owned animation values without renderer involvement."""
+    if interpolation not in _VALID_INTERPOLATIONS:
+        raise ValueError(f"unknown animation interpolation: {interpolation}")
     progress = min(max(float(progress), 0.0), 1.0)
     if interpolation == "step":
         return left if progress < 1.0 else right
