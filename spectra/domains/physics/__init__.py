@@ -90,9 +90,19 @@ from spectra.domains.physics.incompressible_flow import (
     IncompressibleFlowSolution2D,
     IncompressibleFlowState2D,
 )
+from spectra.domains.physics.incompressible_flow3d import (
+    IncompressibleFlow3DDomain,
+    IncompressibleFlowProblem3D,
+    IncompressibleFlowSolution3D,
+    IncompressibleFlowState3D,
+)
 from spectra.domains.physics.incompressible_flow_views import (
     IncompressibleFlowFields2D,
     IncompressibleFlowViews2DDomain,
+)
+from spectra.domains.physics.incompressible_flow_views3d import (
+    IncompressibleFlowFields3D,
+    IncompressibleFlowViews3DDomain,
 )
 from spectra.domains.physics.mechanics import MechanicsDomain, ParticleProblem, Trajectory
 from spectra.domains.physics.particles import (
@@ -199,11 +209,17 @@ __all__ = [
     "GravitationalPotentialSolution3D",
     "HarmonicWave1D",
     "IncompressibleFlow2DDomain",
+    "IncompressibleFlow3DDomain",
     "IncompressibleFlowFields2D",
+    "IncompressibleFlowFields3D",
     "IncompressibleFlowProblem2D",
+    "IncompressibleFlowProblem3D",
     "IncompressibleFlowSolution2D",
+    "IncompressibleFlowSolution3D",
     "IncompressibleFlowState2D",
+    "IncompressibleFlowState3D",
     "IncompressibleFlowViews2DDomain",
+    "IncompressibleFlowViews3DDomain",
     "IsotropicElasticMaterial",
     "MechanicsDomain",
     "Particle",
