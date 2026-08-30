@@ -5,9 +5,11 @@ from typing import Any
 
 from .animation import Keyframe, Timeline, Track
 from .coordinates import CoordinateFrame3D, WORLD_FRAME
+from .materials import Material
 from .primitives import (
     Camera,
     Group,
+    Light,
     Point,
     PointCloud,
     Polyline,
@@ -24,8 +26,8 @@ from .types import Color, Vec2, Vec3
 
 
 SCENE_SCHEMA = "spectra.scene"
-SCENE_SCHEMA_VERSION = 3
-SUPPORTED_SCENE_SCHEMA_VERSIONS = {1, 2, 3}
+SCENE_SCHEMA_VERSION = 4
+SUPPORTED_SCENE_SCHEMA_VERSIONS = {1, 2, 3, 4}
 
 
 class SceneSerializationError(ValueError):
@@ -104,6 +106,38 @@ def _frame_from_data(value: Any) -> CoordinateFrame3D:
     )
 
 
+def _material_to_data(material: Material) -> dict[str, Any]:
+    return {
+        "id": material.id,
+        "base_color": _color_to_data(material.base_color),
+        "shading": material.shading,
+        "metallic": material.metallic,
+        "roughness": material.roughness,
+        "emission_color": _color_to_data(material.emission_color),
+        "emission_strength": material.emission_strength,
+        "double_sided": material.double_sided,
+    }
+
+
+def _material_from_data(data: Any) -> Material:
+    if not isinstance(data, dict):
+        raise SceneSerializationError("scene material must be an object")
+    try:
+        material_id = str(data["id"])
+    except KeyError as exc:
+        raise SceneSerializationError("material missing field: id") from exc
+    return Material(
+        id=material_id,
+        base_color=_color_from_data(data.get("base_color", [1.0, 1.0, 1.0, 1.0])),
+        shading=str(data.get("shading", "unlit")),  # type: ignore[arg-type]
+        metallic=float(data.get("metallic", 0.0)),
+        roughness=float(data.get("roughness", 0.5)),
+        emission_color=_color_from_data(data.get("emission_color", [0.0, 0.0, 0.0, 1.0])),
+        emission_strength=float(data.get("emission_strength", 0.0)),
+        double_sided=bool(data.get("double_sided", True)),
+    )
+
+
 def _encode_value(value: Any) -> Any:
     if value is None or isinstance(value, (bool, int, float, str)):
         return value
@@ -165,6 +199,7 @@ def primitive_to_data(primitive: Primitive) -> dict[str, Any]:
         "visible": primitive.visible,
         "opacity": primitive.opacity,
         "transform": _transform_to_data(primitive.transform),
+        "material_id": primitive.material_id,
     }
     if isinstance(primitive, Point):
         return common | {
@@ -230,15 +265,27 @@ def primitive_to_data(primitive: Primitive) -> dict[str, Any]:
             "near_clip": primitive.near_clip,
             "far_clip": primitive.far_clip,
         }
+    if isinstance(primitive, Light):
+        return common | {
+            "light_type": primitive.light_type,
+            "color": _color_to_data(primitive.color),
+            "intensity": primitive.intensity,
+            "range": primitive.range,
+            "spot_angle_radians": primitive.spot_angle_radians,
+        }
     raise SceneSerializationError(f"unsupported primitive type: {type(primitive).__qualname__}")
 
 
 def _primitive_common(data: dict[str, Any]) -> dict[str, Any]:
+    material_id = data.get("material_id")
+    if material_id is not None:
+        material_id = str(material_id)
     return {
         "id": str(data["id"]),
         "visible": bool(data.get("visible", True)),
         "opacity": float(data.get("opacity", 1.0)),
         "transform": _transform_from_data(data.get("transform")),
+        "material_id": material_id,
     }
 
 
@@ -325,6 +372,15 @@ def primitive_from_data(data: dict[str, Any]) -> Primitive:
             near_clip=float(data.get("near_clip", 0.01)),
             far_clip=float(data.get("far_clip", 10000.0)),
         )
+    if kind == "light":
+        return Light(
+            **common,
+            light_type=str(data.get("light_type", "directional")),  # type: ignore[arg-type]
+            color=_color_from_data(data.get("color", [1.0, 1.0, 1.0, 1.0])),
+            intensity=float(data.get("intensity", 1.0)),
+            range=float(data.get("range", 10.0)),
+            spot_angle_radians=float(data.get("spot_angle_radians", 0.7853981633974483)),
+        )
     raise SceneSerializationError(f"unknown primitive kind: {kind}")
 
 
@@ -379,6 +435,7 @@ def scene_to_data(scene: Scene) -> dict[str, Any]:
         "version": SCENE_SCHEMA_VERSION,
         "frame": _frame_to_data(scene.frame),
         "active_camera_id": scene.active_camera_id,
+        "materials": [_material_to_data(material) for material in scene.materials],
         "primitives": [primitive_to_data(primitive) for primitive in scene.primitives],
         "timeline": timeline_to_data(scene.timeline),
     }
@@ -396,6 +453,9 @@ def scene_from_data(data: dict[str, Any]) -> Scene:
     timeline = data.get("timeline", {})
     if not isinstance(timeline, dict):
         raise SceneSerializationError("scene timeline must be an object")
+    materials = data.get("materials", [])
+    if not isinstance(materials, list):
+        raise SceneSerializationError("scene materials must be a list")
     active_camera_id = data.get("active_camera_id")
     if active_camera_id is not None:
         active_camera_id = str(active_camera_id)
@@ -404,6 +464,7 @@ def scene_from_data(data: dict[str, Any]) -> Scene:
         timeline=timeline_from_data(timeline),
         frame=_frame_from_data(data.get("frame")),
         active_camera_id=active_camera_id,
+        materials=tuple(_material_from_data(material) for material in materials),
     )
 
 
