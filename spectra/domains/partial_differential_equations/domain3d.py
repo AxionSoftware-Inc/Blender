@@ -7,11 +7,27 @@ from typing import Literal
 
 from spectra.domains.partial_differential_equations.domain import UniformGrid1D
 from spectra.domains.registry import DomainDependency, DomainRegistry
+from spectra.numerics import (
+    NumericalMethodDescriptor,
+    NumericalPipelineDescriptor,
+    TrackedNumericalResult,
+    fixed_step_record,
+)
 
 
 BoundaryMode3D = Literal["fixed", "periodic", "zero_gradient"]
 ScalarState3D = tuple[float, ...]
 ScalarPDERhs3D = Callable[[float, "UniformGrid3D", ScalarState3D], ScalarState3D]
+
+
+METHOD_OF_LINES_3D_STAGE = NumericalMethodDescriptor(
+    method_id="method-of-lines.scalar3d",
+    family="method-of-lines",
+    implementation="spectra.reference.scalar_pde3d",
+    adaptive=False,
+    reference_implementation=True,
+    notes=("spatial derivative is supplied by the problem RHS",),
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -167,16 +183,24 @@ def laplacian_3d(
 
 class PartialDifferentialEquations3DDomain:
     name = "partial_differential_equations.3d"
-    version = "1"
+    version = "2"
     dependencies = (
         DomainDependency("pde.uniform_grid1d"),
         DomainDependency("ode.first_order_system"),
         DomainDependency("ode.solve_rk4"),
+        DomainDependency("ode.solve_rk4.method"),
     )
 
     def register(self, registry: DomainRegistry) -> None:
         system_type = registry.require("ode.first_order_system")
         solve_ode = registry.require("ode.solve_rk4")
+        rk4_method = registry.require("ode.solve_rk4.method")
+        pipeline = NumericalPipelineDescriptor(
+            pipeline_id="method-of-lines.scalar3d+rk4",
+            stages=(METHOD_OF_LINES_3D_STAGE, rk4_method),
+            reference_implementation=True,
+            notes=("generic scalar 3D PDE time integration",),
+        )
 
         def solve_method_of_lines_3d(
             problem: ScalarPDEProblem3D,
@@ -210,6 +234,25 @@ class PartialDifferentialEquations3DDomain:
                 name=problem.name,
             )
 
+        def solve_method_of_lines_3d_tracked(
+            problem: ScalarPDEProblem3D,
+            *,
+            end_time: float,
+            steps: int = 128,
+        ) -> TrackedNumericalResult[ScalarPDESolution3D]:
+            result = solve_method_of_lines_3d(problem, end_time=end_time, steps=steps)
+            return TrackedNumericalResult(
+                result=result,
+                run=fixed_step_record(
+                    pipeline,
+                    start_time=problem.initial_time,
+                    end_time=end_time,
+                    steps=steps,
+                    state_size=problem.grid.count,
+                    tags=(("problem", problem.name), ("grid", "uniform3d")),
+                ),
+            )
+
         registry.register_semantic_type("pde.uniform_grid3d", UniformGrid3D)
         registry.register_semantic_type("pde.scalar_problem3d", ScalarPDEProblem3D)
         registry.register_semantic_type("pde.scalar_solution3d", ScalarPDESolution3D)
@@ -218,3 +261,8 @@ class PartialDifferentialEquations3DDomain:
         registry.provide("pde.scalar_solution3d", ScalarPDESolution3D)
         registry.provide("pde.laplacian_3d", laplacian_3d)
         registry.provide("pde.solve_method_of_lines_3d", solve_method_of_lines_3d)
+        registry.provide("pde.solve_method_of_lines_3d.method", pipeline)
+        registry.provide(
+            "pde.solve_method_of_lines_3d.tracked",
+            solve_method_of_lines_3d_tracked,
+        )
