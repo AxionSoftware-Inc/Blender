@@ -3,6 +3,7 @@ import math
 import pytest
 
 from spectra.core.coordinates import CoordinateFrame3D
+from spectra.core.primitives import VectorGlyphSet
 from spectra.core.types import Vec3
 from spectra.core.units import CENTIMETER, METER, Quantity
 from spectra.domains import DomainRegistry
@@ -29,7 +30,7 @@ def test_coordinate_frame_maps_local_points_without_renderer_state() -> None:
     assert frame.point_to_parent(Vec3(1.0, 2.0, 3.0)) == Vec3(12.0, 26.0, 42.0)
 
 
-def test_vector_field_compiles_to_generic_glyph_scene() -> None:
+def test_vector_field_compiles_to_one_batched_glyph_scene() -> None:
     field = VectorField3D(lambda point: Vec3(-point.y, point.x, 0.0), name="rotation")
     grid = RegularGrid3D(
         AxisSample(-1.0, 1.0, 3),
@@ -38,8 +39,13 @@ def test_vector_field_compiles_to_generic_glyph_scene() -> None:
     )
     scene = compile_vector_field_scene(field, grid)
 
-    assert len(scene.primitives) == 3
-    assert scene.primitives[0].kind == "vector_glyph"
+    assert len(scene.primitives) == 1
+    glyphs = scene.primitives[0]
+    assert isinstance(glyphs, VectorGlyphSet)
+    assert glyphs.kind == "vector_glyph_set"
+    assert glyphs.instance_count == 3
+    assert glyphs.origins[0] == Vec3(-1.0, 0.0, 0.0)
+    assert glyphs.vectors[0] == Vec3(0.0, -1.0, 0.0)
 
 
 def test_electromagnetism_reuses_mathematical_vector_field_contract() -> None:
