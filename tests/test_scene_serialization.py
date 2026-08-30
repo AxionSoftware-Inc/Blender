@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from spectra.core.animation import Keyframe, Timeline, Track
 from spectra.core.coordinates import CoordinateFrame3D
-from spectra.core.primitives import Camera, Group, Point, Polyline, Surface
+from spectra.core.primitives import Camera, Group, Point, Polyline, Surface, VectorGlyphSet
 from spectra.core.scene import Scene
 from spectra.core.serialization import scene_from_json, scene_to_json
 from spectra.core.transforms import Quaternion, Transform3D
@@ -47,7 +47,14 @@ def test_scene_round_trips_through_versioned_json() -> None:
                 ),
                 triangles=((0, 1, 2),),
             ),
-            Group(id="all", children=("probe", "curve", "triangle")),
+            VectorGlyphSet(
+                id="field",
+                origins=(Vec3(0.0, 0.0, 0.0), Vec3(1.0, 0.0, 0.0)),
+                vectors=(Vec3(0.0, 1.0, 0.0), Vec3(0.0, 2.0, 0.0)),
+                color=Color(0.2, 0.6, 1.0, 1.0),
+                colors=(Color(1.0, 0.0, 0.0, 1.0), Color(0.0, 1.0, 0.0, 1.0)),
+            ),
+            Group(id="all", children=("probe", "curve", "triangle", "field")),
             camera,
         ),
         timeline=Timeline(
@@ -78,9 +85,10 @@ def test_scene_round_trips_through_versioned_json() -> None:
     assert restored == scene
     assert restored.active_camera() == camera
     assert '"schema": "spectra.scene"' in payload
-    assert '"version": 2' in payload
+    assert '"version": 3' in payload
     assert '"interpolation": "smooth"' in payload
     assert '"active_camera_id": "camera.main"' in payload
+    assert '"kind": "vector_glyph_set"' in payload
 
 
 def test_scene_v1_defaults_new_visual_fields() -> None:
@@ -107,3 +115,41 @@ def test_scene_v1_defaults_new_visual_fields() -> None:
     assert point.opacity == 1.0
     assert point.transform == Transform3D()
     assert scene.active_camera() is None
+
+
+def test_scene_v2_remains_readable() -> None:
+    payload = """
+    {
+      "schema": "spectra.scene",
+      "version": 2,
+      "frame": {
+        "origin": [0, 0, 0],
+        "basis_x": [1, 0, 0],
+        "basis_y": [0, 1, 0],
+        "basis_z": [0, 0, 1]
+      },
+      "active_camera_id": null,
+      "primitives": [
+        {
+          "id": "curve",
+          "kind": "polyline",
+          "visible": true,
+          "opacity": 1,
+          "transform": {
+            "translation": [0, 0, 0],
+            "rotation": [1, 0, 0, 0],
+            "scale": [1, 1, 1]
+          },
+          "points": [[0, 0, 0], [1, 1, 0]],
+          "width": 0.02,
+          "color": [1, 1, 1, 1],
+          "closed": false,
+          "trim_start": 0,
+          "trim_end": 1
+        }
+      ],
+      "timeline": {"duration": 0, "tracks": []}
+    }
+    """
+    scene = scene_from_json(payload)
+    assert scene.get("curve").kind == "polyline"
