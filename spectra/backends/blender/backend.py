@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 import importlib
 import math
 import uuid
@@ -22,7 +22,7 @@ from spectra.core.primitives import (
 )
 from spectra.core.scene import Scene
 from spectra.core.transforms import Transform3D
-from spectra.core.types import Color, Vec3
+from spectra.core.types import Color
 
 
 class BlenderUnavailableError(RuntimeError):
@@ -31,7 +31,7 @@ class BlenderUnavailableError(RuntimeError):
 
 @dataclass
 class BlenderHandle:
-    """Resources owned by one BlenderBackend scene instance."""
+    """Native Blender resources owned by one backend session."""
 
     collection_name: str
     root_name: str
@@ -40,17 +40,13 @@ class BlenderHandle:
 
 
 class BlenderBackend:
-    """Reference Blender renderer backend for Spectra Scene snapshots.
+    """Reference Blender backend for static Spectra Scene snapshots.
 
-    `bpy` and `mathutils` are loaded lazily only when native resources are
-    created. Importing Spectra, scientific domains, or this backend class in a
-    normal Python interpreter therefore does not require Blender.
-
-    The first implementation intentionally rebuilds its owned collection on
-    `apply()`. This proves the renderer boundary before incremental/native
-    animation optimization. Dense PointCloud and VectorGlyphSet primitives are
-    intentionally not advertised yet; they will map to Blender instancing rather
-    than being expanded to thousands of objects.
+    `bpy`/`mathutils` are imported lazily, so importing this package in normal
+    Python remains safe. Timeline evaluation stays in Spectra; this backend sees
+    only static Scene snapshots. `apply()` currently rebuilds the backend-owned
+    collection deliberately. Incremental updates and dense GPU/native instancing
+    come after this first architecture-proving vertical slice.
     """
 
     name = "blender"
@@ -73,7 +69,7 @@ class BlenderBackend:
     )
 
     def create(self, scene: Scene) -> BlenderHandle:
-        bpy, _mathutils = _require_blender()
+        bpy, _ = _require_blender()
         token = uuid.uuid4().hex[:10]
         handle = BlenderHandle(
             collection_name=f"Spectra::{token}",
@@ -85,16 +81,15 @@ class BlenderBackend:
     def apply(self, handle: BlenderHandle, scene: Scene) -> None:
         if handle.destroyed:
             raise RuntimeError("Blender handle is destroyed")
-        bpy, _mathutils = _require_blender()
+        bpy, _ = _require_blender()
         _remove_owned_scene(bpy, handle, keep_handle=True)
         _populate_scene(bpy, handle, scene)
 
     def destroy(self, handle: BlenderHandle) -> None:
         if handle.destroyed:
             return
-        bpy, _mathutils = _require_blender()
+        bpy, _ = _require_blender()
         _remove_owned_scene(bpy, handle, keep_handle=False)
-        handle.destroyed = True
 
 
 def _require_blender() -> tuple[Any, Any]:
@@ -145,8 +140,7 @@ def _ensure_world_link(bpy: Any, collection: Any) -> None:
 
 
 def _populate_scene(bpy: Any, handle: BlenderHandle, scene: Scene) -> None:
-    _bpy, mathutils = _require_blender()
-
+    _, mathutils = _require_blender()
     collection = bpy.data.collections.get(handle.collection_name)
     if collection is None:
         collection = bpy.data.collections.new(handle.collection_name)
@@ -157,28 +151,28 @@ def _populate_scene(bpy: Any, handle: BlenderHandle, scene: Scene) -> None:
     root.matrix_world = _frame_matrix(mathutils, scene)
     collection.objects.link(root)
 
-    material_map: dict[str, Any] = {}
-    for material in scene.materials:
-        native = _create_material(bpy, handle, material)
-        material_map[material.id] = native
+    material_sources = {material.id: material for material in scene.materials}
+    material_map = {
+        material.id: _create_material(bpy, handle, material)
+        for material in scene.materials
+    }
 
     object_map: dict[str, Any] = {}
     for primitive in scene.primitives:
-        native = _create_primitive(
+        object_map[primitive.id] = _create_primitive(
             bpy,
             mathutils,
             handle,
             collection,
             root,
             primitive,
+            material_sources,
             material_map,
         )
-        object_map[primitive.id] = native
 
-    # Groups are currently organizational references only in Spectra Core.
-    # Do NOT parent group children under group empties: that would introduce
-    # transform inheritance semantics that the generic Scene does not yet own.
-
+    # Group currently means organizational references in Core. We intentionally
+    # do not parent children under the Group Empty: doing so would invent transform
+    # inheritance semantics not yet owned by the generic Scene graph.
     active_camera = scene.active_camera()
     if active_camera is not None:
         native_camera = object_map.get(active_camera.id)
@@ -193,6 +187,7 @@ def _create_primitive(
     collection: Any,
     root: Any,
     primitive: Primitive,
+    material_sources: dict[str, Material],
     material_map: dict[str, Any],
 ) -> Any:
     if isinstance(primitive, Point):
@@ -219,11 +214,22 @@ def _create_primitive(
         raise TypeError(f"unsupported Blender primitive: {type(primitive).__qualname__}")
 
     obj.parent = root
-    obj.matrix_local = _transform_matrix(mathutils, primitive.transform)
+    local_matrix = _transform_matrix(mathutils, primitive.transform)
+    if isinstance(primitive, TextLabel):
+        local_matrix = local_matrix @ mathutils.Matrix.Translation(
+            (primitive.position.x, primitive.position.y, primitive.position.z)
+        )
+    obj.matrix_local = local_matrix
     obj.hide_viewport = not primitive.visible
     obj.hide_render = not primitive.visible
 
-    native_material = _resolve_material(bpy, handle, primitive, material_map)
+    native_material = _resolve_material(
+        bpy,
+        handle,
+        primitive,
+        material_sources,
+        material_map,
+    )
     if native_material is not None and getattr(obj, "data", None) is not None:
         materials = getattr(obj.data, "materials", None)
         if materials is not None:
@@ -237,14 +243,14 @@ def _object_name(primitive: Primitive) -> str:
 
 def _create_point(bpy: Any, collection: Any, point: Point) -> Any:
     r = point.radius
-    center = point.position
+    c = point.position
     vertices = [
-        (center.x + r, center.y, center.z),
-        (center.x - r, center.y, center.z),
-        (center.x, center.y + r, center.z),
-        (center.x, center.y - r, center.z),
-        (center.x, center.y, center.z + r),
-        (center.x, center.y, center.z - r),
+        (c.x + r, c.y, c.z),
+        (c.x - r, c.y, c.z),
+        (c.x, c.y + r, c.z),
+        (c.x, c.y - r, c.z),
+        (c.x, c.y, c.z + r),
+        (c.x, c.y, c.z - r),
     ]
     faces = [
         (0, 2, 4), (2, 1, 4), (1, 3, 4), (3, 0, 4),
@@ -258,47 +264,27 @@ def _create_point(bpy: Any, collection: Any, point: Point) -> Any:
     return obj
 
 
+def _visible_polyline_points(polyline: Polyline) -> tuple[Any, ...]:
+    if polyline.trim_start <= 0.0 and polyline.trim_end >= 1.0:
+        return polyline.points
+    total = len(polyline.points)
+    start = min(total - 2, max(0, int(math.floor(polyline.trim_start * (total - 1)))))
+    end = min(total - 1, max(start + 1, int(math.ceil(polyline.trim_end * (total - 1)))))
+    return polyline.points[start : end + 1]
+
+
 def _create_polyline(bpy: Any, collection: Any, polyline: Polyline) -> Any:
+    points = _visible_polyline_points(polyline)
     curve = bpy.data.curves.new(f"{_object_name(polyline)}::curve", "CURVE")
     curve.dimensions = "3D"
     curve.resolution_u = 1
     curve.bevel_depth = max(polyline.width * 0.5, 0.0)
     curve.bevel_resolution = 1
     spline = curve.splines.new("POLY")
-    spline.points.add(len(polyline.points) - 1)
-    for point, native in zip(polyline.points, spline.points, strict=True):
+    spline.points.add(len(points) - 1)
+    for point, native in zip(points, spline.points, strict=True):
         native.co = (point.x, point.y, point.z, 1.0)
-    spline.use_cyclic_u = polyline.closed
-
-    # trim_start/trim_end are engine semantics. A static sampled Scene may carry
-    # intermediate trim values; reference backend approximates them by hiding
-    # points outside the retained index interval instead of delegating timing to Blender.
-    if polyline.trim_start > 0.0 or polyline.trim_end < 1.0:
-        total = len(polyline.points)
-        start = min(total - 1, max(0, int(math.floor(polyline.trim_start * (total - 1)))))
-        end = min(total - 1, max(start + 1, int(math.ceil(polyline.trim_end * (total - 1)))))
-        retained = polyline.points[start : end + 1]
-        spline.points.clear() if hasattr(spline.points, "clear") else None
-        if not hasattr(spline.points, "clear"):
-            # Blender spline point collections cannot be resized downward in all
-            # supported versions. Rebuild the curve data deterministically.
-            bpy.data.curves.remove(curve)
-            clipped = Polyline(
-                id=polyline.id,
-                visible=polyline.visible,
-                opacity=polyline.opacity,
-                transform=polyline.transform,
-                material_id=polyline.material_id,
-                points=retained,
-                width=polyline.width,
-                color=polyline.color,
-                closed=False,
-            )
-            return _create_polyline(bpy, collection, clipped)
-        spline.points.add(len(retained) - 1)
-        for point, native in zip(retained, spline.points, strict=True):
-            native.co = (point.x, point.y, point.z, 1.0)
-
+    spline.use_cyclic_u = polyline.closed and len(points) == len(polyline.points)
     obj = bpy.data.objects.new(_object_name(polyline), curve)
     collection.objects.link(obj)
     return obj
@@ -307,7 +293,7 @@ def _create_polyline(bpy: Any, collection: Any, polyline: Polyline) -> Any:
 def _create_surface(bpy: Any, collection: Any, surface: Surface) -> Any:
     mesh = bpy.data.meshes.new(f"{_object_name(surface)}::mesh")
     mesh.from_pydata(
-        [(vertex.x, vertex.y, vertex.z) for vertex in surface.vertices],
+        [(v.x, v.y, v.z) for v in surface.vertices],
         [],
         list(surface.triangles),
     )
@@ -319,7 +305,7 @@ def _create_surface(bpy: Any, collection: Any, surface: Surface) -> Any:
 
 def _create_region(bpy: Any, collection: Any, region: Region) -> Any:
     mesh = bpy.data.meshes.new(f"{_object_name(region)}::mesh")
-    vertices = [(point.x, point.y, point.z) for point in region.boundary]
+    vertices = [(p.x, p.y, p.z) for p in region.boundary]
     mesh.from_pydata(vertices, [], [tuple(range(len(vertices)))])
     mesh.update()
     obj = bpy.data.objects.new(_object_name(region), mesh)
@@ -328,8 +314,6 @@ def _create_region(bpy: Any, collection: Any, region: Region) -> Any:
 
 
 def _create_vector_glyph(bpy: Any, collection: Any, glyph: VectorGlyph) -> Any:
-    # Reference representation: line segment. Dense fields use VectorGlyphSet
-    # and will get native instancing in the next backend milestone.
     endpoint = glyph.origin + glyph.vector
     curve = bpy.data.curves.new(f"{_object_name(glyph)}::curve", "CURVE")
     curve.dimensions = "3D"
@@ -349,7 +333,6 @@ def _create_text(bpy: Any, collection: Any, label: TextLabel) -> Any:
     curve.body = label.text
     curve.size = label.size
     obj = bpy.data.objects.new(_object_name(label), curve)
-    obj.location = (label.position.x, label.position.y, label.position.z)
     collection.objects.link(obj)
     return obj
 
@@ -378,10 +361,7 @@ def _create_light(bpy: Any, collection: Any, light: Light) -> Any:
     }
     data = bpy.data.lights.new(f"{_object_name(light)}::light", type_map[light.light_type])
     data.color = (light.color.r, light.color.g, light.color.b)
-    if light.light_type == "directional":
-        data.energy = light.intensity
-    else:
-        data.energy = light.intensity * 100.0
+    data.energy = light.intensity if light.light_type == "directional" else light.intensity * 100.0
     if hasattr(data, "cutoff_distance"):
         data.cutoff_distance = light.range
     if light.light_type == "ambient" and hasattr(data, "shape"):
@@ -402,33 +382,38 @@ def _resolve_material(
     bpy: Any,
     handle: BlenderHandle,
     primitive: Primitive,
+    material_sources: dict[str, Material],
     material_map: dict[str, Any],
 ) -> Any | None:
     if primitive.material_id is not None:
-        return material_map[primitive.material_id]
+        if primitive.opacity >= 0.999999:
+            return material_map[primitive.material_id]
+        source = material_sources[primitive.material_id]
+        derived = replace(
+            source,
+            id=f"{source.id}::opacity::{primitive.id}",
+            base_color=Color(
+                source.base_color.r,
+                source.base_color.g,
+                source.base_color.b,
+                source.base_color.a * primitive.opacity,
+            ),
+        )
+        return _create_material(bpy, handle, derived)
+
     color = _primitive_color(primitive)
     if color is None:
         return None
-    name = f"{handle.collection_name}::material::{primitive.id}"
-    existing = bpy.data.materials.get(name)
-    if existing is not None:
-        return existing
-    material = Material(
-        id=name,
+    fallback = Material(
+        id=f"primitive::{primitive.id}",
         base_color=Color(color.r, color.g, color.b, color.a * primitive.opacity),
         shading="unlit",
     )
-    return _create_material(bpy, handle, material, native_name=name)
+    return _create_material(bpy, handle, fallback)
 
 
-def _create_material(
-    bpy: Any,
-    handle: BlenderHandle,
-    material: Material,
-    *,
-    native_name: str | None = None,
-) -> Any:
-    name = native_name or f"{handle.collection_name}::material::{material.id}"
+def _create_material(bpy: Any, handle: BlenderHandle, material: Material) -> Any:
+    name = f"{handle.collection_name}::material::{material.id}"
     native = bpy.data.materials.get(name) or bpy.data.materials.new(name)
     native.use_nodes = True
     native.diffuse_color = (
@@ -448,41 +433,60 @@ def _create_material(
             material.base_color.r,
             material.base_color.g,
             material.base_color.b,
-            material.base_color.a,
+            1.0,
         )
         shader.inputs["Strength"].default_value = max(1.0, material.emission_strength)
-        links.new(shader.outputs["Emission"], output.inputs["Surface"])
+        shader_output = shader.outputs["Emission"]
     else:
         shader = nodes.new("ShaderNodeBsdfPrincipled")
         shader.inputs["Base Color"].default_value = (
             material.base_color.r,
             material.base_color.g,
             material.base_color.b,
-            material.base_color.a,
+            1.0,
         )
         if "Metallic" in shader.inputs:
             shader.inputs["Metallic"].default_value = material.metallic
         if "Roughness" in shader.inputs:
             shader.inputs["Roughness"].default_value = material.roughness
-        if "Alpha" in shader.inputs:
-            shader.inputs["Alpha"].default_value = material.base_color.a
         if "Emission Color" in shader.inputs:
             shader.inputs["Emission Color"].default_value = (
                 material.emission_color.r,
                 material.emission_color.g,
                 material.emission_color.b,
-                material.emission_color.a,
+                1.0,
             )
         elif "Emission" in shader.inputs:
             shader.inputs["Emission"].default_value = (
                 material.emission_color.r,
                 material.emission_color.g,
                 material.emission_color.b,
-                material.emission_color.a,
+                1.0,
             )
         if "Emission Strength" in shader.inputs:
             shader.inputs["Emission Strength"].default_value = material.emission_strength
-        links.new(shader.outputs["BSDF"], output.inputs["Surface"])
+        shader_output = shader.outputs["BSDF"]
+
+    alpha = material.base_color.a
+    if alpha < 0.999999:
+        transparent = nodes.new("ShaderNodeBsdfTransparent")
+        mix = nodes.new("ShaderNodeMixShader")
+        mix.inputs[0].default_value = alpha
+        links.new(transparent.outputs["BSDF"], mix.inputs[1])
+        links.new(shader_output, mix.inputs[2])
+        links.new(mix.outputs["Shader"], output.inputs["Surface"])
+        if hasattr(native, "surface_render_method"):
+            try:
+                native.surface_render_method = "DITHERED"
+            except (TypeError, ValueError):
+                pass
+        elif hasattr(native, "blend_method"):
+            try:
+                native.blend_method = "BLEND"
+            except (TypeError, ValueError):
+                pass
+    else:
+        links.new(shader_output, output.inputs["Surface"])
 
     handle.owned_material_names.add(native.name)
     return native
