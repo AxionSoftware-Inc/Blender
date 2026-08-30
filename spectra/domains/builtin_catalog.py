@@ -89,6 +89,10 @@ from spectra.domains.physics.elastodynamics_diagnostics3d import (
     ElastodynamicsDiagnostics3DDomain,
 )
 from spectra.domains.physics.elastodynamics_views3d import ElastodynamicsViews3DDomain
+from spectra.domains.physics.heat_conduction3d import HeatConduction3DDomain
+from spectra.domains.physics.heat_views3d import HeatConductionViews3DDomain
+from spectra.domains.physics.thermoelasticity3d import Thermoelasticity3DDomain
+from spectra.domains.physics.thermoelastodynamics3d import Thermoelastodynamics3DDomain
 from spectra.domains.potential_fields import PotentialFields3DDomain, PotentialFieldViews3DDomain
 from spectra.domains.probability import ContinuousProbabilityDomain, ProbabilityDomain
 from spectra.domains.statistics import StatisticsDomain
@@ -151,6 +155,8 @@ BUILTIN_DOMAIN_FACTORIES = (
     DiffusionDomain,
     Diffusion2DDomain,
     Diffusion3DDomain,
+    HeatConduction3DDomain,
+    HeatConductionViews3DDomain,
     FluidKinematics2DDomain,
     FluidKinematics3DDomain,
     FluidTransport2DDomain,
@@ -170,6 +176,8 @@ BUILTIN_DOMAIN_FACTORIES = (
     Elastodynamics3DDomain,
     ElastodynamicsViews3DDomain,
     ElastodynamicsDiagnostics3DDomain,
+    Thermoelasticity3DDomain,
+    Thermoelastodynamics3DDomain,
     ElectromagnetismDomain,
     ElectrostaticPotential2DDomain,
     ElectrostaticPotential3DDomain,
@@ -217,6 +225,8 @@ BUILTIN_DOMAIN_TAGS = {
     "physics.potential_sources.3d": ("physics", "potential", "particles", "3d"),
     "physics.potential_energy": ("physics", "mechanics", "potential", "diagnostics"),
     "physics.field_particles": ("physics", "mechanics", "fields", "particles"),
+    "physics.heat_conduction.3d": ("physics", "thermal", "heat", "pde", "3d"),
+    "physics.heat_conduction.views3d": ("physics", "thermal", "visualization", "3d"),
     "physics.fluid_kinematics.3d": ("physics", "fluid", "kinematics", "3d"),
     "physics.fluid_transport.3d": ("physics", "fluid", "transport", "3d"),
     "physics.incompressible_flow.2d": ("physics", "fluid", "2d"),
@@ -228,6 +238,8 @@ BUILTIN_DOMAIN_TAGS = {
     "physics.elastodynamics.3d": ("physics", "solid-mechanics", "elasticity", "dynamics", "3d"),
     "physics.elastodynamics.views3d": ("physics", "solid-mechanics", "visualization", "3d"),
     "physics.elastodynamics.diagnostics3d": ("physics", "solid-mechanics", "diagnostics", "3d"),
+    "physics.thermoelasticity.3d": ("physics", "thermal", "solid-mechanics", "coupling", "3d"),
+    "physics.thermoelastodynamics.3d": ("physics", "thermal", "solid-mechanics", "dynamics", "3d"),
     "electromagnetism": ("physics", "electromagnetism"),
     "physics.electrostatic_potential.3d": ("physics", "electromagnetism", "potential", "3d"),
     "physics.gravitational_potential.3d": ("physics", "gravity", "potential", "3d"),
