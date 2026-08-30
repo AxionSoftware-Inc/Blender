@@ -16,6 +16,7 @@ from spectra.domains.physics import (
     MechanicsDomain,
     ParticleSystemsDomain,
     QuantumDomain,
+    SchrodingerDomain,
     SpatialQuantumDomain,
     WavesDomain,
 )
@@ -229,6 +230,16 @@ def builtin_domain_catalog() -> DomainCatalog:
                     "physics.quantum.spatial.probability_between",
                 ),
                 tags=("physics", "quantum", "wavefunction", "probability"),
+            ),
+            DomainDescriptor(
+                name="physics.quantum.schrodinger1d",
+                factory=SchrodingerDomain,
+                provides=(
+                    "physics.quantum.schrodinger1d.problem",
+                    "physics.quantum.schrodinger1d.solve",
+                    "physics.quantum.schrodinger1d.probability_mass",
+                ),
+                tags=("physics", "quantum", "pde", "schrodinger"),
             ),
         )
     )
