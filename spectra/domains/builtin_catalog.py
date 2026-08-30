@@ -22,6 +22,7 @@ from spectra.domains.physics import (
 )
 from spectra.domains.probability import ContinuousProbabilityDomain, ProbabilityDomain
 from spectra.domains.statistics import StatisticsDomain
+from spectra.domains.tensor_algebra import TensorAlgebraDomain
 
 
 def builtin_domain_catalog() -> DomainCatalog:
@@ -91,6 +92,20 @@ def builtin_domain_catalog() -> DomainCatalog:
                     "linear_algebra.complex_identity",
                 ),
                 tags=("math", "linear-algebra"),
+            ),
+            DomainDescriptor(
+                name="tensor_algebra",
+                factory=TensorAlgebraDomain,
+                provides=(
+                    "tensor.tensor",
+                    "tensor.add",
+                    "tensor.scale",
+                    "tensor.outer_product",
+                    "tensor.permute_axes",
+                    "tensor.contract",
+                    "tensor.trace",
+                ),
+                tags=("math", "tensor", "foundation"),
             ),
             DomainDescriptor(
                 name="probability",
