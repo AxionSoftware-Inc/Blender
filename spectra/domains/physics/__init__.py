@@ -91,6 +91,10 @@ from spectra.domains.physics.particles import (
     ParticleSystemTrajectory,
     ParticleSystemsDomain,
 )
+from spectra.domains.physics.potential_energy import (
+    ParticleEnergyHistory,
+    PotentialEnergyDiagnosticsDomain,
+)
 from spectra.domains.physics.potential_sources3d import (
     PointChargeSource3D,
     PointMassSource3D,
@@ -181,6 +185,7 @@ __all__ = [
     "IsotropicElasticMaterial",
     "MechanicsDomain",
     "Particle",
+    "ParticleEnergyHistory",
     "ParticleProblem",
     "ParticleSystemProblem",
     "ParticleSystemTrajectory",
@@ -191,6 +196,7 @@ __all__ = [
     "PointCharge",
     "PointChargeSource3D",
     "PointMassSource3D",
+    "PotentialEnergyDiagnosticsDomain",
     "PotentialSources3DDomain",
     "PrincipalStressDomain",
     "PrincipalStressState3D",
