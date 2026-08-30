@@ -29,6 +29,7 @@ class BackendCapabilities:
                     "vector_glyph",
                     "text",
                     "group",
+                    "camera",
                 }
             )
         )
