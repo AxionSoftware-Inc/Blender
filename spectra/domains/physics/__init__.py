@@ -60,10 +60,20 @@ from spectra.domains.physics.fluid_kinematics import (
     SteadyFlow2D,
     UnsteadyFlow2D,
 )
+from spectra.domains.physics.fluid_kinematics3d import (
+    FluidKinematics3DDomain,
+    SteadyFlow3D,
+    UnsteadyFlow3D,
+)
 from spectra.domains.physics.fluid_transport import (
     FluidTransport2DDomain,
     PassiveScalarProblem2D,
     PassiveScalarSolution2D,
+)
+from spectra.domains.physics.fluid_transport3d import (
+    FluidTransport3DDomain,
+    PassiveScalarProblem3D,
+    PassiveScalarSolution3D,
 )
 from spectra.domains.physics.general_relativity import (
     GeneralRelativityDomain,
@@ -180,7 +190,9 @@ __all__ = [
     "FluidDiagnostics2DDomain",
     "FluidInvariants2DDomain",
     "FluidKinematics2DDomain",
+    "FluidKinematics3DDomain",
     "FluidTransport2DDomain",
+    "FluidTransport3DDomain",
     "GeneralRelativityDomain",
     "GravitationalPotential3DDomain",
     "GravitationalPotentialProblem3D",
@@ -201,7 +213,9 @@ __all__ = [
     "ParticleSystemTrajectory",
     "ParticleSystemsDomain",
     "PassiveScalarProblem2D",
+    "PassiveScalarProblem3D",
     "PassiveScalarSolution2D",
+    "PassiveScalarSolution3D",
     "PlaneElectromagneticWave",
     "PointCharge",
     "PointChargeSource3D",
@@ -229,10 +243,12 @@ __all__ = [
     "SpatialQuantumDomain",
     "SpatialWavefunction1D",
     "SteadyFlow2D",
+    "SteadyFlow3D",
     "StrainTensor3D",
     "StressTensor3D",
     "Trajectory",
     "UnsteadyFlow2D",
+    "UnsteadyFlow3D",
     "VorticityStreamfunction2DDomain",
     "VorticityStreamfunctionProblem2D",
     "VorticityStreamfunctionSolution2D",
