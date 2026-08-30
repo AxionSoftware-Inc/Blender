@@ -14,6 +14,12 @@ from spectra.domains.mathematics.fields import (
     TimeDependentVectorField3D,
     VectorField3D,
 )
+from spectra.domains.mathematics.fields2d import (
+    ScalarField2D,
+    TimeDependentScalarField2D,
+    TimeDependentVectorField2D,
+    VectorField2D,
+)
 from spectra.domains.mathematics.functions import (
     CallableFunction1D,
     ComplexFunction1D,
@@ -29,7 +35,7 @@ from spectra.domains.registry import DomainRegistry
 
 class MathematicsDomain:
     name = "mathematics"
-    version = "2"
+    version = "3"
     dependencies = ()
 
     def register(self, registry: DomainRegistry) -> None:
@@ -55,6 +61,16 @@ class MathematicsDomain:
         registry.register_semantic_type("mathematics.function2d", Function2D)
         registry.register_semantic_type("mathematics.parametric_curve3d", ParametricCurve3D)
         registry.register_semantic_type("mathematics.parametric_surface3d", ParametricSurface3D)
+        registry.register_semantic_type("mathematics.scalar_field2d", ScalarField2D)
+        registry.register_semantic_type("mathematics.vector_field2d", VectorField2D)
+        registry.register_semantic_type(
+            "mathematics.time_scalar_field2d",
+            TimeDependentScalarField2D,
+        )
+        registry.register_semantic_type(
+            "mathematics.time_vector_field2d",
+            TimeDependentVectorField2D,
+        )
         registry.register_semantic_type("mathematics.scalar_field3d", ScalarField3D)
         registry.register_semantic_type("mathematics.vector_field3d", VectorField3D)
         registry.register_semantic_type(
@@ -90,6 +106,10 @@ class MathematicsDomain:
         registry.provide("mathematics.function2d", Function2D)
         registry.provide("mathematics.parametric_curve3d", ParametricCurve3D)
         registry.provide("mathematics.parametric_surface3d", ParametricSurface3D)
+        registry.provide("mathematics.scalar_field2d", ScalarField2D, version=1)
+        registry.provide("mathematics.vector_field2d", VectorField2D, version=1)
+        registry.provide("mathematics.time_scalar_field2d", TimeDependentScalarField2D, version=1)
+        registry.provide("mathematics.time_vector_field2d", TimeDependentVectorField2D, version=1)
         registry.provide("mathematics.scalar_field3d", ScalarField3D)
         registry.provide("mathematics.vector_field3d", VectorField3D)
         registry.provide("mathematics.time_scalar_field3d", TimeDependentScalarField3D)
