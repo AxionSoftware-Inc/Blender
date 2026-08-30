@@ -20,6 +20,11 @@ from spectra.domains.partial_differential_equations.complex_views3d import (
     ComplexPDEViews3DDomain,
     scalar_solution_from_complex_view,
 )
+from spectra.domains.partial_differential_equations.conservation3d import (
+    ConservationDiagnostics3DDomain,
+    ContinuityResidualHistory3D,
+    ContinuityResidualSnapshot3D,
+)
 from spectra.domains.partial_differential_equations.deposition3d import (
     PointSource3D,
     SourceDeposition3DDomain,
@@ -166,6 +171,9 @@ __all__ = [
     "ComplexPDESolution3D",
     "ComplexPDEViews3DDomain",
     "ComplexPartialDifferentialEquationsDomain",
+    "ConservationDiagnostics3DDomain",
+    "ContinuityResidualHistory3D",
+    "ContinuityResidualSnapshot3D",
     "EllipticPDE2DDomain",
     "EllipticPDE3DDomain",
     "ExplicitStability2D",
