@@ -1,758 +1,748 @@
 # Spectra Science
 
-Spectra Science is a **renderer-independent scientific visualization engine** for mathematics, physics, and other scientific domains.
+Spectra Science is being rebuilt as a **renderer-independent scientific visualization engine** for mathematics, physics, statistics, probability, and future scientific domains.
 
-The project is deliberately **not** being developed as a growing collection of Blender buttons. Blender is intended to be one renderer/backend of Spectra, not the owner of scientific meaning, simulation state, animation timing, or scene structure.
+It is **not** a collection of Blender buttons for derivatives, integrals, limits, graphs, and isolated physics demos. Blender is the first high-quality renderer/backend, not the scientific model and not the identity of the engine.
 
-> Status: architectural rebuild / pre-alpha. The complete previous Blender-addon prototype is preserved on `legacy/pre-semantic-core-2026-08-30`.
+> **Status:** architectural reset / pre-alpha. The original Blender-addon prototype is preserved unchanged on `legacy/pre-semantic-core-2026-08-30`.
 
-Read this README together with [`docs/DOMAIN_SYSTEM.md`](docs/DOMAIN_SYSTEM.md). These files are the source of truth for future contributors and future ChatGPT/Codex sessions.
-
----
-
-## One-sentence architecture
-
-```text
-scientific semantics
-    -> versioned domain capability graph
-    -> renderer-independent visualization compiler
-    -> generic Scene + Timeline
-    -> Scene.sample(t)
-    -> Blender / WebGPU / Unreal / another backend
-```
-
-A renderer should never need to know what a derivative, probability distribution, Hermitian observable, electric field, or differential equation means.
-
-It receives generic visual scene data.
+This README is a source-of-truth document. A future developer, agent, or ChatGPT session should read it before adding features.
 
 ---
 
-## What Spectra is trying to become
+## 1. Product thesis
 
-The long-term product is a scientific scene engine able to accept structured scientific intent and produce coherent static, animated, realtime, or cinematic visualizations.
+The long-term product should accept scientific intent from one or more authoring surfaces and compile it into a renderer-independent scientific scene.
 
-Possible future inputs:
+Possible authoring inputs:
 
 - formulas and equations;
-- structured Python APIs;
-- versioned Spectra scene documents;
+- Python API calls;
+- declarative scene documents;
 - lesson/storyboard templates;
-- simulation data;
-- natural-language requests compiled by an AI layer.
+- data or simulation results;
+- natural language compiled by an AI layer.
 
 Possible outputs:
 
-- interactive scientific scenes;
 - Blender scenes and cinematic renders;
-- realtime WebGPU/desktop/mobile viewers;
-- images/video;
+- realtime WebGPU/desktop/mobile visualization;
+- interactive scientific scenes;
+- images and video;
 - reusable lesson timelines;
-- remote render jobs;
-- scientific visualization embedded in other products.
+- remote/headless render jobs.
 
-The deterministic engine must remain useful without AI and without Blender.
+The central pipeline is:
+
+```text
+scientific intent
+    -> scientific/domain semantics
+    -> reusable computation capabilities
+    -> visualization compiler
+    -> generic Spectra Scene
+    -> engine-owned Timeline
+    -> static Scene sample at time t
+    -> renderer backend
+```
+
+The core must remain useful if Blender disappears tomorrow.
 
 ---
 
-# Why the original architecture was reset
+## 2. Why the old architecture was reset
 
-The old prototype successfully proved that formulas, graphs, calculus helpers, labels, animation, and lesson-style scenes could be generated inside Blender.
+The original prototype successfully proved that Blender can generate useful math/science scenes. It also exposed a scalability problem: scientific meaning, numerical evaluation, Blender objects, materials, collections, frame state, HUD text, UI settings, and animation were tightly coupled.
 
-It also revealed the main scalability failure: scientific semantics, numerical computation, Blender geometry, Blender materials, frame state, UI state, labels, and animation logic became coupled.
-
-The old growth pattern was approximately:
+The old growth pattern was effectively:
 
 ```text
-new topic
- -> new Blender operator
- -> new Blender objects
- -> new custom update/frame logic
- -> new UI state
- -> larger renderer-coupled feature module
+new scientific topic
+    -> new Blender operator
+    -> new Blender objects/materials
+    -> new custom animation code
+    -> more UI state
 ```
 
-That can produce many demos, but it does not produce a general scientific engine.
+That can produce many features while the engine itself becomes harder to extend. Physics makes the problem worse because fields, trajectories, particles, waves, differential equations, tensors, coordinate transforms, constraints, and simulations would each create another renderer-specific subsystem.
 
-Physics makes the coupling much worse: fields, trajectories, ODE/PDE solutions, particles, waves, tensors, coordinate transforms, constraints, operators, and simulations would each create more renderer-specific scientific code.
-
-The new growth pattern is:
+The new direction is:
 
 ```text
-new topic
- -> semantic domain object/capability
- -> compose existing mathematical capabilities
- -> compile to generic visual primitives
- -> existing Scene/Timeline
- -> existing renderer backends
+scientific meaning
+    -> semantic model
+    -> generic visual vocabulary
+    -> engine animation
+    -> backend
 ```
 
-The target is that adding the 100th scientific concept remains controlled.
+The previous implementation remains useful as prototype/reference material, but its architectural coupling must not be copied into `main`.
 
 ---
 
-# Core rule
+## 3. The most important architectural rule
 
-**Adding a new scientific subject is not, by itself, a reason to modify `spectra.core`.**
+**Core is not calculus. Core is not physics. Core is not Blender.**
 
-Core changes should happen only when several unrelated domains expose the same genuinely universal missing abstraction.
+Core owns only abstractions that remain useful across many unrelated scientific subjects and renderers.
+
+Scientific knowledge lives in pluggable domains.
+
+```text
+Spectra Core
+├── values / transforms / units / coordinates
+├── expression infrastructure
+├── generic Scene primitives
+├── Timeline / interpolation
+├── Scene serialization
+├── presentation-independent resources
+└── stable domain/backend contracts
+
+DomainRegistry / capability graph
+├── mathematics
+├── calculus
+├── probability
+├── probability.continuous
+├── statistics
+├── linear_algebra
+├── differential_equations
+├── graph_theory
+└── physics
+    ├── mechanics
+    ├── particles
+    ├── electromagnetism
+    └── quantum
+
+Scene
+├── primitives
+├── materials
+├── coordinate frame
+├── active camera
+└── timeline
+
+Backends
+├── MemoryBackend
+├── BlenderBackend
+└── future WebGPU / other renderers
+```
+
+Adding a new subject is **not** enough reason to modify Core.
+
+A useful test before changing Core is:
+
+> If this scientific subject disappeared tomorrow, would this abstraction still make sense for several unrelated domains?
+
+If the answer is no, keep it in a domain.
+
+---
+
+## 4. Domain composition instead of duplicated science
+
+Domains publish stable capabilities through `DomainRegistry`. Other domains consume those capabilities instead of importing or copying implementation internals.
+
+Examples already represented in the codebase:
+
+### Quantum composition
+
+```text
+linear algebra
+    ComplexVector / ComplexMatrix
+    normalization
+    Hermitian checks
+    operator application
+    quadratic forms
+
+probability
+    distributions
+
+        -> physics.quantum
+           QuantumState
+           QuantumObservable
+           measurement distribution
+           expectation value
+```
+
+Quantum does not own a second matrix library or a second probability implementation.
+
+### Continuous probability composition
+
+```text
+mathematics.Function1D
+        -> calculus.integrate
+        -> probability.continuous
+           PDF / CDF / interval probability
+```
+
+Probability does not reimplement integration.
+
+### Mechanics composition
+
+```text
+differential_equations.FirstOrderSystem
+        + ode.solve_rk4
+        -> mechanics
+           particle problem
+           trajectory
+```
+
+### Multi-particle composition
+
+```text
+ODE solver
+    -> physics.particles
+       N-body state
+       ParticleSystemTrajectory
+    -> one animated PointCloud Scene node
+```
+
+### Electromagnetism composition
+
+```text
+mathematics.VectorField3D
+        -> Coulomb-law field
+        -> VectorGlyphSet
+        -> renderer backend
+```
+
+The same field representation can later be reused by gravity, magnetic fields, fluid velocity, PDE solutions, or newly invented physical models.
+
+---
+
+## 5. Capability contracts and versioning
+
+A domain depends on a **capability contract**, not another domain's private implementation.
 
 Examples:
 
-- coordinate frames belong in core;
-- transforms belong in core;
-- animation tracks belong in core;
-- generic scene primitives belong in core;
-- Coulomb's law does **not** belong in core;
-- a Gaussian distribution does **not** belong in core;
-- quantum observables do **not** belong in core;
-- graph shortest-path algorithms do **not** belong in core.
+- `mathematics.function1d`
+- `mathematics.vector_field3d`
+- `calculus.integrate`
+- `probability.discrete_distribution`
+- `linear_algebra.normalize_complex`
+- `ode.solve_rk4`
+- `physics.particles.solve_system`
 
-Scientific knowledge lives in domains.
+Capabilities carry versions. A consumer may require a minimum version without knowing how the provider is implemented.
+
+This allows a capability implementation to move later from pure Python to NumPy, SciPy, Rust, C++, SIMD, GPU compute, or another solver while dependent domains keep the same contract.
+
+`DomainRegistry.add_domains(...)` accepts modules in arbitrary order and resolves required capabilities automatically.
+
+Domain registration is transactional: if one domain fails during registration, partial semantic types/capabilities/visualizers are rolled back. Batch registration is also atomic.
+
+This is required if Spectra eventually loads dozens or hundreds of domains.
 
 ---
 
-# Current architecture
+## 6. Current Core
 
-## 1. Core values and scientific space
+### Basic values
 
-Current foundation includes:
+Current renderer-independent values include:
 
-- `Vec2`, `Vec3`, `Color`;
-- vector dot/cross/normalization operations;
-- SI-style `Dimension`, `Unit`, and `Quantity` foundations;
-- `CoordinateFrame3D` with validated linearly-independent bases and handedness;
-- `Quaternion`;
-- `Transform3D`;
-- renderer-independent `Transform3D.look_at(...)`.
+- `Vec2`
+- `Vec3`
+- `Color`
+- `Quaternion`
+- `Transform3D`
+- `CoordinateFrame3D`
+- dimensional `Unit` / `Quantity`
 
-Scientific coordinates stay scientific data. Renderer backends are responsible for mapping Spectra coordinates into their native coordinate convention.
+`Transform3D` owns translation, rotation, scale, point/vector application, and camera-style `look_at` behavior.
 
-## 2. Renderer-independent primitives
+Scientific coordinates remain distinct from backend/world coordinates. A `Scene` carries a coordinate frame; a backend maps it into its native space.
 
-Current generic primitives include:
+### Expressions
 
-- `Point`;
-- `Polyline`;
-- `Surface` (indexed triangle surface);
-- `Region`;
-- `VectorGlyph`;
-- `TextLabel`;
-- `Group`;
-- `Camera`.
+The expression layer uses a restricted Python AST whitelist with approved functions/constants rather than unrestricted user `eval` input.
 
-All primitives share:
+It supports deterministic formula evaluation without importing Blender.
 
-- stable `id`;
-- visibility;
-- opacity;
-- renderer-neutral `Transform3D`.
+### Scene primitives
 
-`Polyline` additionally exposes `trim_start` / `trim_end`, allowing draw/reveal animation without renderer-specific curve hacks.
+Current renderer-independent primitive vocabulary includes:
 
-`Camera` is also a Spectra primitive. Camera position/orientation/projection therefore do not belong to Blender. The camera convention is local `-Z` forward and local `+Y` up; a backend maps this into its native camera convention.
+- `Point`
+- `PointCloud`
+- `Polyline`
+- `Surface`
+- `Region`
+- `VectorGlyph`
+- `VectorGlyphSet`
+- `TextLabel`
+- `Group`
+- `Camera`
+- `Light`
 
-## 3. Scene
+This list should grow only when a genuinely reusable visual abstraction is needed.
 
-`Scene` currently owns:
+### Batched primitives are intentional
 
-- generic primitives;
-- an engine-owned `Timeline`;
-- a scientific `CoordinateFrame3D`;
-- optional `active_camera_id`.
+Dense scientific data must not become one Python Scene object per sample.
 
-Scene validation currently checks, among other things:
+`PointCloud` stores many points/particles in one Scene node.
 
-- unique primitive IDs;
-- valid group child references;
-- no group hierarchy cycles;
-- valid active-camera references;
-- valid animation targets;
-- valid animation property paths;
-- animation value compatibility;
-- primitive invariants before a backend sees the scene.
-
-`Scene.sample(t)` evaluates animation into a **static renderer-neutral Scene snapshot**.
-
-That is an important contract: Blender/WebGPU/etc. are not the source of animation truth.
-
-## 4. Animation engine
-
-Animation currently supports engine-owned:
-
-- `Keyframe`;
-- `Track`;
-- `Timeline`;
-- `step`, `linear`, and `smooth` interpolation;
-- interpolation of numeric values, vectors, colors, tuples, and quaternions;
-- quaternion slerp;
-- immutable nested property-path updates;
-- reusable `fade_track`, `draw_track`, and `move_track` helpers.
-
-Generic presentation operations live outside scientific domains. For example `staggered_reveal(scene)` can animate a function plot, graph, probability visualization, or physics scene without those domains implementing their own renderer-specific reveal code.
-
-## 5. Versioned Scene document
-
-Spectra Scene serialization currently uses:
-
-```text
-schema: spectra.scene
-version: 2
-```
-
-Scene JSON v2 serializes:
-
-- primitives;
-- surface topology;
-- transforms;
-- opacity/path trim state;
-- camera parameters;
-- active camera;
-- coordinate frame;
-- timeline tracks/keyframes/interpolation.
-
-The reader currently retains compatibility with v1 defaults.
-
-This document boundary is intended to support:
-
-- saved projects;
-- CLI tools;
-- remote render services;
-- other language implementations;
-- AI-generated scene descriptions;
-- Blender/WebGPU/backend handoff.
-
-## 6. Domain registry and capability graph
-
-Scientific modules plug into `DomainRegistry`.
-
-Domains may publish:
-
-- semantic types;
-- computation capabilities;
-- generic visualization compilers.
-
-Domains consume other domains through stable capability contracts rather than copying their algorithms.
-
-Current registry behavior includes:
-
-- dependency declarations;
-- required and optional capabilities;
-- **minimum capability contract versions**;
-- automatic dependency-order resolution with `add_domains(...)`;
-- arbitrary input order;
-- diagnostic unresolved dependencies;
-- atomic single-domain registration;
-- atomic batch registration/rollback;
-- semantic-type-directed visualization dispatch with `registry.compile_scene(obj)`.
+`VectorGlyphSet` stores many vector arrows in one Scene node.
 
 Example:
 
 ```text
-linear_algebra.normalize_complex
-probability.discrete_distribution
-linear_algebra.complex_quadratic_form >= v2
-        -> physics.quantum
+100 x 100 x 100 vector field
 ```
 
-A capability implementation can later move from pure Python to NumPy, SciPy, Rust, C++, or GPU compute while keeping the public contract stable.
+must not imply one million Scene primitives. It should remain one batched `VectorGlyphSet` whose arrays can map to native/GPU instancing.
+
+Likewise, a many-particle simulation should normally animate one `PointCloud`, not create thousands of Scene nodes.
 
 ---
 
-# Current scientific domains
+## 7. Scene materials and lighting
 
-The present modules are intentionally small vertical slices. They prove composition; they are not claims of complete scientific coverage.
+Presentation intent is renderer-independent.
 
-## Mathematics
+A `Scene` owns reusable `Material` resources. A primitive may reference one through `material_id`.
 
-Current mathematics foundations include:
+Current material contract includes:
 
-- safe AST-based expressions;
-- `Interval`;
-- `RectDomain2D`;
+- base color;
+- `unlit` or `lit` shading intent;
+- metallic;
+- roughness;
+- emission color/strength;
+- double-sided intent.
+
+`Light` is also a generic Scene primitive with ambient/directional/point/spot intent.
+
+These are **not** Blender node trees or Blender light objects. Blender maps them to native resources inside its backend.
+
+Missing material references fail when the generic Scene is constructed rather than becoming hidden renderer errors.
+
+---
+
+## 8. Animation belongs to Spectra
+
+Blender frames are not the source of scientific truth.
+
+The engine owns:
+
+- `Keyframe`
+- `Track`
+- `Timeline`
+- interpolation
+- nested property paths
+- timeline validation
+- sampling at arbitrary time
+
+Supported interpolation currently includes step, linear, and smooth interpolation for relevant numeric/vector/color/quaternion/tuple values.
+
+Examples include:
+
+- point movement;
+- particle positions;
+- curve draw/reveal through `trim_start` / `trim_end`;
+- opacity fades;
+- camera transforms;
+- vector/color transitions.
+
+The important runtime contract is:
+
+```text
+animated semantic scene
+    -> Scene + Timeline
+    -> Scene.sample(t)
+    -> static Scene snapshot
+    -> backend.apply(snapshot)
+```
+
+A backend is therefore not expected to understand calculus, probability, mechanics, or scientific time semantics.
+
+`BackendSession` drives any backend from the same Spectra timeline.
+
+---
+
+## 9. Presentation helpers are not scientific domains
+
+Presentation transformations such as `staggered_reveal()` operate on an existing generic Scene.
+
+They do not belong inside calculus, probability, graph theory, or physics.
+
+This means the same reveal/fade/draw composition can be applied to graphs, functions, probability plots, trajectories, fields, or future scientific modules without changing their domain semantics.
+
+Camera and light primitives are presentation controls and are excluded from automatic reveal effects.
+
+---
+
+## 10. Bounds and automatic camera framing
+
+Spectra distinguishes two useful spaces:
+
+- **Scene-local scientific bounds** — appropriate for generic camera framing;
+- **parent/world-mapped bounds** — after applying the Scene coordinate frame.
+
+`Bounds3D`, `scene_local_bounds()`, and `scene_bounds()` provide this distinction.
+
+`fit_camera_to_scene()` and `with_fitted_camera()` create renderer-independent cameras using conservative bounds. This keeps framing logic outside Blender and allows the same scientific composition to be framed similarly by other renderers.
+
+Cameras, groups, and lights do not enlarge scientific content bounds.
+
+---
+
+## 11. Scene document format
+
+The current document schema is:
+
+```text
+spectra.scene version 4
+```
+
+It serializes generic Scene state including:
+
+- primitives;
+- transforms;
+- batched point/vector data;
+- timeline/keyframes/interpolation;
+- coordinate frame;
+- active camera;
+- material resources;
+- material references;
+- lights.
+
+Readers intentionally retain support for earlier scene versions 1, 2, and 3.
+
+Schema compatibility should be treated deliberately. Do not silently break saved scientific scenes when adding a new resource.
+
+The document format is important for future:
+
+- saved projects;
+- remote rendering;
+- CLI jobs;
+- web/realtime clients;
+- AI-generated scenes;
+- backend-independent interchange.
+
+---
+
+## 12. Current scientific domains
+
+### Mathematics
+
+Currently includes foundation for:
+
+- intervals and rectangular domains;
 - `Function1D`;
 - `Function2D`;
 - parametric 3D curves;
 - parametric 3D surfaces;
-- scalar/vector field foundations;
-- regular 3D sampling grids.
+- scalar/vector fields;
+- regular sampling grids.
 
-Current visualization paths include:
+Visualization examples:
 
 ```text
 Function1D -> Polyline
-Function2D -> Surface
+Function2D -> indexed Surface
 ParametricCurve3D -> Polyline
 ParametricSurface3D -> Surface
-VectorField3D -> VectorGlyph Scene
+VectorField3D -> batched VectorGlyphSet
 ```
 
-## Calculus
+### Calculus
 
-Calculus is a domain, not core.
+Currently includes reusable numerical foundation such as:
 
-Current capabilities include:
+- derivative sampling;
+- tangent samples;
+- numerical integration.
 
-- numerical derivative-at-point;
-- tangent sampling;
-- reference numerical integration (composite Simpson rule).
+Calculus is a domain, not privileged Core functionality.
 
-`calculus.integrate` is a versioned capability so later native/adaptive/GPU implementations can replace the current deterministic reference implementation.
+### Probability
 
-## Probability
+Discrete probability includes outcomes/distributions, expectation, and variance.
 
-Discrete probability currently includes:
+Continuous probability is a dependent subdomain using `Function1D` and the calculus integration capability for normalization/CDF/interval probability.
 
-- outcomes;
-- `DiscreteDistribution`;
-- expectation;
-- variance;
-- distribution Scene compilation.
+### Statistics
 
-Continuous probability is a separate subdomain:
+Includes dataset/summary/histogram semantics and reuses probability capabilities for empirical distributions.
 
-```text
-mathematics.Function1D
-        +
-calculus.integrate >= v2
-        -> probability.continuous
-```
+### Linear algebra
 
-Current continuous capabilities include:
+Includes real/complex vectors and matrices, inner products, normalization, matrix-vector application, adjoint/Hermitian checks, and quadratic forms.
 
-- non-normalized finite-domain density input;
-- computed normalization;
-- normalized PDF;
-- CDF;
-- probability over intervals;
-- PDF Scene visualization.
+### Differential equations
 
-## Statistics
+Contains a deterministic fixed-step RK4 reference implementation behind a stable capability contract.
 
-Current statistics foundation includes dataset/summary/histogram-style semantics and reuses probability capabilities instead of creating a separate probability implementation.
+The current solver is a correctness/reference foundation, not a commitment to pure-Python RK4 forever.
 
-## Linear algebra
+### Graph theory
 
-Current foundations include:
+Includes graphs, edges, layouts, neighbor traversal, unweighted shortest path, and renderer-independent visualization.
 
-- real vectors;
-- complex vectors;
-- inner products;
-- norms/normalization;
-- real matrices;
-- complex matrices;
-- matrix-vector products;
-- transpose/conjugate transpose;
-- Hermitian checks;
-- complex quadratic forms;
-- complex identity matrices.
+This domain is intentionally useful as proof that Spectra is not secretly a continuous-calculus engine.
 
-Matrix/Hermitian capabilities are versioned contracts.
+### Physics
 
-## Differential equations
+Current slices include:
 
-Current differential-equations domain includes a deterministic RK4 reference solver for first-order systems.
+- Newtonian single-particle mechanics;
+- multi-particle systems;
+- Coulomb electric fields;
+- quantum states/observables/expectation values.
 
-The important architecture is not RK4 itself. The important part is that physics depends on an ODE solver capability instead of owning a solver implementation.
-
-## Graph theory
-
-Graph theory was intentionally added because it is structurally different from continuous calculus/physics.
-
-Current foundation includes:
-
-- graph/edge semantics;
-- directed/undirected neighbors;
-- unweighted shortest path;
-- explicit 2D graph layout;
-- graph Scene visualization.
-
-The fact that this was added without making graph-specific changes to core is an architecture proof.
+These are architecture proofs and reusable foundations, not claims that the domains are scientifically complete.
 
 ---
 
-# Current physics composition proofs
+## 13. Backend contract
 
-## Mechanics
+Backends consume static generic Scene snapshots.
 
-```text
-ODE first-order system + RK4 capability
-        -> ParticleProblem
-        -> Trajectory
-        -> static trajectory Scene
-        -> animated trajectory Timeline
-```
-
-The animated trajectory uses physical trajectory times to drive a moving generic `Point` and path drawing in the Spectra timeline.
-
-No Blender frame state is required.
-
-## Electromagnetism
-
-The current electromagnetic slice describes point charges / Coulomb electric fields while reusing mathematical `VectorField3D`.
+A backend implements approximately:
 
 ```text
-mathematics.VectorField3D
-        -> electromagnetic law
-        -> generic vector field
-        -> VectorGlyph Scene
+create(scene) -> native handle
+apply(handle, scene)
+destroy(handle)
 ```
 
-Gravity, magnetic fields, fluid velocity fields, and future custom fields can reuse the same visual path.
+Backend capabilities explicitly declare which primitive/resource types are supported.
 
-## Quantum
+A backend may reject unsupported content before renderer-specific work begins.
 
-Quantum currently reuses both probability and linear algebra.
+### MemoryBackend
 
-Current foundation includes:
+`MemoryBackend` is a renderer-free reference backend used to prove the backend/session boundary without Blender.
 
-- normalized quantum state amplitudes;
-- measurement distribution;
-- Hermitian `QuantumObservable` semantics;
-- operator application;
-- expectation values.
+### BlenderBackend
 
-Example composition:
+A first real Blender backend now exists under:
 
 ```text
-ComplexVector
-ComplexMatrix >= v2
-Hermitian check >= v2
-Quadratic form >= v2
-DiscreteDistribution
-        -> QuantumState / QuantumObservable
+spectra/backends/blender/
 ```
 
-Quantum does not implement its own matrix normalization, matrix-vector product, Hermitian test, or probability distribution.
+Critical rule:
 
-This is the intended domain-composition model.
+> `bpy` must never be imported into Core or scientific domains.
+
+`BlenderBackend` lazy-loads `bpy`/`mathutils` only when native operations (`create/apply/destroy`) actually execute. Importing `BlenderBackend` in ordinary Python therefore remains valid.
+
+The first static vertical slice supports:
+
+- Point;
+- Polyline;
+- Surface;
+- Region;
+- single VectorGlyph;
+- TextLabel;
+- organizational Group empty;
+- Camera;
+- Light;
+- Material mapping;
+- Scene coordinate-frame root mapping.
+
+Current Blender backend intentionally rebuilds its backend-owned collection on `apply()`. That is a reference implementation, not the final animation-performance strategy.
+
+`PointCloud` and `VectorGlyphSet` are deliberately **not yet advertised by BlenderBackend** until they are mapped to batched/native instanced Blender geometry. They must not be implemented by creating one Blender object per instance.
+
+Group children are not currently parented under Blender group empties because Core does not yet define inherited Group transforms. A backend must not invent semantics that Core does not own.
 
 ---
 
-# Renderer backend contract
-
-A backend is deliberately small.
-
-Current conceptual contract:
-
-```text
-Backend
-  name
-  capabilities
-  create(static_scene) -> handle
-  apply(handle, static_scene)
-  destroy(handle)
-```
-
-`BackendSession` owns playback/seek behavior:
-
-```text
-source animated Scene
-        -> Scene.sample(t)
-        -> static Scene
-        -> backend.apply(...)
-```
-
-A renderer therefore does not need calculus/physics/domain imports.
-
-`MemoryBackend` is the current renderer-free reference implementation proving the adapter boundary.
-
-Planned real backends include:
-
-- Blender;
-- realtime/WebGPU or another suitable realtime engine;
-- potentially Unreal/Godot/other adapters where product needs justify them.
-
-**"Any 3D engine can be connected" does not mean zero adapter code.** Each renderer needs a backend mapping Spectra primitives/transforms/camera into its native objects. The scientific engine and domain code should not be rewritten.
-
----
-
-# Forbidden architectural directions
+## 14. Forbidden architectural regressions
 
 These rules are deliberate.
 
-## 1. No renderer SDK inside semantic core
+### Do not put `bpy` into Core or domains
 
-`spectra.core` must not import Blender `bpy`, Unreal, Three.js, WebGPU APIs, Qt, or another renderer/UI SDK.
+No Blender imports in:
 
-## 2. Do not add a scientific concept as a renderer feature
+- `spectra.core`;
+- mathematics;
+- calculus;
+- probability/statistics;
+- physics;
+- generic visualization compilers.
+
+### Do not add scientific concepts as renderer-specific features
 
 Bad:
 
 ```text
-IntegralFeature -> create Blender mesh/material/keyframes
+IntegralFeature -> create Blender mesh/material/operator
 ```
 
 Correct direction:
 
 ```text
 integral semantics
- -> generic Region/Polyline/labels/timeline
- -> backend
+    -> generic region/curve/label/timeline
+    -> Scene
+    -> backend
 ```
 
-## 3. No Blender frame state as scientific time
+### Do not create another giant tools module
 
-Time belongs to Spectra. A backend may map seconds to native frames, but backend frame state is not the model.
+Do not recreate files equivalent to old giant `calculus_tools.py` or a future giant `physics_tools.py`.
 
-## 4. No giant subject tool files
+### Do not make UI state the scientific model
 
-Do not recreate `calculus_tools.py`, `physics_tools.py`, etc. containing scientific semantics + UI + geometry + animation + renderer state.
+A Blender panel, web form, or desktop UI is an authoring surface. It reads/writes semantic objects/documents; it does not own scientific truth.
 
-## 5. No scientific truth hidden in renderer object names
+### Do not make AI the core
 
-Scientific relationships must exist in typed domain data before rendering.
+AI may compile intent into deterministic Spectra semantics later. The engine, validation, computation contracts, Scene compiler, and backends must work without AI.
 
-## 6. Do not make UI panels the data model
+### Do not optimize for feature count
 
-UI edits/creates semantic data or documents. Headless engine behavior must remain available.
+Ten new buttons are less valuable than one abstraction that makes the next hundred concepts cheap.
 
-## 7. Do not optimize for feature count
+### Do not expand batched data into thousands of Scene/backend objects
 
-One universal abstraction that makes twenty concepts cheap is preferable to twenty bespoke demo buttons.
+Large fields, particles, samples, and repeated glyphs require batch/instancing abstractions.
 
-## 8. AI is a compiler/client, not core truth
+### Do not store generated release ZIPs in source control
 
-Natural language may later compile into Spectra semantics. Deterministic validation and execution must work without AI.
-
-## 9. Templates are compositions
-
-"Derivative lesson", "electric-field lesson", or "quantum lesson" are compositions/templates, not primitive engine capabilities.
-
-## 10. Do not add generated release ZIPs to source control
-
-Use Releases/CI artifacts.
+Use release/build artifacts outside the source tree.
 
 ---
 
-# Current repository shape
+## 15. Performance direction
 
-Representative structure:
+The current Python implementations are reference implementations chosen to stabilize semantics and contracts.
 
-```text
-spectra/
-  core/
-    animation.py
-    coordinates.py
-    expressions.py
-    primitives.py
-    scene.py
-    serialization.py
-    transforms.py
-    types.py
-    units.py
+Performance-sensitive capabilities may later move behind the same contracts to:
 
-  domains/
-    registry.py
-    mathematics/
-    calculus/
-    probability/
-    statistics/
-    linear_algebra/
-    differential_equations/
-    graph_theory/
-    physics/
+- NumPy;
+- SciPy;
+- Rust;
+- C++;
+- SIMD;
+- GPU compute;
+- specialized native solvers.
 
-  backends/
-    base.py
-    driver.py
-    memory.py
+The scientific domains should not need to be rewritten when that happens.
 
-  compiler.py
-  presentation.py
-  visualization.py
+For visualization, prefer:
 
-docs/
-  DOMAIN_SYSTEM.md
+- compact semantic objects;
+- batch primitives;
+- native instancing;
+- renderer-side buffers;
+- incremental backend updates;
+- lazy/streamed data where required.
 
-tests/
-  ... semantic/domain/animation/serialization/backend tests ...
-```
+Do not prematurely optimize by leaking renderer structures back into scientific semantics.
 
 ---
 
-# Validation status
+## 16. Testing status
 
-Many unit tests now exist for:
+The repository contains a growing plain-Python test suite for:
 
-- domain registration/dependency resolution;
-- atomic rollback;
-- capability versions;
-- expression safety/functions;
+- expressions/functions;
+- domain dependencies/versioning/transactions;
 - calculus;
-- discrete/continuous probability;
-- statistics;
-- linear algebra;
-- quantum composition;
-- ODE/mechanics;
-- electromagnetism/fields;
+- probability/statistics;
+- linear algebra/quantum;
+- ODE mechanics and particle systems;
 - graph theory;
-- visualization dispatch;
-- parametric/surface visualization;
-- Scene serialization;
-- animation sampling;
-- Camera/transform behavior;
-- backend adapter behavior;
-- generic presentation animation.
+- visualization compilers;
+- animation/timeline;
+- serialization compatibility;
+- bounds/camera framing;
+- batched primitives;
+- materials/lights;
+- backend contracts;
+- Blender lazy import boundary.
 
-**Important:** during this development session, GitHub Actions jobs have been failing before executing workflow steps and do not provide usable test logs. Full local `pytest` execution has intentionally been postponed because the local agent/environment is occupied. Therefore do **not** claim the current branch is fully test-green until a local run is performed.
+**Do not claim the complete current suite is green yet.**
 
-When local access is available, the first validation step is:
+Local full `pytest` execution was intentionally deferred while the user's local agent was busy. When local verification resumes, run the complete suite and fix failures before declaring a stable milestone.
 
-```bash
-git checkout main
-git pull
-python -m venv .venv
-.venv\Scripts\activate
-pip install -e ".[dev]"
-pytest -q
-```
-
-Fix all failures before treating the foundation as stable.
+The previous GitHub Actions workflow was intentionally removed from `main` at the user's request. Do not recreate it unless explicitly requested later.
 
 ---
 
-# Near-term roadmap
+## 17. Repository policy
 
-## A. Validate the current foundation locally
-
-Run the complete test suite and fix any runtime/type/integration errors introduced during rapid architecture work.
-
-## B. Stabilize Scene/backend contract
-
-Before large renderer work, verify:
-
-- transform conventions;
-- camera conventions;
-- grouping semantics;
-- coordinate-frame mapping;
-- animation sampling;
-- Scene JSON v2 round-trip;
-- backend compatibility checks.
-
-## C. First real Blender backend vertical slice
-
-Target:
-
-```text
-Function1D / Surface / VectorField / trajectory
-        -> generic Scene
-        -> Scene.sample(t)
-        -> BlenderBackend
-        -> Blender objects/camera
-```
-
-`bpy` must exist only in Blender backend/addon integration code.
-
-Start small. Do not immediately port the old addon UI.
-
-## D. Rebuild scientific visualizations as compositions
-
-Examples:
-
-- tangent/derivative visualization;
-- integral region/accumulation;
-- animated probability distribution;
-- vector field;
-- mechanics trajectory;
-- simple quantum-state visualization.
-
-## E. Add deeper domains only through composition
-
-Candidates include:
-
-- geometry;
-- complex analysis;
-- more statistics;
-- dynamical systems;
-- PDEs;
-- waves;
-- fluid dynamics;
-- relativity;
-- quantum dynamics;
-- topology;
-- tensors.
-
-Do not add all of them for feature-count reasons. Add them when they expose useful reusable abstractions or product use-cases.
+- `main` — new semantic-engine architecture only.
+- `legacy/pre-semantic-core-2026-08-30` — complete old addon snapshot before reset.
+- Generated ZIPs/renders/caches/build artifacts do not belong in `main`.
+- Experimental renderer/domain work should remain cleanly separated from universal Core abstractions.
 
 ---
 
-# Definition of a good new scientific feature
+## 18. What counts as a good new feature
 
-Before implementing it, answer:
+Before implementation, answer:
 
-1. What is the scientific semantic object/relationship?
-2. Which existing domain capabilities can it reuse?
-3. Does it really require a new capability?
-4. Which generic Scene primitives express it?
-5. Which Timeline tracks express its animation?
-6. Can it run headlessly without Blender?
-7. Can a second renderer consume the same Scene?
-8. Does this change core for a genuinely universal reason, or only because the new subject is unfamiliar?
+1. What is the scientific meaning?
+2. Does an existing domain object already express it?
+3. Which existing capability can it reuse?
+4. Does it really require a new domain capability?
+5. Which generic visual primitives express it?
+6. Can dense data use an existing batch primitive?
+7. Which Timeline properties are needed?
+8. Can it be tested without Blender?
+9. Can another backend consume the resulting Scene?
+10. Does this truly require a Core change?
 
-If implementation starts with "create this Blender object/operator/panel", it is probably at the wrong layer.
-
----
-
-# Engineering rules
-
-- Keep renderer dependencies behind backend boundaries.
-- Prefer immutable core/domain value objects where practical.
-- Keep scientific computation separate from presentation.
-- Reuse capabilities across domains rather than copy algorithms.
-- Version capability contracts when semantics/API materially evolve.
-- Keep domain loading atomic.
-- Keep deterministic inputs deterministic.
-- Explicitly document coordinate/time/unit conventions.
-- Keep scene/document formats versioned.
-- Avoid premature dependency lock-in to SymPy/NumPy/SciPy; adopt them when the capability requirements justify them.
-- Heavy computation may later move behind stable contracts to NumPy, Rust, C++, SIMD, GPU compute, or remote services.
-- Tests should prove composition, not only individual algorithms.
+If implementation starts with “create this Blender object/operator/panel,” it is probably at the wrong layer.
 
 ---
 
-# Branch policy
+## 19. Near-term development order
 
-- `main`: new renderer-independent architecture.
-- `legacy/pre-semantic-core-2026-08-30`: complete pre-reset Blender-addon snapshot.
-- Generated builds/renders/ZIPs do not belong on `main`.
+Unless a newer architectural decision explicitly supersedes this roadmap:
 
-The architectural-reset work in this session has intentionally been applied directly to `main` with repository-owner approval. Future stabilization/release work may use focused branches/PRs as appropriate.
+1. stabilize the first BlenderBackend static vertical slice;
+2. add Blender-native/batched support for `PointCloud` and `VectorGlyphSet` without object explosion;
+3. run the full plain-Python test suite locally and fix every failure;
+4. run a Blender smoke test using a generic Function/Surface/Camera/Light Scene;
+5. make Blender `apply()` incremental instead of full collection rebuild where performance requires it;
+6. rebuild selected calculus visualizations (integral/derivative/etc.) as semantic compositions rather than old addon features;
+7. deepen physics through reusable math capabilities (fields, waves, ODE/PDE, operators) rather than renderer-specific demos;
+8. only after contracts stabilize, build richer authoring UI/CLI/AI layers.
 
 ---
 
-# Continuation instructions for another ChatGPT/Codex session
+## 20. Continuation instructions for another agent/chat
 
-If the previous chat is unavailable or reaches its context limit:
+If the current conversation is unavailable:
 
-1. Read this README completely.
+1. Read this README.
 2. Read `docs/DOMAIN_SYSTEM.md`.
-3. Inspect latest `main`.
+3. Inspect latest `main` rather than assuming this README is newer than code.
 4. Do **not** resume development from the legacy calculus addon.
-5. Do **not** put `bpy` into `spectra.core` or scientific domains.
-6. Preserve versioned capability composition.
-7. Preserve atomic domain registration.
-8. Preserve `semantic object -> generic Scene -> Scene.sample(t) -> backend` separation.
-9. Reuse existing mathematics/probability/linear-algebra/ODE/field semantics before inventing physics-specific duplicates.
-10. Keep Camera and animation engine-owned, not Blender-owned.
-11. Keep Scene JSON versioned/backward-conscious.
-12. Run local tests as soon as the local environment becomes available; current GitHub Actions status is not sufficient validation.
-13. Update this README whenever a fundamental contract changes.
+5. Keep `spectra.core` free of renderer SDKs and subject-specific knowledge.
+6. Reuse domain capabilities instead of copying algorithms.
+7. Use `DomainRegistry.add_domains(...)` for dependency-resolved loading.
+8. Compile semantics into generic Scene primitives before renderer code.
+9. Keep Timeline ownership in Spectra.
+10. Preserve Scene schema backward compatibility intentionally.
+11. Prefer batched primitives for dense scientific data.
+12. Never implement `PointCloud`/`VectorGlyphSet` by generating one Blender object per instance.
+13. Update this README when an architectural decision materially changes.
+14. Local full tests are still pending until explicitly completed; do not invent a green result.
+15. GitHub Actions is intentionally absent.
 
-The next major engineering milestone is **local validation followed by the first minimal Blender backend**, not a return to rapid one-off scientific feature buttons.
+When uncertain, optimize for:
+
+**generality, composability, scientific meaning, deterministic contracts, renderer independence, testability, and the cost of adding the 100th scientific concept.**
 
 ---
 
-# Success criterion
+## Success criterion
 
-Spectra is architecturally succeeding when a new scientific idea usually requires:
+Spectra succeeds architecturally when a new scientific idea usually requires:
 
-```text
-new semantics and/or composition of existing capabilities
-        -> existing generic visual primitives
-        -> existing timeline
-        -> existing renderer backends
-```
+- new semantics or composition of existing semantics;
+- reuse of existing computation capabilities;
+- compilation into existing generic visual primitives;
+- tests;
 
-—not a new renderer-specific subsystem.
+and **does not** require another renderer-specific subsystem.
 
-The desired end state is a **scientific engine with Blender support**, not a Blender addon that accumulated scientific features.
+The target is a scientific scene engine with Blender support — not a Blender addon that accumulated scientific features.
