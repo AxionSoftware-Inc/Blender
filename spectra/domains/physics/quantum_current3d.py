@@ -57,18 +57,20 @@ class QuantumProbabilityCurrent3DDomain:
     """Probability density/current derived from generic Schrodinger and grid operators."""
 
     name = "physics.quantum.probability_current3d"
-    version = "1"
+    version = "2"
     dependencies = (
         DomainDependency("physics.quantum.schrodinger3d.solution"),
         DomainDependency("pde.gradient_grid_3d"),
         DomainDependency("pde.time_scalar_field_from_grid_3d"),
         DomainDependency("pde.time_vector_field_from_grid_3d"),
+        DomainDependency("pde.continuity_residual_history_3d"),
     )
 
     def register(self, registry: DomainRegistry) -> None:
         gradient = registry.require("pde.gradient_grid_3d")
         time_scalar = registry.require("pde.time_scalar_field_from_grid_3d")
         time_vector = registry.require("pde.time_vector_field_from_grid_3d")
+        continuity_history = registry.require("pde.continuity_residual_history_3d")
         hbar = REDUCED_PLANCK_CONSTANT.si_value
 
         def probability_flow(solution: SchrodingerSolution3D) -> QuantumProbabilityFlow3D:
@@ -128,6 +130,16 @@ class QuantumProbabilityCurrent3DDomain:
                 name=f"{flow.name}.fields",
             )
 
+        def continuity_diagnostics(flow: QuantumProbabilityFlow3D, *, boundary="fixed"):
+            return continuity_history(
+                flow.grid,
+                flow.times,
+                flow.density_states,
+                flow.current_states,
+                boundary=boundary,
+                name=f"{flow.name}.continuity",
+            )
+
         registry.register_semantic_type(
             "physics.quantum.probability_flow3d",
             QuantumProbabilityFlow3D,
@@ -147,8 +159,15 @@ class QuantumProbabilityCurrent3DDomain:
         registry.provide(
             "physics.quantum.compute_probability_flow3d",
             probability_flow,
+            version=2,
         )
         registry.provide(
             "physics.quantum.probability_fields_from_flow3d",
             fields_from_flow,
+            version=2,
+        )
+        registry.provide(
+            "physics.quantum.continuity_diagnostics3d",
+            continuity_diagnostics,
+            version=2,
         )
