@@ -12,10 +12,8 @@ def test_blender_backend_constructs_without_importing_blender_runtime() -> None:
     assert "surface" in backend.capabilities.primitive_kinds
     assert "camera" in backend.capabilities.primitive_kinds
     assert "light" in backend.capabilities.primitive_kinds
-    # Dense batched primitives are intentionally withheld until the Blender
-    # adapter maps them to native instancing instead of exploding them to objects.
-    assert "point_cloud" not in backend.capabilities.primitive_kinds
-    assert "vector_glyph_set" not in backend.capabilities.primitive_kinds
+    assert "point_cloud" in backend.capabilities.primitive_kinds
+    assert "vector_glyph_set" in backend.capabilities.primitive_kinds
 
 
 def test_blender_dependency_is_required_only_when_backend_executes(monkeypatch: pytest.MonkeyPatch) -> None:
