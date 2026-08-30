@@ -60,3 +60,51 @@ class VectorField3D:
         if not isinstance(value, Vec3):
             raise TypeError("vector field evaluator must return Vec3")
         return value
+
+
+@dataclass(frozen=True, slots=True)
+class TimeDependentScalarField3D:
+    """Renderer-neutral scalar field f(position, time).
+
+    Time-dependent fields are mathematical semantics, not animation objects.
+    Physics/PDE domains may snapshot them into ordinary ScalarField3D values or
+    compile several snapshots into a Spectra Timeline.
+    """
+
+    evaluator: Callable[[Vec3, float], float]
+    name: str = "time_scalar_field"
+    output_unit: Unit | None = None
+
+    def evaluate(self, position: Vec3, time: float) -> float:
+        return float(self.evaluator(position, float(time)))
+
+    def at_time(self, time: float) -> ScalarField3D:
+        sampled_time = float(time)
+        return ScalarField3D(
+            evaluator=lambda position: self.evaluate(position, sampled_time),
+            name=f"{self.name}@{sampled_time:g}",
+            output_unit=self.output_unit,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class TimeDependentVectorField3D:
+    """Renderer-neutral vector field F(position, time)."""
+
+    evaluator: Callable[[Vec3, float], Vec3]
+    name: str = "time_vector_field"
+    output_unit: Unit | None = None
+
+    def evaluate(self, position: Vec3, time: float) -> Vec3:
+        value = self.evaluator(position, float(time))
+        if not isinstance(value, Vec3):
+            raise TypeError("time-dependent vector field evaluator must return Vec3")
+        return value
+
+    def at_time(self, time: float) -> VectorField3D:
+        sampled_time = float(time)
+        return VectorField3D(
+            evaluator=lambda position: self.evaluate(position, sampled_time),
+            name=f"{self.name}@{sampled_time:g}",
+            output_unit=self.output_unit,
+        )
