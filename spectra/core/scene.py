@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .animation import Timeline, get_property_path, replace_property_path
+from .coordinates import CoordinateFrame3D, WORLD_FRAME
 from .primitives import Group, Primitive
 
 
@@ -10,6 +11,7 @@ from .primitives import Group, Primitive
 class Scene:
     primitives: tuple[Primitive, ...] = ()
     timeline: Timeline = Timeline()
+    frame: CoordinateFrame3D = WORLD_FRAME
 
     def __post_init__(self) -> None:
         ids = [primitive.id for primitive in self.primitives]
@@ -85,9 +87,6 @@ class Scene:
                         f"expected {type(current_value).__qualname__}, got {type(value).__qualname__}"
                     )
 
-                # Apply every keyframe value to a temporary immutable primitive so
-                # primitive/dataclass invariants (opacity, trim, scale, etc.) are
-                # validated before a backend ever sees the scene.
                 replace_property_path(primitive, track.property_path, value)
 
     def get(self, primitive_id: str) -> Primitive:
@@ -99,7 +98,9 @@ class Scene:
     def sample(self, time: float) -> "Scene":
         """Evaluate the engine-owned timeline into a static renderer-neutral Scene."""
         if not self.timeline.tracks:
-            return self
+            if self.timeline.duration == 0.0:
+                return self
+            return Scene(primitives=self.primitives, timeline=Timeline(), frame=self.frame)
 
         updates = self.timeline.evaluate(time)
         primitive_by_id = {primitive.id: primitive for primitive in self.primitives}
@@ -113,4 +114,5 @@ class Scene:
         return Scene(
             primitives=tuple(primitive_by_id[primitive.id] for primitive in self.primitives),
             timeline=Timeline(),
+            frame=self.frame,
         )
