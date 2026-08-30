@@ -3,11 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from spectra.core.types import Vec3
-from spectra.core.units import CHARGE, MASS, COULOMB_PER_CUBIC_METER if False else COULOMB, KILOGRAM, Quantity
-from spectra.domains.partial_differential_equations.deposition3d import PointSource3D
+from spectra.core.units import CHARGE, KILOGRAM_PER_CUBIC_METER, MASS, Quantity
 from spectra.domains.partial_differential_equations.domain3d import BoundaryMode3D, UniformGrid3D
 from spectra.domains.physics.electrostatic_potential3d import COULOMB_PER_CUBIC_METER
-from spectra.core.units import KILOGRAM_PER_CUBIC_METER
 from spectra.domains.registry import DomainDependency, DomainRegistry
 
 
