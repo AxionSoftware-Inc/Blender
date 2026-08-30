@@ -1,22 +1,34 @@
 from __future__ import annotations
 
-from spectra.domains.calculus import CalculusDomain
+from spectra.domains.calculus import (
+    CalculusDomain,
+    Jacobian3DDomain,
+    VectorCalculus2DDomain,
+)
 from spectra.domains.catalog import DomainCatalog, DomainDescriptor
 from spectra.domains.differential_equations import DifferentialEquationsDomain
 from spectra.domains.differential_geometry import DifferentialGeometryDomain, GeodesicsDomain
+from spectra.domains.field_dynamics import FieldDynamics2DDomain, FieldDynamicsDomain
 from spectra.domains.graph_theory import GraphTheoryDomain
 from spectra.domains.linear_algebra import LinearAlgebraDomain
 from spectra.domains.mathematics import MathematicsDomain
 from spectra.domains.partial_differential_equations import (
     ComplexPartialDifferentialEquationsDomain,
+    EllipticPDE2DDomain,
+    PDEOperators2DDomain,
     PartialDifferentialEquations2DDomain,
     PartialDifferentialEquationsDomain,
+    Transport2DDomain,
 )
 from spectra.domains.physics import (
     Diffusion2DDomain,
     DiffusionDomain,
+    ElasticityDomain,
     ElectromagnetismDomain,
+    FluidKinematics2DDomain,
+    FluidTransport2DDomain,
     GeneralRelativityDomain,
+    IncompressibleFlow2DDomain,
     MechanicsDomain,
     ParticleSystemsDomain,
     QuantumDomain,
@@ -50,6 +62,14 @@ def builtin_domain_catalog() -> DomainCatalog:
                     "mathematics.function2d",
                     "mathematics.parametric_curve3d",
                     "mathematics.parametric_surface3d",
+                    "mathematics.scalar_field2d",
+                    "mathematics.vector_field2d",
+                    "mathematics.time_scalar_field2d",
+                    "mathematics.time_vector_field2d",
+                    "mathematics.vector_field_view2d",
+                    "mathematics.time_vector_field_animation2d",
+                    "mathematics.scalar_field_height_view2d",
+                    "mathematics.time_scalar_field_height_animation2d",
                     "mathematics.scalar_field3d",
                     "mathematics.vector_field3d",
                     "mathematics.time_scalar_field3d",
@@ -60,7 +80,7 @@ def builtin_domain_catalog() -> DomainCatalog:
                     "mathematics.scalar_field_surface_view2d",
                     "mathematics.time_scalar_field_surface_animation2d",
                 ),
-                tags=("math", "foundation"),
+                tags=("math", "foundation", "fields"),
             ),
             DomainDescriptor(
                 name="calculus",
@@ -74,6 +94,22 @@ def builtin_domain_catalog() -> DomainCatalog:
                     "calculus.curl_at",
                 ),
                 tags=("math", "calculus", "vector-calculus"),
+            ),
+            DomainDescriptor(
+                name="calculus.vector2d",
+                factory=VectorCalculus2DDomain,
+                provides=(
+                    "calculus.gradient_at_2d",
+                    "calculus.divergence_at_2d",
+                    "calculus.scalar_curl_at_2d",
+                ),
+                tags=("math", "calculus", "vector-calculus", "2d"),
+            ),
+            DomainDescriptor(
+                name="calculus.jacobian3d",
+                factory=Jacobian3DDomain,
+                provides=("calculus.jacobian_at_3d",),
+                tags=("math", "calculus", "jacobian", "3d"),
             ),
             DomainDescriptor(
                 name="linear_algebra",
@@ -91,6 +127,7 @@ def builtin_domain_catalog() -> DomainCatalog:
                     "linear_algebra.normalize_complex",
                     "linear_algebra.matrix_vector_product",
                     "linear_algebra.complex_matrix_vector_product",
+                    "linear_algebra.transpose",
                     "linear_algebra.conjugate_transpose",
                     "linear_algebra.is_hermitian",
                     "linear_algebra.complex_quadratic_form",
@@ -183,6 +220,28 @@ def builtin_domain_catalog() -> DomainCatalog:
                 tags=("math", "ode", "solver"),
             ),
             DomainDescriptor(
+                name="field_dynamics",
+                factory=FieldDynamicsDomain,
+                provides=(
+                    "field_dynamics.integral_curve_problem3d",
+                    "field_dynamics.pathline_problem3d",
+                    "field_dynamics.solve_integral_curve",
+                    "field_dynamics.solve_pathline",
+                ),
+                tags=("math", "fields", "ode", "integral-curves"),
+            ),
+            DomainDescriptor(
+                name="field_dynamics.2d",
+                factory=FieldDynamics2DDomain,
+                provides=(
+                    "field_dynamics.integral_curve_problem2d",
+                    "field_dynamics.pathline_problem2d",
+                    "field_dynamics.solve_integral_curve_2d",
+                    "field_dynamics.solve_pathline_2d",
+                ),
+                tags=("math", "fields", "ode", "integral-curves", "2d"),
+            ),
+            DomainDescriptor(
                 name="partial_differential_equations",
                 factory=PartialDifferentialEquationsDomain,
                 provides=(
@@ -201,6 +260,35 @@ def builtin_domain_catalog() -> DomainCatalog:
                     "pde.solve_method_of_lines_2d",
                 ),
                 tags=("math", "pde", "2d", "solver"),
+            ),
+            DomainDescriptor(
+                name="partial_differential_equations.operators2d",
+                factory=PDEOperators2DDomain,
+                provides=(
+                    "pde.gradient_grid_2d",
+                    "pde.divergence_grid_2d",
+                    "pde.vector_upwind_advection_grid_2d",
+                ),
+                tags=("math", "pde", "operators", "2d"),
+            ),
+            DomainDescriptor(
+                name="partial_differential_equations.elliptic2d",
+                factory=EllipticPDE2DDomain,
+                provides=(
+                    "pde.poisson_problem2d",
+                    "pde.solve_poisson_2d",
+                ),
+                tags=("math", "pde", "elliptic", "poisson", "2d"),
+            ),
+            DomainDescriptor(
+                name="partial_differential_equations.transport2d",
+                factory=Transport2DDomain,
+                provides=(
+                    "pde.transport2d.problem",
+                    "pde.transport2d.upwind_advection",
+                    "pde.transport2d.solve",
+                ),
+                tags=("math", "pde", "transport", "advection", "diffusion", "2d"),
             ),
             DomainDescriptor(
                 name="partial_differential_equations.complex",
@@ -257,6 +345,55 @@ def builtin_domain_catalog() -> DomainCatalog:
                     "physics.diffusion.solve2d",
                 ),
                 tags=("physics", "diffusion", "pde", "2d"),
+            ),
+            DomainDescriptor(
+                name="physics.fluid_kinematics.2d",
+                factory=FluidKinematics2DDomain,
+                provides=(
+                    "physics.fluid.steady_flow2d",
+                    "physics.fluid.unsteady_flow2d",
+                    "physics.fluid.speed_at",
+                    "physics.fluid.divergence_at",
+                    "physics.fluid.vorticity_at",
+                    "physics.fluid.is_locally_incompressible",
+                    "physics.fluid.speed_field",
+                    "physics.fluid.divergence_field",
+                    "physics.fluid.vorticity_field",
+                    "physics.fluid.streamline_problem",
+                    "physics.fluid.pathline_problem",
+                ),
+                tags=("physics", "fluid", "kinematics", "fields", "2d"),
+            ),
+            DomainDescriptor(
+                name="physics.fluid_transport.2d",
+                factory=FluidTransport2DDomain,
+                provides=(
+                    "physics.fluid.passive_scalar_problem2d",
+                    "physics.fluid.solve_passive_scalar2d",
+                ),
+                tags=("physics", "fluid", "transport", "2d"),
+            ),
+            DomainDescriptor(
+                name="physics.incompressible_flow.2d",
+                factory=IncompressibleFlow2DDomain,
+                provides=(
+                    "physics.incompressible_flow.problem2d",
+                    "physics.incompressible_flow.simulate2d",
+                ),
+                tags=("physics", "fluid", "navier-stokes", "incompressible", "2d"),
+            ),
+            DomainDescriptor(
+                name="physics.elasticity",
+                factory=ElasticityDomain,
+                provides=(
+                    "physics.elasticity.material",
+                    "physics.elasticity.small_strain_at",
+                    "physics.elasticity.stress_from_strain",
+                    "physics.elasticity.stress_from_displacement",
+                    "physics.elasticity.traction_at",
+                    "physics.elasticity.von_mises_stress",
+                ),
+                tags=("physics", "solid-mechanics", "elasticity", "tensor"),
             ),
             DomainDescriptor(
                 name="electromagnetism",
