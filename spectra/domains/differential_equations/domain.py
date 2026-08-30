@@ -4,10 +4,26 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from spectra.domains.registry import DomainRegistry
+from spectra.numerics import (
+    NumericalMethodDescriptor,
+    TrackedNumericalResult,
+    fixed_step_record,
+)
 
 
 State = tuple[float, ...]
 DerivativeFunction = Callable[[float, State], State]
+
+
+RK4_METHOD = NumericalMethodDescriptor(
+    method_id="rk4.fixed",
+    family="explicit-runge-kutta",
+    implementation="spectra.reference.rk4",
+    order=4,
+    adaptive=False,
+    reference_implementation=True,
+    notes=("deterministic fixed-step reference solver",),
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,9 +93,29 @@ def solve_rk4(system: FirstOrderSystem, *, end_time: float, steps: int = 256) ->
     return ODESolution(tuple(times), tuple(states))
 
 
+def solve_rk4_tracked(
+    system: FirstOrderSystem,
+    *,
+    end_time: float,
+    steps: int = 256,
+) -> TrackedNumericalResult[ODESolution]:
+    solution = solve_rk4(system, end_time=end_time, steps=steps)
+    return TrackedNumericalResult(
+        result=solution,
+        run=fixed_step_record(
+            RK4_METHOD,
+            start_time=system.initial_time,
+            end_time=end_time,
+            steps=steps,
+            state_size=len(system.initial_state),
+            tags=(("system", system.name),),
+        ),
+    )
+
+
 class DifferentialEquationsDomain:
     name = "differential_equations"
-    version = "1"
+    version = "2"
     dependencies = ()
 
     def register(self, registry: DomainRegistry) -> None:
@@ -87,3 +123,5 @@ class DifferentialEquationsDomain:
         registry.register_semantic_type("ode.solution", ODESolution)
         registry.provide("ode.first_order_system", FirstOrderSystem)
         registry.provide("ode.solve_rk4", solve_rk4)
+        registry.provide("ode.solve_rk4.method", RK4_METHOD)
+        registry.provide("ode.solve_rk4.tracked", solve_rk4_tracked)
