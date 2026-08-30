@@ -1,3 +1,9 @@
+from spectra.domains.field_dynamics.bundles3d import (
+    IntegralCurveBundleProblem3D,
+    IntegralCurveBundleSolution3D,
+    IntegralCurveBundles3DDomain,
+    compile_integral_curve_bundle_scene,
+)
 from spectra.domains.field_dynamics.domain import (
     CurveSolution3D,
     FieldDynamicsDomain,
@@ -18,10 +24,14 @@ __all__ = [
     "CurveSolution3D",
     "FieldDynamics2DDomain",
     "FieldDynamicsDomain",
+    "IntegralCurveBundleProblem3D",
+    "IntegralCurveBundleSolution3D",
+    "IntegralCurveBundles3DDomain",
     "IntegralCurveProblem2D",
     "IntegralCurveProblem3D",
     "PathlineProblem2D",
     "PathlineProblem3D",
     "compile_curve_solution_2d_scene",
     "compile_curve_solution_scene",
+    "compile_integral_curve_bundle_scene",
 ]
