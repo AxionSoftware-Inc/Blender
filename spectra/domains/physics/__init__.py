@@ -23,6 +23,13 @@ from spectra.domains.physics.quantum_spatial import (
     SpatialWavefunction1D,
     compile_spatial_wavefunction_scene,
 )
+from spectra.domains.physics.schrodinger import (
+    SchrodingerDomain,
+    SchrodingerProblem1D,
+    SchrodingerSolution1D,
+    normalize_wavefunction_samples,
+    probability_mass_1d,
+)
 from spectra.domains.physics.waves import (
     HarmonicWave1D,
     WaveAnimation1D,
@@ -54,6 +61,11 @@ __all__ = [
     "SpatialQuantumDomain",
     "SpatialWavefunction1D",
     "compile_spatial_wavefunction_scene",
+    "SchrodingerDomain",
+    "SchrodingerProblem1D",
+    "SchrodingerSolution1D",
+    "normalize_wavefunction_samples",
+    "probability_mass_1d",
     "HarmonicWave1D",
     "WaveAnimation1D",
     "WaveProfile1D",
