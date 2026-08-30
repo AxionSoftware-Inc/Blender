@@ -145,6 +145,11 @@ from spectra.domains.partial_differential_equations.transport3d import (
     Transport3DDomain,
     upwind_advection_3d,
 )
+from spectra.domains.partial_differential_equations.vector_second_order3d import (
+    SecondOrderVectorPDE3DDomain,
+    SecondOrderVectorPDEProblem3D,
+    SecondOrderVectorPDESolution3D,
+)
 from spectra.domains.partial_differential_equations.visualization import (
     compile_scalar_pde_solution_scene,
 )
@@ -207,6 +212,9 @@ __all__ = [
     "SecondOrderScalarPDEProblem3D",
     "SecondOrderScalarPDESolution2D",
     "SecondOrderScalarPDESolution3D",
+    "SecondOrderVectorPDE3DDomain",
+    "SecondOrderVectorPDEProblem3D",
+    "SecondOrderVectorPDESolution3D",
     "SourceDeposition3DDomain",
     "Stability2DDomain",
     "Stability3DDomain",
