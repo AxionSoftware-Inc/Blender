@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
+from .transforms import Transform3D
 from .types import Color, Vec3
 
 
@@ -14,6 +15,12 @@ class Primitive:
     id: str
     kind: PrimitiveKind
     visible: bool = True
+    opacity: float = 1.0
+    transform: Transform3D = Transform3D()
+
+    def __post_init__(self) -> None:
+        if not 0.0 <= self.opacity <= 1.0:
+            raise ValueError("Primitive opacity must be within [0, 1]")
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,11 +37,18 @@ class Polyline(Primitive):
     width: float = 0.02
     color: Color = Color(1.0, 1.0, 1.0, 1.0)
     closed: bool = False
+    trim_start: float = 0.0
+    trim_end: float = 1.0
     kind: PrimitiveKind = field(default="polyline", init=False)
 
     def __post_init__(self) -> None:
+        super().__post_init__()
         if len(self.points) < 2:
             raise ValueError("Polyline requires at least two points")
+        if not 0.0 <= self.trim_start <= 1.0 or not 0.0 <= self.trim_end <= 1.0:
+            raise ValueError("Polyline trim values must be within [0, 1]")
+        if self.trim_start > self.trim_end:
+            raise ValueError("Polyline trim_start cannot exceed trim_end")
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,6 +61,7 @@ class Surface(Primitive):
     kind: PrimitiveKind = field(default="surface", init=False)
 
     def __post_init__(self) -> None:
+        super().__post_init__()
         if len(self.vertices) < 3:
             raise ValueError("Surface requires at least three vertices")
         if not self.triangles:
@@ -66,6 +81,7 @@ class Region(Primitive):
     kind: PrimitiveKind = field(default="region", init=False)
 
     def __post_init__(self) -> None:
+        super().__post_init__()
         if len(self.boundary) < 3:
             raise ValueError("Region requires at least three boundary points")
 
