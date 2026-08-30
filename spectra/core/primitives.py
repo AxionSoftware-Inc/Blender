@@ -19,8 +19,10 @@ PrimitiveKind = Literal[
     "text",
     "group",
     "camera",
+    "light",
 ]
 CameraProjection = Literal["perspective", "orthographic"]
+LightType = Literal["ambient", "directional", "point", "spot"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,10 +32,15 @@ class Primitive:
     visible: bool = True
     opacity: float = 1.0
     transform: Transform3D = Transform3D()
+    material_id: str | None = None
 
     def __post_init__(self) -> None:
+        if not self.id:
+            raise ValueError("Primitive id cannot be empty")
         if not 0.0 <= self.opacity <= 1.0:
             raise ValueError("Primitive opacity must be within [0, 1]")
+        if self.material_id == "":
+            raise ValueError("Primitive material_id cannot be empty")
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,6 +49,11 @@ class Point(Primitive):
     radius: float = 0.05
     color: Color = Color(1.0, 1.0, 1.0, 1.0)
     kind: PrimitiveKind = field(default="point", init=False)
+
+    def __post_init__(self) -> None:
+        Primitive.__post_init__(self)
+        if self.radius < 0.0:
+            raise ValueError("Point radius cannot be negative")
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,6 +100,8 @@ class Polyline(Primitive):
         Primitive.__post_init__(self)
         if len(self.points) < 2:
             raise ValueError("Polyline requires at least two points")
+        if self.width < 0.0:
+            raise ValueError("Polyline width cannot be negative")
         if not 0.0 <= self.trim_start <= 1.0 or not 0.0 <= self.trim_end <= 1.0:
             raise ValueError("Polyline trim values must be within [0, 1]")
         if self.trim_start > self.trim_end:
@@ -131,11 +145,7 @@ class Region(Primitive):
 
 @dataclass(frozen=True, slots=True)
 class VectorGlyph(Primitive):
-    """Single vector arrow primitive.
-
-    Kept for small scenes and direct annotations. Dense fields should prefer
-    VectorGlyphSet so backends can use GPU/native instancing efficiently.
-    """
+    """Single vector arrow primitive."""
 
     origin: Vec3 = Vec3(0.0, 0.0, 0.0)
     vector: Vec3 = Vec3(1.0, 0.0, 0.0)
@@ -175,6 +185,11 @@ class TextLabel(Primitive):
     color: Color = Color(1.0, 1.0, 1.0, 1.0)
     kind: PrimitiveKind = field(default="text", init=False)
 
+    def __post_init__(self) -> None:
+        Primitive.__post_init__(self)
+        if self.size < 0.0:
+            raise ValueError("TextLabel size cannot be negative")
+
 
 @dataclass(frozen=True, slots=True)
 class Group(Primitive):
@@ -186,8 +201,7 @@ class Group(Primitive):
 class Camera(Primitive):
     """Renderer-independent camera node.
 
-    Convention: camera local -Z is forward and local +Y is up. Backends map this
-    to their native camera convention.
+    Convention: camera local -Z is forward and local +Y is up.
     """
 
     projection: CameraProjection = "perspective"
@@ -207,3 +221,31 @@ class Camera(Primitive):
             raise ValueError("camera orthographic_scale must be positive")
         if self.near_clip <= 0.0 or self.far_clip <= self.near_clip:
             raise ValueError("camera clipping range is invalid")
+
+
+@dataclass(frozen=True, slots=True)
+class Light(Primitive):
+    """Renderer-independent lighting intent.
+
+    Directional and spot lights point along local -Z, matching Camera forward.
+    Intensity is intentionally backend-neutral rather than claiming a physical
+    photometric unit that every renderer would interpret differently.
+    """
+
+    light_type: LightType = "directional"
+    color: Color = Color(1.0, 1.0, 1.0, 1.0)
+    intensity: float = 1.0
+    range: float = 10.0
+    spot_angle_radians: float = math.radians(45.0)
+    kind: PrimitiveKind = field(default="light", init=False)
+
+    def __post_init__(self) -> None:
+        Primitive.__post_init__(self)
+        if self.light_type not in ("ambient", "directional", "point", "spot"):
+            raise ValueError(f"unknown light type: {self.light_type}")
+        if self.intensity < 0.0 or not math.isfinite(self.intensity):
+            raise ValueError("Light intensity must be finite and non-negative")
+        if self.range <= 0.0 or not math.isfinite(self.range):
+            raise ValueError("Light range must be finite and positive")
+        if not 0.0 < self.spot_angle_radians < math.pi:
+            raise ValueError("Light spot_angle_radians must lie within (0, pi)")
