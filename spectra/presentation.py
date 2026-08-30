@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from spectra.core.animation import Timeline, Track, draw_track, fade_track
-from spectra.core.primitives import Group, Polyline
+from spectra.core.primitives import Camera, Group, Polyline
 from spectra.core.scene import Scene
 
 
@@ -28,8 +28,8 @@ def staggered_reveal(
     """Apply a renderer-neutral reveal animation to an existing Scene.
 
     Polylines are drawn through trim animation; other visual primitives fade in.
-    Domain semantics remain untouched, so the same presentation operation works
-    for functions, graphs, probability plots, physics fields, and future modules.
+    Cameras are presentation controls rather than visible scene content and are
+    never included in automatic reveal effects.
     """
     if start_time < 0.0:
         raise ValueError("start_time cannot be negative")
@@ -42,6 +42,8 @@ def staggered_reveal(
     end_time = scene.timeline.duration
     reveal_index = 0
     for primitive in scene.primitives:
+        if isinstance(primitive, Camera):
+            continue
         if isinstance(primitive, Group) and not include_groups:
             continue
         item_start = start_time + reveal_index * stagger
@@ -70,4 +72,6 @@ def staggered_reveal(
     return Scene(
         primitives=scene.primitives,
         timeline=merge_timelines(scene.timeline, reveal_timeline),
+        frame=scene.frame,
+        active_camera_id=scene.active_camera_id,
     )
