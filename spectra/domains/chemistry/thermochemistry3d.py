@@ -3,12 +3,18 @@ from __future__ import annotations
 from dataclasses import dataclass
 import math
 
-from spectra.core.units import ENERGY, AMOUNT, VOLUMETRIC_POWER, Quantity, WATT_PER_CUBIC_METER
-from spectra.domains.mathematics.fields import TimeDependentScalarField3D
+from spectra.core.units import (
+    AMOUNT,
+    ENERGY,
+    MOLAR_CONCENTRATION,
+    Quantity,
+    WATT_PER_CUBIC_METER,
+)
 from spectra.domains.chemistry.domain import ReactionNetwork
 from spectra.domains.chemistry.reaction_diffusion3d import ReactionDiffusionSolution3D
+from spectra.domains.mathematics.fields import TimeDependentScalarField3D
+from spectra.domains.partial_differential_equations.domain3d import BoundaryMode3D
 from spectra.domains.physics.heat_conduction3d import HeatConductionProblem3D, ThermalMaterial3D
-from spectra.domains.partial_differential_equations.domain3d import BoundaryMode3D, UniformGrid3D
 from spectra.domains.registry import DomainDependency, DomainRegistry
 
 
@@ -32,9 +38,8 @@ class ThermochemicalReactionSource3D:
         for field in self.concentration_fields:
             if field.output_unit is None:
                 raise ValueError("thermochemical concentration fields require explicit units")
-            expected = AMOUNT / (field.output_unit.dimension / (AMOUNT / (field.output_unit.dimension))) if False else None
-            if field.output_unit.dimension != (AMOUNT / (field.output_unit.dimension / AMOUNT)):
-                pass
+            if field.output_unit.dimension != MOLAR_CONCENTRATION:
+                raise ValueError("thermochemical concentration fields must use amount-per-volume units")
         if any(enthalpy.unit.dimension != MOLAR_ENERGY for enthalpy in self.reaction_enthalpies):
             raise ValueError("reaction enthalpy must use energy-per-amount units")
         if not self.name:
@@ -78,20 +83,17 @@ class Thermochemistry3DDomain:
             enthalpies_si = tuple(value.si_value for value in source.reaction_enthalpies)
 
             def evaluate(position, time: float) -> float:
-                concentrations = []
-                for field in source.concentration_fields:
-                    value = field.evaluate(position, time)
-                    if field.output_unit is not None:
-                        value = field.output_unit.to_si(value)
-                    concentrations.append(value)
-                concentration_tuple = tuple(concentrations)
+                concentrations = tuple(
+                    field.output_unit.to_si(field.evaluate(position, time))
+                    for field in source.concentration_fields
+                )
                 heat_rate = 0.0
                 for reaction, enthalpy_si in zip(
                     source.network.reactions,
                     enthalpies_si,
                     strict=True,
                 ):
-                    progress_rate = reaction.rate(time, concentration_tuple)
+                    progress_rate = reaction.rate(time, concentrations)
                     heat_rate -= enthalpy_si * progress_rate
                 if not math.isfinite(heat_rate):
                     raise ValueError("thermochemical heat source became non-finite")
