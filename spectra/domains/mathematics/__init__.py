@@ -13,17 +13,28 @@ from spectra.domains.mathematics.fields import (
     TimeDependentVectorField3D,
     VectorField3D,
 )
-from spectra.domains.mathematics.functions import Function1D, Function2D, Interval, RectDomain2D
+from spectra.domains.mathematics.functions import (
+    CallableFunction1D,
+    ComplexFunction1D,
+    Function1D,
+    Function2D,
+    Interval,
+    RealFunction1D,
+    RectDomain2D,
+)
 from spectra.domains.mathematics.parametric import ParametricCurve3D, ParametricSurface3D
 
 __all__ = [
     "AxisSample",
+    "CallableFunction1D",
+    "ComplexFunction1D",
     "Function1D",
     "Function2D",
     "Interval",
     "MathematicsDomain",
     "ParametricCurve3D",
     "ParametricSurface3D",
+    "RealFunction1D",
     "RectDomain2D",
     "RegularGrid3D",
     "ScalarField3D",
