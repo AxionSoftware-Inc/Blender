@@ -39,6 +39,9 @@ from spectra.domains.partial_differential_equations import (
     Transport2DDomain,
     Transport3DDomain,
 )
+from spectra.domains.partial_differential_equations.vector_second_order3d import (
+    SecondOrderVectorPDE3DDomain,
+)
 from spectra.domains.physics import (
     Acoustics3DDomain,
     Diffusion2DDomain,
@@ -81,6 +84,11 @@ from spectra.domains.physics import (
     WaveEquation3DDomain,
     WavesDomain,
 )
+from spectra.domains.physics.elastodynamics3d import Elastodynamics3DDomain
+from spectra.domains.physics.elastodynamics_diagnostics3d import (
+    ElastodynamicsDiagnostics3DDomain,
+)
+from spectra.domains.physics.elastodynamics_views3d import ElastodynamicsViews3DDomain
 from spectra.domains.potential_fields import PotentialFields3DDomain, PotentialFieldViews3DDomain
 from spectra.domains.probability import ContinuousProbabilityDomain, ProbabilityDomain
 from spectra.domains.statistics import StatisticsDomain
@@ -127,6 +135,7 @@ BUILTIN_DOMAIN_FACTORIES = (
     Transport3DDomain,
     SecondOrderPDE2DDomain,
     SecondOrderPDE3DDomain,
+    SecondOrderVectorPDE3DDomain,
     ComplexPartialDifferentialEquationsDomain,
     ComplexPDE2DDomain,
     ComplexPDE3DDomain,
@@ -158,6 +167,9 @@ BUILTIN_DOMAIN_FACTORIES = (
     ElasticityDomain,
     ElasticityFieldsDomain,
     PrincipalStressDomain,
+    Elastodynamics3DDomain,
+    ElastodynamicsViews3DDomain,
+    ElastodynamicsDiagnostics3DDomain,
     ElectromagnetismDomain,
     ElectrostaticPotential2DDomain,
     ElectrostaticPotential3DDomain,
@@ -197,6 +209,7 @@ BUILTIN_DOMAIN_TAGS = {
     "partial_differential_equations.stability3d": ("math", "pde", "stability", "3d"),
     "partial_differential_equations.transport3d": ("math", "pde", "transport", "3d"),
     "partial_differential_equations.second_order3d": ("math", "pde", "second-order", "3d"),
+    "partial_differential_equations.second_order_vector3d": ("math", "pde", "vector", "second-order", "3d"),
     "partial_differential_equations.complex3d": ("math", "pde", "complex", "3d"),
     "partial_differential_equations.complex_views3d": ("math", "pde", "complex", "visualization", "3d"),
     "physics.potential_fields.3d": ("physics", "fields", "potential", "3d"),
@@ -212,6 +225,9 @@ BUILTIN_DOMAIN_TAGS = {
     "physics.fluid_diagnostics.3d": ("physics", "fluid", "diagnostics", "3d"),
     "physics.fluid_invariants.3d": ("physics", "fluid", "invariants", "3d"),
     "physics.elasticity": ("physics", "solid-mechanics", "elasticity"),
+    "physics.elastodynamics.3d": ("physics", "solid-mechanics", "elasticity", "dynamics", "3d"),
+    "physics.elastodynamics.views3d": ("physics", "solid-mechanics", "visualization", "3d"),
+    "physics.elastodynamics.diagnostics3d": ("physics", "solid-mechanics", "diagnostics", "3d"),
     "electromagnetism": ("physics", "electromagnetism"),
     "physics.electrostatic_potential.3d": ("physics", "electromagnetism", "potential", "3d"),
     "physics.gravitational_potential.3d": ("physics", "gravity", "potential", "3d"),
