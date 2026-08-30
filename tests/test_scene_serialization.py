@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from spectra.core.animation import Keyframe, Timeline, Track
-from spectra.core.primitives import Group, Point, Polyline, Surface
+from spectra.core.coordinates import CoordinateFrame3D
+from spectra.core.primitives import Camera, Group, Point, Polyline, Surface
 from spectra.core.scene import Scene
 from spectra.core.serialization import scene_from_json, scene_to_json
 from spectra.core.transforms import Quaternion, Transform3D
@@ -9,6 +10,15 @@ from spectra.core.types import Color, Vec3
 
 
 def test_scene_round_trips_through_versioned_json() -> None:
+    camera = Camera(
+        id="camera.main",
+        transform=Transform3D.look_at(
+            Vec3(5.0, -5.0, 4.0),
+            Vec3(0.0, 0.0, 0.0),
+            up=Vec3(0.0, 0.0, 1.0),
+        ),
+        fov_y_radians=0.9,
+    )
     scene = Scene(
         primitives=(
             Point(
@@ -38,6 +48,7 @@ def test_scene_round_trips_through_versioned_json() -> None:
                 triangles=((0, 1, 2),),
             ),
             Group(id="all", children=("probe", "curve", "triangle")),
+            camera,
         ),
         timeline=Timeline(
             duration=2.0,
@@ -52,15 +63,24 @@ def test_scene_round_trips_through_versioned_json() -> None:
                 ),
             ),
         ),
+        frame=CoordinateFrame3D(
+            origin=Vec3(10.0, 0.0, 0.0),
+            basis_x=Vec3(0.0, 1.0, 0.0),
+            basis_y=Vec3(1.0, 0.0, 0.0),
+            basis_z=Vec3(0.0, 0.0, -1.0),
+        ),
+        active_camera_id="camera.main",
     )
 
     payload = scene_to_json(scene)
     restored = scene_from_json(payload)
 
     assert restored == scene
+    assert restored.active_camera() == camera
     assert '"schema": "spectra.scene"' in payload
     assert '"version": 2' in payload
     assert '"interpolation": "smooth"' in payload
+    assert '"active_camera_id": "camera.main"' in payload
 
 
 def test_scene_v1_defaults_new_visual_fields() -> None:
@@ -86,3 +106,4 @@ def test_scene_v1_defaults_new_visual_fields() -> None:
     point = scene.get("p")
     assert point.opacity == 1.0
     assert point.transform == Transform3D()
+    assert scene.active_camera() is None
