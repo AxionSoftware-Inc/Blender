@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import math
 
-from spectra.core.units import FREQUENCY, HERTZ, PASCAL, PRESSURE, VELOCITY, Quantity
+from spectra.core.units import FREQUENCY, HERTZ, PASCAL, VELOCITY, Quantity, Unit
 from spectra.domains.partial_differential_equations.domain3d import BoundaryMode3D, UniformGrid3D
 from spectra.domains.physics.wave_equation3d import WaveEquationSolution3D
 from spectra.domains.registry import DomainDependency, DomainRegistry
@@ -46,7 +46,7 @@ class AcousticPressureProblem3D:
 @dataclass(frozen=True, slots=True)
 class AcousticPressureSolution3D:
     wave_solution: WaveEquationSolution3D
-    pressure_unit: object = PASCAL
+    pressure_unit: Unit = PASCAL
 
     @property
     def grid(self) -> UniformGrid3D:
