@@ -1,15 +1,26 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from collections.abc import Iterable
+from dataclasses import dataclass
+import math
 
 from spectra.core.types import Vec3
-from spectra.core.units import CHARGE, COULOMB, NEWTON_PER_COULOMB, Quantity
-from spectra.domains.mathematics.fields import VectorField3D
+from spectra.core.units import (
+    CHARGE,
+    COULOMB,
+    NEWTON_PER_COULOMB,
+    TESLA,
+    Quantity,
+)
+from spectra.domains.mathematics.fields import (
+    TimeDependentVectorField3D,
+    VectorField3D,
+)
 from spectra.domains.registry import DomainDependency, DomainRegistry
 
 
 COULOMB_CONSTANT = 8.9875517923e9
+SPEED_OF_LIGHT = 299_792_458.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,15 +66,105 @@ def electric_field_from_point_charges(
     )
 
 
+@dataclass(frozen=True, slots=True)
+class PlaneElectromagneticWave:
+    """Vacuum monochromatic plane wave expressed in SI units.
+
+    `electric_amplitude` is measured in N/C, `wavelength` and positions in
+    meters, and time in seconds. The propagation and polarization vectors are
+    normalized automatically and must be perpendicular.
+    """
+
+    electric_amplitude: float
+    wavelength: float
+    propagation_direction: Vec3
+    polarization: Vec3
+    phase: float = 0.0
+    speed: float = SPEED_OF_LIGHT
+    name: str = "em_plane_wave"
+
+    def __post_init__(self) -> None:
+        if not math.isfinite(self.electric_amplitude):
+            raise ValueError("electric amplitude must be finite")
+        if not math.isfinite(self.wavelength) or self.wavelength <= 0.0:
+            raise ValueError("wavelength must be finite and positive")
+        if not math.isfinite(self.speed) or self.speed <= 0.0:
+            raise ValueError("wave speed must be finite and positive")
+        if not math.isfinite(self.phase):
+            raise ValueError("wave phase must be finite")
+
+        propagation = self.propagation_direction.normalized()
+        polarization = self.polarization.normalized()
+        if abs(propagation.dot(polarization)) > 1e-9:
+            raise ValueError("EM polarization must be perpendicular to propagation")
+        object.__setattr__(self, "propagation_direction", propagation)
+        object.__setattr__(self, "polarization", polarization)
+
+    @property
+    def frequency(self) -> float:
+        return self.speed / self.wavelength
+
+    @property
+    def wave_number(self) -> float:
+        return 2.0 * math.pi / self.wavelength
+
+    @property
+    def angular_frequency(self) -> float:
+        return 2.0 * math.pi * self.frequency
+
+    @property
+    def magnetic_amplitude(self) -> float:
+        return self.electric_amplitude / self.speed
+
+    @property
+    def magnetic_direction(self) -> Vec3:
+        return self.propagation_direction.cross(self.polarization).normalized()
+
+    def phase_at(self, position: Vec3, time: float) -> float:
+        return (
+            self.wave_number * self.propagation_direction.dot(position)
+            - self.angular_frequency * float(time)
+            + self.phase
+        )
+
+    def electric_field(self) -> TimeDependentVectorField3D:
+        return TimeDependentVectorField3D(
+            evaluator=lambda position, time: self.polarization
+            * (self.electric_amplitude * math.cos(self.phase_at(position, time))),
+            name=f"{self.name}.E",
+            output_unit=NEWTON_PER_COULOMB,
+        )
+
+    def magnetic_field(self) -> TimeDependentVectorField3D:
+        direction = self.magnetic_direction
+        return TimeDependentVectorField3D(
+            evaluator=lambda position, time: direction
+            * (self.magnetic_amplitude * math.cos(self.phase_at(position, time))),
+            name=f"{self.name}.B",
+            output_unit=TESLA,
+        )
+
+
 class ElectromagnetismDomain:
     name = "electromagnetism"
     version = "1"
-    dependencies = (DomainDependency("mathematics.vector_field3d"),)
+    dependencies = (
+        DomainDependency("mathematics.vector_field3d"),
+        DomainDependency("mathematics.time_vector_field3d"),
+    )
 
     def register(self, registry: DomainRegistry) -> None:
         registry.register_semantic_type("physics.electromagnetism.point_charge", PointCharge)
+        registry.register_semantic_type(
+            "physics.electromagnetism.plane_wave",
+            PlaneElectromagneticWave,
+        )
         registry.provide("physics.electromagnetism.point_charge", PointCharge)
         registry.provide(
             "physics.electromagnetism.electric_field_from_point_charges",
             electric_field_from_point_charges,
+        )
+        registry.provide(
+            "physics.electromagnetism.plane_wave",
+            PlaneElectromagneticWave,
         )
