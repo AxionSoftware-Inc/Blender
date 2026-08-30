@@ -38,6 +38,28 @@ class Polyline(Primitive):
 
 
 @dataclass(frozen=True, slots=True)
+class Surface(Primitive):
+    """Renderer-independent indexed triangle surface."""
+
+    vertices: tuple[Vec3, ...] = ()
+    triangles: tuple[tuple[int, int, int], ...] = ()
+    color: Color = Color(0.8, 0.85, 1.0, 1.0)
+    kind: PrimitiveKind = field(default="surface", init=False)
+
+    def __post_init__(self) -> None:
+        if len(self.vertices) < 3:
+            raise ValueError("Surface requires at least three vertices")
+        if not self.triangles:
+            raise ValueError("Surface requires at least one triangle")
+        vertex_count = len(self.vertices)
+        for triangle in self.triangles:
+            if len(triangle) != 3:
+                raise ValueError("Surface triangle must contain exactly three indices")
+            if any(index < 0 or index >= vertex_count for index in triangle):
+                raise ValueError("Surface triangle index is out of range")
+
+
+@dataclass(frozen=True, slots=True)
 class Region(Primitive):
     boundary: tuple[Vec3, ...] = ()
     color: Color = Color(1.0, 1.0, 1.0, 0.25)
