@@ -10,6 +10,7 @@ from .types import Color, Vec3
 
 PrimitiveKind = Literal[
     "point",
+    "point_cloud",
     "polyline",
     "surface",
     "region",
@@ -41,6 +42,36 @@ class Point(Primitive):
     radius: float = 0.05
     color: Color = Color(1.0, 1.0, 1.0, 1.0)
     kind: PrimitiveKind = field(default="point", init=False)
+
+
+@dataclass(frozen=True, slots=True)
+class PointCloud(Primitive):
+    """Batched points/particles intended for native/GPU instancing."""
+
+    positions: tuple[Vec3, ...] = ()
+    radius: float = 0.05
+    color: Color = Color(1.0, 1.0, 1.0, 1.0)
+    radii: tuple[float, ...] = ()
+    colors: tuple[Color, ...] = ()
+    kind: PrimitiveKind = field(default="point_cloud", init=False)
+
+    def __post_init__(self) -> None:
+        Primitive.__post_init__(self)
+        if not self.positions:
+            raise ValueError("PointCloud requires at least one position")
+        if self.radius < 0.0:
+            raise ValueError("PointCloud default radius cannot be negative")
+        if self.radii:
+            if len(self.radii) != len(self.positions):
+                raise ValueError("PointCloud radii must match position count")
+            if any(radius < 0.0 for radius in self.radii):
+                raise ValueError("PointCloud radii cannot be negative")
+        if self.colors and len(self.colors) != len(self.positions):
+            raise ValueError("PointCloud colors must match position count")
+
+    @property
+    def instance_count(self) -> int:
+        return len(self.positions)
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,11 +145,7 @@ class VectorGlyph(Primitive):
 
 @dataclass(frozen=True, slots=True)
 class VectorGlyphSet(Primitive):
-    """Batched vector arrows intended for native/GPU instancing.
-
-    Origins and vectors are parallel arrays. A single default color keeps the
-    representation compact; optional per-instance colors may override it.
-    """
+    """Batched vector arrows intended for native/GPU instancing."""
 
     origins: tuple[Vec3, ...] = ()
     vectors: tuple[Vec3, ...] = ()
