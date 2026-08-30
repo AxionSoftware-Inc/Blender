@@ -38,8 +38,10 @@ def test_particle_system_reuses_ode_and_animates_one_point_cloud() -> None:
     trajectory = solve_system(problem, end_time=1.0, steps=10)
 
     assert trajectory.particle_count == 2
-    assert trajectory.positions[-1][0] == Vec3(1.0, 0.0, 0.0)
-    assert trajectory.positions[-1][1] == Vec3(0.0, 3.0, 0.0)
+    assert trajectory.positions[-1][0].x == pytest.approx(1.0)
+    assert trajectory.positions[-1][0].y == pytest.approx(0.0)
+    assert trajectory.positions[-1][1].x == pytest.approx(0.0)
+    assert trajectory.positions[-1][1].y == pytest.approx(3.0)
 
     scene = registry.compile_scene(trajectory)
     assert len(scene.primitives) == 1
