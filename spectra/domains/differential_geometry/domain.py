@@ -4,7 +4,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 import math
 
-from spectra.domains.linear_algebra import MatrixN, VectorN
+from spectra.domains.linear_algebra import MatrixN
 from spectra.domains.registry import DomainDependency, DomainRegistry
 from spectra.domains.tensor_algebra import Tensor
 
@@ -156,6 +156,13 @@ def raise_index(
     return Tensor.vector(raised, name="vector")
 
 
+def _validated_step(step: float, *, label: str) -> float:
+    value = float(step)
+    if not math.isfinite(value) or value <= 0.0:
+        raise ValueError(f"{label} step must be finite and positive")
+    return value
+
+
 def christoffel_symbols(
     metric: MetricTensorField,
     point: Iterable[float],
@@ -163,18 +170,12 @@ def christoffel_symbols(
     inverse_matrix: Callable[[MatrixN], MatrixN],
     step: float = 1e-5,
 ) -> Tensor:
-    """Numerical Levi-Civita connection coefficients Γ^i_jk.
-
-    The implementation is a deterministic reference behind a capability
-    boundary. Analytic/autodiff/native derivatives may replace it later.
-    """
+    """Numerical Levi-Civita connection coefficients Γ^i_jk."""
 
     coordinates = tuple(float(value) for value in point)
     if len(coordinates) != metric.dimension:
         raise ValueError("metric coordinate dimension mismatch")
-    h = float(step)
-    if not math.isfinite(h) or h <= 0.0:
-        raise ValueError("Christoffel derivative step must be finite and positive")
+    h = _validated_step(step, label="Christoffel derivative")
 
     dimension = metric.dimension
     inverse = inverse_matrix(metric_matrix(metric, coordinates))
@@ -217,9 +218,145 @@ def christoffel_symbols(
     )
 
 
+def riemann_curvature(
+    metric: MetricTensorField,
+    point: Iterable[float],
+    *,
+    inverse_matrix: Callable[[MatrixN], MatrixN],
+    step: float = 1e-4,
+) -> Tensor:
+    """Numerical Riemann tensor R^rho_{sigma mu nu}.
+
+    Convention:
+        R^ρ_{σμν} = ∂_μ Γ^ρ_{νσ} - ∂_ν Γ^ρ_{μσ}
+                    + Γ^ρ_{μλ} Γ^λ_{νσ} - Γ^ρ_{νλ} Γ^λ_{μσ}
+    """
+
+    coordinates = tuple(float(value) for value in point)
+    if len(coordinates) != metric.dimension:
+        raise ValueError("metric coordinate dimension mismatch")
+    h = _validated_step(step, label="Riemann derivative")
+    dimension = metric.dimension
+    gamma = christoffel_symbols(
+        metric,
+        coordinates,
+        inverse_matrix=inverse_matrix,
+        step=max(h * 0.25, 1e-7),
+    )
+
+    gamma_derivative: list[Tensor] = []
+    for axis in range(dimension):
+        plus = list(coordinates)
+        minus = list(coordinates)
+        plus[axis] += h
+        minus[axis] -= h
+        gamma_plus = christoffel_symbols(
+            metric,
+            tuple(plus),
+            inverse_matrix=inverse_matrix,
+            step=max(h * 0.25, 1e-7),
+        )
+        gamma_minus = christoffel_symbols(
+            metric,
+            tuple(minus),
+            inverse_matrix=inverse_matrix,
+            step=max(h * 0.25, 1e-7),
+        )
+        gamma_derivative.append(
+            Tensor(
+                gamma.shape,
+                tuple(
+                    (right - left) / (2.0 * h)
+                    for left, right in zip(
+                        gamma_minus.values,
+                        gamma_plus.values,
+                        strict=True,
+                    )
+                ),
+                name=f"d{axis}.{metric.name}.christoffel",
+            )
+        )
+
+    values: list[float] = []
+    for rho in range(dimension):
+        for sigma in range(dimension):
+            for mu in range(dimension):
+                for nu in range(dimension):
+                    value = (
+                        gamma_derivative[mu].at(rho, nu, sigma)
+                        - gamma_derivative[nu].at(rho, mu, sigma)
+                    )
+                    for lam in range(dimension):
+                        value += (
+                            gamma.at(rho, mu, lam) * gamma.at(lam, nu, sigma)
+                            - gamma.at(rho, nu, lam) * gamma.at(lam, mu, sigma)
+                        )
+                    values.append(value)
+
+    return Tensor(
+        (dimension, dimension, dimension, dimension),
+        tuple(values),
+        name=f"{metric.name}.riemann",
+    )
+
+
+def ricci_tensor(
+    metric: MetricTensorField,
+    point: Iterable[float],
+    *,
+    inverse_matrix: Callable[[MatrixN], MatrixN],
+    step: float = 1e-4,
+) -> Tensor:
+    """Ricci tensor R_{sigma nu} = R^rho_{sigma rho nu}."""
+
+    riemann = riemann_curvature(
+        metric,
+        point,
+        inverse_matrix=inverse_matrix,
+        step=step,
+    )
+    dimension = metric.dimension
+    values = tuple(
+        sum(riemann.at(rho, sigma, rho, nu) for rho in range(dimension))
+        for sigma in range(dimension)
+        for nu in range(dimension)
+    )
+    return Tensor(
+        (dimension, dimension),
+        values,
+        name=f"{metric.name}.ricci",
+    )
+
+
+def scalar_curvature(
+    metric: MetricTensorField,
+    point: Iterable[float],
+    *,
+    inverse_matrix: Callable[[MatrixN], MatrixN],
+    step: float = 1e-4,
+) -> float:
+    """Scalar curvature R = g^{mu nu} R_{mu nu}."""
+
+    coordinates = tuple(float(value) for value in point)
+    inverse = inverse_matrix(metric_matrix(metric, coordinates))
+    ricci = ricci_tensor(
+        metric,
+        coordinates,
+        inverse_matrix=inverse_matrix,
+        step=step,
+    )
+    return float(
+        sum(
+            inverse.values[row][column] * ricci.at(row, column)
+            for row in range(metric.dimension)
+            for column in range(metric.dimension)
+        )
+    )
+
+
 class DifferentialGeometryDomain:
     name = "differential_geometry"
-    version = "1"
+    version = "2"
     dependencies = (
         DomainDependency("tensor.tensor"),
         DomainDependency("linear_algebra.matrix"),
@@ -259,4 +396,34 @@ class DifferentialGeometryDomain:
                 inverse_matrix=inverse_matrix,
                 step=step,
             ),
+        )
+        registry.provide(
+            "geometry.riemann_curvature",
+            lambda metric, point, step=1e-4: riemann_curvature(
+                metric,
+                point,
+                inverse_matrix=inverse_matrix,
+                step=step,
+            ),
+            version=2,
+        )
+        registry.provide(
+            "geometry.ricci_tensor",
+            lambda metric, point, step=1e-4: ricci_tensor(
+                metric,
+                point,
+                inverse_matrix=inverse_matrix,
+                step=step,
+            ),
+            version=2,
+        )
+        registry.provide(
+            "geometry.scalar_curvature",
+            lambda metric, point, step=1e-4: scalar_curvature(
+                metric,
+                point,
+                inverse_matrix=inverse_matrix,
+                step=step,
+            ),
+            version=2,
         )
