@@ -5,6 +5,37 @@ from collections.abc import Callable
 from spectra.core.primitives import Polyline
 from spectra.core.scene import Scene
 from spectra.core.types import Color, Vec3
+from spectra.domains.mathematics.functions import Function1D
+
+
+def compile_function1d(
+    function: Function1D,
+    *,
+    samples: int = 128,
+    primitive_id: str = "function",
+    parameters: dict[str, float] | None = None,
+) -> Scene:
+    """Compile a semantic Function1D into a renderer-independent Scene."""
+    if samples < 2:
+        raise ValueError("samples must be >= 2")
+
+    parameters = parameters or {}
+    start = function.domain.start
+    step = function.domain.length / (samples - 1)
+    points = tuple(
+        Vec3(
+            x := start + step * index,
+            function.evaluate(x, **parameters),
+            0.0,
+        )
+        for index in range(samples)
+    )
+    curve = Polyline(
+        id=primitive_id,
+        points=points,
+        color=Color(0.95, 0.95, 1.0, 1.0),
+    )
+    return Scene(primitives=(curve,))
 
 
 def sample_function(
@@ -15,7 +46,11 @@ def sample_function(
     samples: int = 128,
     primitive_id: str = "function",
 ) -> Scene:
-    """First architecture proof: scientific function -> renderer-independent Scene."""
+    """Compatibility helper for raw callables during early migration.
+
+    New domain code should prefer Function1D + compile_function1d so that
+    scientific meaning exists before visualization compilation.
+    """
     if samples < 2:
         raise ValueError("samples must be >= 2")
     if x_max <= x_min:
