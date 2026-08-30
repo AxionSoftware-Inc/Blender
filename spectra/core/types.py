@@ -20,6 +20,19 @@ class Vec2:
 
     __rmul__ = __mul__
 
+    def dot(self, other: "Vec2") -> float:
+        return self.x * other.x + self.y * other.y
+
+    @property
+    def magnitude(self) -> float:
+        return math.sqrt(self.dot(self))
+
+    def normalized(self) -> "Vec2":
+        magnitude = self.magnitude
+        if magnitude == 0.0:
+            raise ValueError("zero vector cannot be normalized")
+        return self * (1.0 / magnitude)
+
 
 @dataclass(frozen=True, slots=True)
 class Vec3:
