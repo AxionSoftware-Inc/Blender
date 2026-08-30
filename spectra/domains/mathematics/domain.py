@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 from spectra.core.expressions import compile_expression
+from spectra.domains.mathematics.field_views import (
+    TimeVectorFieldAnimation3D,
+    VectorFieldView3D,
+)
 from spectra.domains.mathematics.fields import (
     RegularGrid3D,
     ScalarField3D,
@@ -22,6 +26,10 @@ class MathematicsDomain:
         # Import lazily so generic compilers can depend on mathematics semantic
         # types without making the domain module cyclic at import time.
         from spectra.compiler import compile_function1d, compile_function2d
+        from spectra.domains.mathematics.field_visualization import (
+            compile_time_vector_field_animation_scene,
+            compile_vector_field_view_scene,
+        )
         from spectra.domains.mathematics.visualization import (
             compile_parametric_curve_scene,
             compile_parametric_surface_scene,
@@ -44,6 +52,11 @@ class MathematicsDomain:
             TimeDependentVectorField3D,
         )
         registry.register_semantic_type("mathematics.regular_grid3d", RegularGrid3D)
+        registry.register_semantic_type("mathematics.vector_field_view3d", VectorFieldView3D)
+        registry.register_semantic_type(
+            "mathematics.time_vector_field_animation3d",
+            TimeVectorFieldAnimation3D,
+        )
 
         registry.provide("mathematics.compile_expression", compile_expression)
         registry.provide("mathematics.interval", Interval)
@@ -57,8 +70,18 @@ class MathematicsDomain:
         registry.provide("mathematics.time_scalar_field3d", TimeDependentScalarField3D)
         registry.provide("mathematics.time_vector_field3d", TimeDependentVectorField3D)
         registry.provide("mathematics.regular_grid3d", RegularGrid3D)
+        registry.provide("mathematics.vector_field_view3d", VectorFieldView3D)
+        registry.provide(
+            "mathematics.time_vector_field_animation3d",
+            TimeVectorFieldAnimation3D,
+        )
 
         registry.register_visualization(Function1D, compile_function1d)
         registry.register_visualization(Function2D, compile_function2d)
         registry.register_visualization(ParametricCurve3D, compile_parametric_curve_scene)
         registry.register_visualization(ParametricSurface3D, compile_parametric_surface_scene)
+        registry.register_visualization(VectorFieldView3D, compile_vector_field_view_scene)
+        registry.register_visualization(
+            TimeVectorFieldAnimation3D,
+            compile_time_vector_field_animation_scene,
+        )
