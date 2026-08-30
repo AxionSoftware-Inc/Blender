@@ -33,16 +33,46 @@ class DomainDescriptor:
 
 @dataclass
 class DomainCatalog:
-    """Find and load domain providers without hard-coding dependency order.
-
-    DomainRegistry remains the runtime authority. The catalog is only a product
-    layer discovery/index mechanism: it maps required capability names to domain
-    factories, computes a dependency closure, then delegates atomic registration
-    to DomainRegistry.
-    """
+    """Find and load domain providers without hard-coding dependency order."""
 
     descriptors: dict[str, DomainDescriptor] = field(default_factory=dict)
     providers: dict[str, str] = field(default_factory=dict)
+
+    @classmethod
+    def from_factories(
+        cls,
+        factories: Iterable[DomainFactory],
+        *,
+        tags: dict[str, tuple[str, ...]] | None = None,
+    ) -> "DomainCatalog":
+        """Build a catalog by probing actual domain registration contracts.
+
+        A private registry loads every supplied domain transactionally and records
+        which domain published each capability. This makes the runtime
+        `provide()` calls the source of truth and removes the need to duplicate
+        large hand-maintained capability manifests in a built-in catalog.
+        """
+
+        factory_list = tuple(factories)
+        instances = tuple(factory() for factory in factory_list)
+        names = tuple(domain.name for domain in instances)
+        if len(names) != len(set(names)):
+            raise ValueError("catalog factory list contains duplicate domain names")
+
+        probe = DomainRegistry()
+        probe.add_domains(instances)
+        tag_map = tags or {}
+        catalog = cls()
+        for factory, domain in zip(factory_list, instances, strict=True):
+            catalog.register(
+                DomainDescriptor(
+                    name=domain.name,
+                    factory=factory,
+                    provides=probe.provided_capabilities(domain.name),
+                    tags=tuple(tag_map.get(domain.name, ())),
+                )
+            )
+        return catalog
 
     def register(self, descriptor: DomainDescriptor) -> None:
         if descriptor.name in self.descriptors:
@@ -90,33 +120,36 @@ class DomainCatalog:
         """Compute required domain closure without mutating the registry."""
 
         planned: dict[str, "DomainModule"] = {}
-        visiting: set[str] = set()
+        visiting: list[str] = []
 
         def visit(name: str) -> None:
             if name in registry.domains or name in planned:
                 return
             if name in visiting:
-                cycle = " -> ".join((*visiting, name))
+                cycle_start = visiting.index(name)
+                cycle = " -> ".join((*visiting[cycle_start:], name))
                 raise DomainResolutionError(f"domain catalog dependency cycle: {cycle}")
 
             domain = self.instantiate(name)
-            visiting.add(name)
-            for dependency in tuple(getattr(domain, "dependencies", ())):
-                if dependency.optional:
-                    continue
-                if registry.has_capability(
-                    dependency.capability,
-                    min_version=dependency.min_version,
-                ):
-                    continue
-                provider_name = self.providers.get(dependency.capability)
-                if provider_name is None:
-                    raise DomainResolutionError(
-                        "domain catalog has no provider for required capability: "
-                        f"{dependency.capability} (required by {name})"
-                    )
-                visit(provider_name)
-            visiting.remove(name)
+            visiting.append(name)
+            try:
+                for dependency in tuple(getattr(domain, "dependencies", ())):
+                    if dependency.optional:
+                        continue
+                    if registry.has_capability(
+                        dependency.capability,
+                        min_version=dependency.min_version,
+                    ):
+                        continue
+                    provider_name = self.providers.get(dependency.capability)
+                    if provider_name is None:
+                        raise DomainResolutionError(
+                            "domain catalog has no provider for required capability: "
+                            f"{dependency.capability} (required by {name})"
+                        )
+                    visit(provider_name)
+            finally:
+                visiting.pop()
             planned[name] = domain
 
         for requested in requested_domains:
