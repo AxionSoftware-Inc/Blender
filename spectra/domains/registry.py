@@ -28,6 +28,15 @@ class DomainResolutionError(RuntimeError):
 
 
 @dataclass
+class _RegistrySnapshot:
+    domains: dict[str, "DomainModule"]
+    semantic_types: dict[str, type[Any]]
+    compilers: dict[str, Compiler]
+    capabilities: dict[str, Capability]
+    visualizations: VisualizationRegistry
+
+
+@dataclass
 class DomainRegistry:
     """Registry shared by independently-developed scientific domains.
 
@@ -43,26 +52,48 @@ class DomainRegistry:
     capabilities: dict[str, Capability] = field(default_factory=dict)
     visualizations: VisualizationRegistry = field(default_factory=VisualizationRegistry)
 
+    def _snapshot(self) -> _RegistrySnapshot:
+        return _RegistrySnapshot(
+            domains=dict(self.domains),
+            semantic_types=dict(self.semantic_types),
+            compilers=dict(self.compilers),
+            capabilities=dict(self.capabilities),
+            visualizations=self.visualizations.copy(),
+        )
+
+    def _restore(self, snapshot: _RegistrySnapshot) -> None:
+        self.domains.clear()
+        self.domains.update(snapshot.domains)
+        self.semantic_types.clear()
+        self.semantic_types.update(snapshot.semantic_types)
+        self.compilers.clear()
+        self.compilers.update(snapshot.compilers)
+        self.capabilities.clear()
+        self.capabilities.update(snapshot.capabilities)
+        self.visualizations = snapshot.visualizations
+
     def add_domain(self, domain: "DomainModule") -> None:
         if domain.name in self.domains:
             raise ValueError(f"domain already registered: {domain.name}")
 
         dependencies = tuple(getattr(domain, "dependencies", ()))
         self.resolve_dependencies(dependencies)
+        snapshot = self._snapshot()
 
-        self.domains[domain.name] = domain
         try:
+            self.domains[domain.name] = domain
             domain.register(self)
         except Exception:
-            self.domains.pop(domain.name, None)
+            self._restore(snapshot)
             raise
 
     def add_domains(self, domains: Iterable["DomainModule"]) -> None:
-        """Register a set of domains in dependency-resolved order.
+        """Register a set of domains in dependency-resolved, atomic order.
 
         Callers may supply domains in arbitrary order. Required capability
-        dependencies are resolved iteratively; unresolved cycles or missing
-        providers are reported with a compact diagnostic.
+        dependencies are resolved iteratively. If any domain cannot be loaded,
+        the entire batch is rolled back so the registry never exposes a partial
+        scientific plugin graph.
         """
         pending = list(domains)
         names = [domain.name for domain in pending]
@@ -73,39 +104,44 @@ class DomainRegistry:
             duplicate = sorted(already_registered)[0]
             raise ValueError(f"domain already registered: {duplicate}")
 
-        while pending:
-            progress = False
-            next_pending: list["DomainModule"] = []
+        snapshot = self._snapshot()
+        try:
+            while pending:
+                progress = False
+                next_pending: list["DomainModule"] = []
 
-            for domain in pending:
-                required = tuple(
-                    dependency.capability
-                    for dependency in getattr(domain, "dependencies", ())
-                    if not dependency.optional
+                for domain in pending:
+                    required = tuple(
+                        dependency.capability
+                        for dependency in getattr(domain, "dependencies", ())
+                        if not dependency.optional
+                    )
+                    if all(capability in self.capabilities for capability in required):
+                        self.add_domain(domain)
+                        progress = True
+                    else:
+                        next_pending.append(domain)
+
+                if progress:
+                    pending = next_pending
+                    continue
+
+                missing_by_domain = {
+                    domain.name: tuple(
+                        dependency.capability
+                        for dependency in getattr(domain, "dependencies", ())
+                        if not dependency.optional and dependency.capability not in self.capabilities
+                    )
+                    for domain in next_pending
+                }
+                detail = "; ".join(
+                    f"{name}: {', '.join(missing) if missing else 'unresolved dependency'}"
+                    for name, missing in sorted(missing_by_domain.items())
                 )
-                if all(capability in self.capabilities for capability in required):
-                    self.add_domain(domain)
-                    progress = True
-                else:
-                    next_pending.append(domain)
-
-            if progress:
-                pending = next_pending
-                continue
-
-            missing_by_domain = {
-                domain.name: tuple(
-                    dependency.capability
-                    for dependency in getattr(domain, "dependencies", ())
-                    if not dependency.optional and dependency.capability not in self.capabilities
-                )
-                for domain in next_pending
-            }
-            detail = "; ".join(
-                f"{name}: {', '.join(missing) if missing else 'unresolved dependency'}"
-                for name, missing in sorted(missing_by_domain.items())
-            )
-            raise DomainResolutionError(f"could not resolve domain dependencies: {detail}")
+                raise DomainResolutionError(f"could not resolve domain dependencies: {detail}")
+        except Exception:
+            self._restore(snapshot)
+            raise
 
     def register_semantic_type(self, key: str, semantic_type: type[Any]) -> None:
         if key in self.semantic_types:
