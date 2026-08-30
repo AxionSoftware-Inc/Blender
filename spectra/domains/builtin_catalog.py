@@ -4,10 +4,14 @@ from spectra.domains.calculus import CalculusDomain, Jacobian3DDomain, VectorCal
 from spectra.domains.catalog import DomainCatalog
 from spectra.domains.differential_equations import DifferentialEquationsDomain
 from spectra.domains.differential_geometry import DifferentialGeometryDomain, GeodesicsDomain
-from spectra.domains.field_dynamics import FieldDynamics2DDomain, FieldDynamicsDomain
+from spectra.domains.field_dynamics import (
+    FieldDynamics2DDomain,
+    FieldDynamicsDomain,
+    IntegralCurveBundles3DDomain,
+)
 from spectra.domains.graph_theory import GraphTheoryDomain
 from spectra.domains.linear_algebra import LinearAlgebraDomain, SymmetricEigensystemsDomain
-from spectra.domains.mathematics import MathematicsDomain
+from spectra.domains.mathematics import MathematicsDomain, MathematicsFieldSlices3DDomain
 from spectra.domains.partial_differential_equations import (
     ComplexPDE2DDomain,
     ComplexPartialDifferentialEquationsDomain,
@@ -34,6 +38,7 @@ from spectra.domains.physics import (
     ElasticityFieldsDomain,
     ElectromagnetismDomain,
     ElectrostaticPotential2DDomain,
+    ElectrostaticPotential3DDomain,
     FluidDiagnostics2DDomain,
     FluidInvariants2DDomain,
     FluidKinematics2DDomain,
@@ -62,6 +67,7 @@ from spectra.domains.tensor_fields import TensorFieldsDomain
 
 BUILTIN_DOMAIN_FACTORIES = (
     MathematicsDomain,
+    MathematicsFieldSlices3DDomain,
     CalculusDomain,
     VectorCalculus2DDomain,
     Jacobian3DDomain,
@@ -77,6 +83,7 @@ BUILTIN_DOMAIN_FACTORIES = (
     DifferentialEquationsDomain,
     FieldDynamicsDomain,
     FieldDynamics2DDomain,
+    IntegralCurveBundles3DDomain,
     PartialDifferentialEquationsDomain,
     PartialDifferentialEquations2DDomain,
     PartialDifferentialEquations3DDomain,
@@ -111,6 +118,7 @@ BUILTIN_DOMAIN_FACTORIES = (
     PrincipalStressDomain,
     ElectromagnetismDomain,
     ElectrostaticPotential2DDomain,
+    ElectrostaticPotential3DDomain,
     GravitationalPotential3DDomain,
     WavesDomain,
     WaveEquation2DDomain,
@@ -125,17 +133,21 @@ BUILTIN_DOMAIN_FACTORIES = (
 
 BUILTIN_DOMAIN_TAGS = {
     "mathematics": ("math", "foundation", "fields"),
+    "mathematics.field_slices3d": ("math", "fields", "visualization", "3d"),
     "linear_algebra": ("math", "linear-algebra"),
     "tensor_algebra": ("math", "tensor"),
     "tensor_fields": ("math", "tensor", "fields"),
     "differential_geometry": ("math", "geometry"),
     "differential_equations": ("math", "ode", "solver"),
+    "field_dynamics.bundles3d": ("math", "fields", "integral-curves", "3d"),
     "partial_differential_equations": ("math", "pde", "solver"),
     "partial_differential_equations.2d": ("math", "pde", "2d"),
     "partial_differential_equations.3d": ("math", "pde", "3d"),
     "physics.incompressible_flow.2d": ("physics", "fluid", "2d"),
     "physics.elasticity": ("physics", "solid-mechanics", "elasticity"),
     "electromagnetism": ("physics", "electromagnetism"),
+    "physics.electrostatic_potential.3d": ("physics", "electromagnetism", "potential", "3d"),
+    "physics.gravitational_potential.3d": ("physics", "gravity", "potential", "3d"),
     "physics.quantum": ("physics", "quantum"),
     "physics.relativity": ("physics", "relativity"),
 }
