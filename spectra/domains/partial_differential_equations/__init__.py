@@ -26,6 +26,11 @@ from spectra.domains.partial_differential_equations.elliptic2d import (
     PoissonProblem2D,
     PoissonSolution2D,
 )
+from spectra.domains.partial_differential_equations.field_adapters2d import (
+    PDEFieldAdapters2DDomain,
+    scalar_field_from_grid_2d,
+    vector_field_from_grid_2d,
+)
 from spectra.domains.partial_differential_equations.operators2d import (
     PDEOperators2DDomain,
     divergence_grid_2d,
@@ -54,6 +59,7 @@ __all__ = [
     "ComplexPDESolution1D",
     "ComplexPartialDifferentialEquationsDomain",
     "EllipticPDE2DDomain",
+    "PDEFieldAdapters2DDomain",
     "PDEOperators2DDomain",
     "PartialDifferentialEquations2DDomain",
     "PartialDifferentialEquationsDomain",
@@ -73,7 +79,9 @@ __all__ = [
     "divergence_grid_2d",
     "gradient_grid_2d",
     "laplacian_2d",
+    "scalar_field_from_grid_2d",
     "second_derivative_1d",
     "upwind_advection_2d",
+    "vector_field_from_grid_2d",
     "vector_upwind_advection_grid_2d",
 ]
