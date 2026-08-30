@@ -12,6 +12,7 @@ from spectra.backends import (
     validate_backend_compatibility,
 )
 from spectra.core.animation import Timeline, move_track
+from spectra.core.materials import Material
 from spectra.core.primitives import Point, Surface
 from spectra.core.scene import Scene
 from spectra.core.types import Vec3
@@ -66,3 +67,17 @@ def test_backend_capabilities_reject_unsupported_primitive_kind() -> None:
 
     with pytest.raises(BackendCompatibilityError, match="surface"):
         validate_backend_compatibility(scene, point_only)
+
+
+def test_backend_can_explicitly_reject_material_resources() -> None:
+    scene = Scene(
+        materials=(Material(id="scientific"),),
+        primitives=(Point(id="probe", material_id="scientific"),),
+    )
+    no_materials = BackendCapabilities(
+        frozenset({"point"}),
+        supports_materials=False,
+    )
+
+    with pytest.raises(BackendCompatibilityError, match="materials"):
+        validate_backend_compatibility(scene, no_materials)
