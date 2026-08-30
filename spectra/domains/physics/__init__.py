@@ -114,6 +114,16 @@ from spectra.domains.physics.gravitational_potential3d import (
     GravitationalPotentialProblem3D,
     GravitationalPotentialSolution3D,
 )
+from spectra.domains.physics.heat_conduction3d import (
+    HeatConduction3DDomain,
+    HeatConductionProblem3D,
+    HeatConductionSolution3D,
+    ThermalMaterial3D,
+)
+from spectra.domains.physics.heat_views3d import (
+    HeatConductionViews3DDomain,
+    TemperatureFields3D,
+)
 from spectra.domains.physics.incompressible_flow import (
     IncompressibleFlow2DDomain,
     IncompressibleFlowProblem2D,
@@ -184,6 +194,16 @@ from spectra.domains.physics.schrodinger3d import (
     Schrodinger3DDomain,
     SchrodingerProblem3D,
     SchrodingerSolution3D,
+)
+from spectra.domains.physics.thermoelasticity3d import (
+    ThermoelasticMaterial3D,
+    ThermoelasticStressSample3D,
+    Thermoelasticity3DDomain,
+)
+from spectra.domains.physics.thermoelastodynamics3d import (
+    Thermoelastodynamics3DDomain,
+    ThermoelastodynamicsProblem3D,
+    ThermoelastodynamicsSolution3D,
 )
 from spectra.domains.physics.vorticity_streamfunction import (
     VorticityStreamfunction2DDomain,
@@ -260,6 +280,10 @@ __all__ = [
     "GravitationalPotentialProblem3D",
     "GravitationalPotentialSolution3D",
     "HarmonicWave1D",
+    "HeatConduction3DDomain",
+    "HeatConductionProblem3D",
+    "HeatConductionSolution3D",
+    "HeatConductionViews3DDomain",
     "IncompressibleFlow2DDomain",
     "IncompressibleFlow3DDomain",
     "IncompressibleFlowFields2D",
@@ -317,6 +341,14 @@ __all__ = [
     "SteadyFlow3D",
     "StrainTensor3D",
     "StressTensor3D",
+    "TemperatureFields3D",
+    "ThermalMaterial3D",
+    "ThermoelasticMaterial3D",
+    "ThermoelasticStressSample3D",
+    "Thermoelasticity3DDomain",
+    "Thermoelastodynamics3DDomain",
+    "ThermoelastodynamicsProblem3D",
+    "ThermoelastodynamicsSolution3D",
     "Trajectory",
     "UnsteadyFlow2D",
     "UnsteadyFlow3D",
