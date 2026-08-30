@@ -83,14 +83,14 @@ class ElectrostaticPotentialSolution2D:
     def nearest_potential_field(self) -> ScalarField2D:
         return ScalarField2D(
             evaluator=lambda position: self.potential_volts[self._nearest_index(position)],
-            name=f"{self.name}.potential",
+            name=f"{self.name}.potential.nearest",
             output_unit=VOLT,
         )
 
     def nearest_electric_field(self) -> VectorField2D:
         return VectorField2D(
             evaluator=lambda position: self.electric_field_si[self._nearest_index(position)],
-            name=f"{self.name}.electric_field",
+            name=f"{self.name}.electric_field.nearest",
             output_unit=NEWTON_PER_COULOMB,
         )
 
@@ -99,19 +99,23 @@ class ElectrostaticPotential2DDomain:
     """Electrostatic potential composed from generic Poisson and grid-gradient capabilities."""
 
     name = "physics.electrostatic_potential.2d"
-    version = "1"
+    version = "2"
     dependencies = (
         DomainDependency("mathematics.scalar_field2d"),
         DomainDependency("mathematics.vector_field2d"),
         DomainDependency("pde.poisson_problem2d"),
         DomainDependency("pde.solve_poisson_2d"),
         DomainDependency("pde.gradient_grid_2d"),
+        DomainDependency("pde.scalar_field_from_grid_2d"),
+        DomainDependency("pde.vector_field_from_grid_2d"),
     )
 
     def register(self, registry: DomainRegistry) -> None:
         poisson_problem_type = registry.require("pde.poisson_problem2d")
         solve_poisson = registry.require("pde.solve_poisson_2d")
         gradient = registry.require("pde.gradient_grid_2d")
+        scalar_field_from_grid = registry.require("pde.scalar_field_from_grid_2d")
+        vector_field_from_grid = registry.require("pde.vector_field_from_grid_2d")
 
         def solve_electrostatic_potential(
             problem: ElectrostaticPotentialProblem2D,
@@ -154,6 +158,32 @@ class ElectrostaticPotential2DDomain:
                 name=problem.name,
             )
 
+        def potential_field(
+            solution: ElectrostaticPotentialSolution2D,
+            *,
+            outside: str = "clamp",
+        ) -> ScalarField2D:
+            return scalar_field_from_grid(
+                solution.grid,
+                solution.potential_volts,
+                name=f"{solution.name}.potential",
+                output_unit=VOLT,
+                outside=outside,
+            )
+
+        def electric_field(
+            solution: ElectrostaticPotentialSolution2D,
+            *,
+            outside: str = "clamp",
+        ) -> VectorField2D:
+            return vector_field_from_grid(
+                solution.grid,
+                solution.electric_field_si,
+                name=f"{solution.name}.electric_field",
+                output_unit=NEWTON_PER_COULOMB,
+                outside=outside,
+            )
+
         registry.register_semantic_type(
             "physics.electrostatic_potential.problem2d",
             ElectrostaticPotentialProblem2D,
@@ -169,4 +199,14 @@ class ElectrostaticPotential2DDomain:
         registry.provide(
             "physics.electrostatic_potential.solve2d",
             solve_electrostatic_potential,
+        )
+        registry.provide(
+            "physics.electrostatic_potential.potential_field",
+            potential_field,
+            version=2,
+        )
+        registry.provide(
+            "physics.electrostatic_potential.electric_field",
+            electric_field,
+            version=2,
         )
