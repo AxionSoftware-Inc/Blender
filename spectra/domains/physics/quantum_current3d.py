@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import math
 
 from spectra.core.constants import REDUCED_PLANCK_CONSTANT
 from spectra.core.types import Vec3
-from spectra.core.units import METER, ONE, SECOND, Unit
+from spectra.core.units import METER, ONE, SECOND
 from spectra.domains.mathematics.fields import (
     TimeDependentScalarField3D,
     TimeDependentVectorField3D,
 )
+from spectra.domains.partial_differential_equations.domain3d import UniformGrid3D
 from spectra.domains.physics.schrodinger3d import SchrodingerSolution3D
 from spectra.domains.registry import DomainDependency, DomainRegistry
 
@@ -20,7 +20,7 @@ PROBABILITY_CURRENT_UNIT = ONE / ((METER ** 2) * SECOND)
 
 @dataclass(frozen=True, slots=True)
 class QuantumProbabilityFlow3D:
-    grid: object
+    grid: UniformGrid3D
     times: tuple[float, ...]
     density_states: tuple[tuple[float, ...], ...]
     current_states: tuple[tuple[Vec3, ...], ...]
