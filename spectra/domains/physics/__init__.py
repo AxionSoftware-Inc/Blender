@@ -1,3 +1,8 @@
+from spectra.domains.physics.diffusion import (
+    DiffusionDomain,
+    DiffusionProblem1D,
+    DiffusionSolution1D,
+)
 from spectra.domains.physics.electromagnetism import (
     ElectromagnetismDomain,
     PlaneElectromagneticWave,
@@ -23,6 +28,9 @@ from spectra.domains.physics.waves import (
 )
 
 __all__ = [
+    "DiffusionDomain",
+    "DiffusionProblem1D",
+    "DiffusionSolution1D",
     "ElectromagnetismDomain",
     "PlaneElectromagneticWave",
     "PointCharge",
