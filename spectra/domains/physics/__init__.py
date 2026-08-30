@@ -31,6 +31,22 @@ from spectra.domains.physics.elasticity_principal import (
     PrincipalStressDomain,
     PrincipalStressState3D,
 )
+from spectra.domains.physics.elastodynamics3d import (
+    Elastodynamics3DDomain,
+    ElastodynamicsProblem3D,
+    ElastodynamicsSolution3D,
+    elastic_wave_speeds,
+)
+from spectra.domains.physics.elastodynamics_diagnostics3d import (
+    ElastodynamicsDiagnosticSnapshot3D,
+    ElastodynamicsDiagnostics3D,
+    ElastodynamicsDiagnostics3DDomain,
+)
+from spectra.domains.physics.elastodynamics_views3d import (
+    ElastodynamicsDeformedGridView3D,
+    ElastodynamicsFields3D,
+    ElastodynamicsViews3DDomain,
+)
 from spectra.domains.physics.electromagnetism import (
     ElectromagnetismDomain,
     PlaneElectromagneticWave,
@@ -208,6 +224,15 @@ __all__ = [
     "DiffusionSolution3D",
     "ElasticityDomain",
     "ElasticityFieldsDomain",
+    "Elastodynamics3DDomain",
+    "ElastodynamicsDeformedGridView3D",
+    "ElastodynamicsDiagnosticSnapshot3D",
+    "ElastodynamicsDiagnostics3D",
+    "ElastodynamicsDiagnostics3DDomain",
+    "ElastodynamicsFields3D",
+    "ElastodynamicsProblem3D",
+    "ElastodynamicsSolution3D",
+    "ElastodynamicsViews3DDomain",
     "ElectromagnetismDomain",
     "ElectrostaticPotential2DDomain",
     "ElectrostaticPotential3DDomain",
@@ -310,6 +335,7 @@ __all__ = [
     "WavesDomain",
     "as_time_scalar_field",
     "compile_spatial_wavefunction_scene",
+    "elastic_wave_speeds",
     "electric_field_from_point_charges",
     "four_velocity",
     "lorentz_factor",
