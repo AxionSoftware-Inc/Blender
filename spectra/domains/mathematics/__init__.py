@@ -1,12 +1,13 @@
 from spectra.domains.mathematics.domain import MathematicsDomain
-from spectra.domains.mathematics.fields import AxisSample, RegularGrid3D, ScalarField3D, VectorField3D
-from spectra.domains.mathematics.functions import Function1D, Interval
+from spectra.domains.mathematics.fields import RegularGrid3D, ScalarField3D, VectorField3D
+from spectra.domains.mathematics.functions import Function1D, Function2D, Interval, RectDomain2D
 
 __all__ = [
-    "MathematicsDomain",
     "Function1D",
+    "Function2D",
     "Interval",
-    "AxisSample",
+    "MathematicsDomain",
+    "RectDomain2D",
     "RegularGrid3D",
     "ScalarField3D",
     "VectorField3D",
