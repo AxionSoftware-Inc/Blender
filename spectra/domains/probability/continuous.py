@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from spectra.core.primitives import Polyline
 from spectra.core.scene import Scene
 from spectra.core.types import Color, Vec3
-from spectra.domains.mathematics.functions import Function1D
+from spectra.domains.mathematics.functions import RealFunction1D
 from spectra.domains.registry import DomainDependency, DomainRegistry
 
 
@@ -18,7 +18,7 @@ class ContinuousDistribution1D:
     exposed as density / normalization.
     """
 
-    density: Function1D
+    density: RealFunction1D
     normalization: float
     name: str = "distribution"
 
@@ -68,9 +68,9 @@ def compile_continuous_distribution_scene(
 
 class ContinuousProbabilityDomain:
     name = "probability.continuous"
-    version = "1"
+    version = "2"
     dependencies = (
-        DomainDependency("mathematics.function1d"),
+        DomainDependency("mathematics.real_function1d"),
         DomainDependency("calculus.integrate", min_version=2),
     )
 
@@ -78,7 +78,7 @@ class ContinuousProbabilityDomain:
         integrate = registry.require("calculus.integrate", min_version=2)
 
         def make_distribution(
-            density: Function1D,
+            density: RealFunction1D,
             *,
             name: str = "distribution",
             validation_samples: int = 65,
