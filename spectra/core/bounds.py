@@ -8,6 +8,7 @@ from .primitives import (
     Camera,
     Group,
     Point,
+    PointCloud,
     Polyline,
     Primitive,
     Region,
@@ -117,12 +118,7 @@ def _local_point(primitive: Primitive, point: Vec3) -> Vec3:
 
 
 def primitive_local_bounds(primitive: Primitive) -> Bounds3D | None:
-    """Return Scene-local bounds for one visible scientific primitive.
-
-    Primitive transforms are applied, but the Scene coordinate frame is not.
-    Cameras and Groups do not contribute geometry. Polyline trim is intentionally
-    ignored so framing remains conservative during reveal animations.
-    """
+    """Return Scene-local bounds for one visible scientific primitive."""
     if not primitive.visible or primitive.opacity <= 0.0:
         return None
     if isinstance(primitive, (Camera, Group)):
@@ -133,6 +129,18 @@ def primitive_local_bounds(primitive: Primitive) -> Bounds3D | None:
         radius = abs(primitive.radius) * primitive.transform.max_abs_scale
         extent = Vec3(radius, radius, radius)
         return Bounds3D(center - extent, center + extent)
+
+    if isinstance(primitive, PointCloud):
+        points: list[Vec3] = []
+        default_radius = primitive.radius
+        for index, position in enumerate(primitive.positions):
+            center = _local_point(primitive, position)
+            radius = (
+                primitive.radii[index] if primitive.radii else default_radius
+            ) * primitive.transform.max_abs_scale
+            extent = Vec3(radius, radius, radius)
+            points.extend((center - extent, center + extent))
+        return Bounds3D.from_points(points)
 
     if isinstance(primitive, Polyline):
         return Bounds3D.from_points(_local_point(primitive, point) for point in primitive.points)
