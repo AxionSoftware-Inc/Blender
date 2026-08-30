@@ -121,6 +121,12 @@ from spectra.domains.partial_differential_equations.stability2d import (
     explicit_stability_for_field_2d,
     explicit_stability_from_samples_2d,
 )
+from spectra.domains.partial_differential_equations.stability3d import (
+    ExplicitStability3D,
+    Stability3DDomain,
+    explicit_stability_for_field_3d,
+    explicit_stability_from_samples_3d,
+)
 from spectra.domains.partial_differential_equations.transport2d import (
     AdvectionDiffusionProblem2D,
     AdvectionDiffusionSolution2D,
@@ -162,6 +168,7 @@ __all__ = [
     "EllipticPDE2DDomain",
     "EllipticPDE3DDomain",
     "ExplicitStability2D",
+    "ExplicitStability3D",
     "GridIntegrals2DDomain",
     "GridIntegrals3DDomain",
     "PDEFieldAdapters2DDomain",
@@ -193,6 +200,7 @@ __all__ = [
     "SecondOrderScalarPDESolution3D",
     "SourceDeposition3DDomain",
     "Stability2DDomain",
+    "Stability3DDomain",
     "Transport2DDomain",
     "Transport3DDomain",
     "UniformGrid1D",
@@ -209,7 +217,9 @@ __all__ = [
     "divergence_grid_2d",
     "divergence_grid_3d",
     "explicit_stability_for_field_2d",
+    "explicit_stability_for_field_3d",
     "explicit_stability_from_samples_2d",
+    "explicit_stability_from_samples_3d",
     "gradient_grid_2d",
     "gradient_grid_3d",
     "integrate_scalar_grid_2d",
