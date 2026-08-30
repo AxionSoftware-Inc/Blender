@@ -18,6 +18,10 @@ from spectra.domains.chemistry.reaction_diffusion_views3d import (
     ReactionDiffusionFields3D,
     ReactionDiffusionViews3DDomain,
 )
+from spectra.domains.chemistry.thermochemistry3d import (
+    ThermochemicalReactionSource3D,
+    Thermochemistry3DDomain,
+)
 
 __all__ = [
     "ChemicalReaction",
@@ -31,5 +35,7 @@ __all__ = [
     "ReactionDiffusionSolution3D",
     "ReactionDiffusionViews3DDomain",
     "ReactionNetwork",
+    "ThermochemicalReactionSource3D",
+    "Thermochemistry3DDomain",
     "mass_action_reaction",
 ]
