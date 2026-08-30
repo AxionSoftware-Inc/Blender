@@ -85,7 +85,7 @@ def test_scene_round_trips_through_versioned_json() -> None:
     assert restored == scene
     assert restored.active_camera() == camera
     assert '"schema": "spectra.scene"' in payload
-    assert '"version": 3' in payload
+    assert '"version": 4' in payload
     assert '"interpolation": "smooth"' in payload
     assert '"active_camera_id": "camera.main"' in payload
     assert '"kind": "vector_glyph_set"' in payload
@@ -114,7 +114,9 @@ def test_scene_v1_defaults_new_visual_fields() -> None:
     point = scene.get("p")
     assert point.opacity == 1.0
     assert point.transform == Transform3D()
+    assert point.material_id is None
     assert scene.active_camera() is None
+    assert scene.materials == ()
 
 
 def test_scene_v2_remains_readable() -> None:
@@ -153,3 +155,41 @@ def test_scene_v2_remains_readable() -> None:
     """
     scene = scene_from_json(payload)
     assert scene.get("curve").kind == "polyline"
+
+
+def test_scene_v3_remains_readable_without_material_resources() -> None:
+    payload = """
+    {
+      "schema": "spectra.scene",
+      "version": 3,
+      "frame": {
+        "origin": [0, 0, 0],
+        "basis_x": [1, 0, 0],
+        "basis_y": [0, 1, 0],
+        "basis_z": [0, 0, 1]
+      },
+      "active_camera_id": null,
+      "primitives": [
+        {
+          "id": "samples",
+          "kind": "point_cloud",
+          "visible": true,
+          "opacity": 1,
+          "transform": {
+            "translation": [0, 0, 0],
+            "rotation": [1, 0, 0, 0],
+            "scale": [1, 1, 1]
+          },
+          "positions": [[0, 0, 0], [1, 0, 0]],
+          "radius": 0.05,
+          "color": [1, 1, 1, 1],
+          "radii": [],
+          "colors": []
+        }
+      ],
+      "timeline": {"duration": 0, "tracks": []}
+    }
+    """
+    scene = scene_from_json(payload)
+    assert scene.get("samples").kind == "point_cloud"
+    assert scene.materials == ()
