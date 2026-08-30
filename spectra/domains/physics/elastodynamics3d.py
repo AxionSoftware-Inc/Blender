@@ -100,6 +100,13 @@ def _is_boundary(grid: UniformGrid3D, index: int) -> bool:
     )
 
 
+def _vector_to_si(field: TimeDependentVectorField3D, value: Vec3) -> Vec3:
+    unit = field.output_unit
+    if unit is None:
+        return value
+    return Vec3(unit.to_si(value.x), unit.to_si(value.y), unit.to_si(value.z))
+
+
 def elastic_wave_speeds(
     material: IsotropicElasticMaterial,
     density: Quantity,
@@ -187,7 +194,8 @@ class Elastodynamics3DDomain:
                     )
                     if problem.body_acceleration is not None:
                         x, y, z = grid.coordinates[index]
-                        elastic = elastic + problem.body_acceleration.evaluate(Vec3(x, y, z), time)
+                        body = problem.body_acceleration.evaluate(Vec3(x, y, z), time)
+                        elastic = elastic + _vector_to_si(problem.body_acceleration, body)
                     result.append(elastic)
                 return tuple(result)
 
