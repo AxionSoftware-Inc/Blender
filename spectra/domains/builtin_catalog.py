@@ -8,6 +8,7 @@ from spectra.domains.linear_algebra import LinearAlgebraDomain
 from spectra.domains.mathematics import MathematicsDomain
 from spectra.domains.partial_differential_equations import PartialDifferentialEquationsDomain
 from spectra.domains.physics import (
+    DiffusionDomain,
     ElectromagnetismDomain,
     MechanicsDomain,
     ParticleSystemsDomain,
@@ -159,6 +160,15 @@ def builtin_domain_catalog() -> DomainCatalog:
                     "physics.particles.solve_system",
                 ),
                 tags=("physics", "particles", "simulation"),
+            ),
+            DomainDescriptor(
+                name="physics.diffusion",
+                factory=DiffusionDomain,
+                provides=(
+                    "physics.diffusion.problem1d",
+                    "physics.diffusion.solve1d",
+                ),
+                tags=("physics", "diffusion", "pde"),
             ),
             DomainDescriptor(
                 name="electromagnetism",
