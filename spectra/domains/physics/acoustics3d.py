@@ -4,7 +4,11 @@ from dataclasses import dataclass
 import math
 
 from spectra.core.units import FREQUENCY, HERTZ, PASCAL, VELOCITY, Quantity, Unit
-from spectra.domains.partial_differential_equations.domain3d import BoundaryMode3D, UniformGrid3D
+from spectra.domains.partial_differential_equations.domain3d import (
+    BoundaryMode3D,
+    ScalarPDESolution3D,
+    UniformGrid3D,
+)
 from spectra.domains.physics.wave_equation3d import WaveEquationSolution3D
 from spectra.domains.registry import DomainDependency, DomainRegistry
 
@@ -72,12 +76,15 @@ class AcousticPressureSolution3D:
     def name(self) -> str:
         return self.wave_solution.name
 
+    def scalar_solution(self) -> ScalarPDESolution3D:
+        return self.wave_solution.pde_solution.value_solution()
+
 
 class Acoustics3DDomain:
     """Linear acoustics as a physics semantic layer over the generic 3D wave solver."""
 
     name = "physics.acoustics.3d"
-    version = "1"
+    version = "2"
     dependencies = (
         DomainDependency("physics.wave_equation.problem3d"),
         DomainDependency("physics.wave_equation.solve3d"),
@@ -109,8 +116,12 @@ class Acoustics3DDomain:
             )
             return AcousticPressureSolution3D(wave_solution=wave_solution)
 
+        def scalar_solution(solution: AcousticPressureSolution3D) -> ScalarPDESolution3D:
+            return solution.scalar_solution()
+
         registry.register_semantic_type("physics.acoustics.problem3d", AcousticPressureProblem3D)
         registry.register_semantic_type("physics.acoustics.solution3d", AcousticPressureSolution3D)
         registry.provide("physics.acoustics.problem3d", AcousticPressureProblem3D)
         registry.provide("physics.acoustics.solution3d", AcousticPressureSolution3D)
-        registry.provide("physics.acoustics.solve3d", solve_acoustics)
+        registry.provide("physics.acoustics.solve3d", solve_acoustics, version=2)
+        registry.provide("physics.acoustics.scalar_solution3d", scalar_solution, version=2)
