@@ -13,8 +13,10 @@ from spectra.domains.partial_differential_equations import (
     PartialDifferentialEquationsDomain,
 )
 from spectra.domains.physics import (
+    Diffusion2DDomain,
     DiffusionDomain,
     ElectromagnetismDomain,
+    GeneralRelativityDomain,
     MechanicsDomain,
     ParticleSystemsDomain,
     QuantumDomain,
@@ -136,6 +138,7 @@ def builtin_domain_catalog() -> DomainCatalog:
                 factory=GeodesicsDomain,
                 provides=(
                     "geometry.geodesic_problem",
+                    "geometry.geodesic_view3d",
                     "geometry.solve_geodesic",
                 ),
                 tags=("math", "geometry", "geodesic", "ode"),
@@ -247,6 +250,15 @@ def builtin_domain_catalog() -> DomainCatalog:
                 tags=("physics", "diffusion", "pde"),
             ),
             DomainDescriptor(
+                name="physics.diffusion.2d",
+                factory=Diffusion2DDomain,
+                provides=(
+                    "physics.diffusion.problem2d",
+                    "physics.diffusion.solve2d",
+                ),
+                tags=("physics", "diffusion", "pde", "2d"),
+            ),
+            DomainDescriptor(
                 name="electromagnetism",
                 factory=ElectromagnetismDomain,
                 provides=(
@@ -312,6 +324,16 @@ def builtin_domain_catalog() -> DomainCatalog:
                     "physics.relativity.four_velocity",
                 ),
                 tags=("physics", "relativity", "spacetime", "geometry"),
+            ),
+            DomainDescriptor(
+                name="physics.relativity.general",
+                factory=GeneralRelativityDomain,
+                provides=(
+                    "physics.relativity.schwarzschild",
+                    "physics.relativity.einstein_tensor",
+                    "physics.relativity.vacuum_residual",
+                ),
+                tags=("physics", "relativity", "general-relativity", "geometry"),
             ),
         )
     )
