@@ -13,6 +13,12 @@ from spectra.domains.mathematics.fields import (
     TimeDependentVectorField3D,
     VectorField3D,
 )
+from spectra.domains.mathematics.fields2d import (
+    ScalarField2D,
+    TimeDependentScalarField2D,
+    TimeDependentVectorField2D,
+    VectorField2D,
+)
 from spectra.domains.mathematics.functions import (
     CallableFunction1D,
     ComplexFunction1D,
@@ -37,12 +43,16 @@ __all__ = [
     "RealFunction1D",
     "RectDomain2D",
     "RegularGrid3D",
+    "ScalarField2D",
     "ScalarField3D",
     "ScalarFieldSurfaceView2D",
+    "TimeDependentScalarField2D",
     "TimeDependentScalarField3D",
+    "TimeDependentVectorField2D",
     "TimeDependentVectorField3D",
     "TimeScalarFieldSurfaceAnimation2D",
     "TimeVectorFieldAnimation3D",
+    "VectorField2D",
     "VectorField3D",
     "VectorFieldView3D",
 ]
