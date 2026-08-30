@@ -38,9 +38,41 @@ def tangent_at(function: Function1D, x: float) -> TangentSample:
     return TangentSample(x=x, y=function.evaluate(x), slope=derivative_at(function, x))
 
 
+def integrate(
+    function: Function1D,
+    *,
+    start: float | None = None,
+    end: float | None = None,
+    steps: int = 512,
+) -> float:
+    """Numerically integrate a Function1D using composite Simpson's rule.
+
+    This is a deterministic reference implementation behind a capability
+    boundary. A future NumPy/SciPy/native/GPU integrator can replace it without
+    changing probability/physics domains that consume `calculus.integrate`.
+    """
+    lower = function.domain.start if start is None else float(start)
+    upper = function.domain.end if end is None else float(end)
+    if upper <= lower:
+        raise ValueError("integration end must be greater than start")
+    if not function.domain.contains(lower) or not function.domain.contains(upper):
+        raise ValueError("integration bounds must lie inside function domain")
+    if steps < 2:
+        raise ValueError("integration steps must be >= 2")
+    if steps % 2:
+        steps += 1
+
+    width = (upper - lower) / steps
+    total = function.evaluate(lower) + function.evaluate(upper)
+    for index in range(1, steps):
+        x = lower + index * width
+        total += (4.0 if index % 2 else 2.0) * function.evaluate(x)
+    return total * width / 3.0
+
+
 class CalculusDomain:
     name = "calculus"
-    version = "1"
+    version = "2"
     dependencies = (
         DomainDependency("mathematics.function1d"),
     )
@@ -49,3 +81,4 @@ class CalculusDomain:
         registry.register_semantic_type("calculus.tangent_sample", TangentSample)
         registry.provide("calculus.derivative_at", derivative_at)
         registry.provide("calculus.tangent_at", tangent_at)
+        registry.provide("calculus.integrate", integrate, version=2)
