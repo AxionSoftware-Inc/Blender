@@ -5,6 +5,12 @@ from spectra.domains.mathematics.field_views import (
     TimeVectorFieldAnimation3D,
     VectorFieldView3D,
 )
+from spectra.domains.mathematics.field_views2d import (
+    ScalarFieldHeightView2D,
+    TimeScalarFieldHeightAnimation2D,
+    TimeVectorFieldAnimation2D,
+    VectorFieldView2D,
+)
 from spectra.domains.mathematics.fields import (
     AxisSample,
     RegularGrid3D,
@@ -45,14 +51,18 @@ __all__ = [
     "RegularGrid3D",
     "ScalarField2D",
     "ScalarField3D",
+    "ScalarFieldHeightView2D",
     "ScalarFieldSurfaceView2D",
     "TimeDependentScalarField2D",
     "TimeDependentScalarField3D",
     "TimeDependentVectorField2D",
     "TimeDependentVectorField3D",
+    "TimeScalarFieldHeightAnimation2D",
     "TimeScalarFieldSurfaceAnimation2D",
+    "TimeVectorFieldAnimation2D",
     "TimeVectorFieldAnimation3D",
     "VectorField2D",
     "VectorField3D",
+    "VectorFieldView2D",
     "VectorFieldView3D",
 ]
