@@ -12,17 +12,12 @@ from spectra.core.units import (
 )
 from spectra.domains.mathematics.fields2d import TimeDependentVectorField2D
 from spectra.domains.partial_differential_equations.domain2d import BoundaryMode2D, UniformGrid2D
-from spectra.domains.partial_differential_equations.elliptic2d import PoissonProblem2D
 from spectra.domains.registry import DomainDependency, DomainRegistry
 
 
 @dataclass(frozen=True, slots=True)
 class IncompressibleFlowProblem2D:
-    """Reference constant-density incompressible Navier-Stokes problem.
-
-    Velocity samples are SI m/s. Density and kinematic viscosity are typed
-    quantities. Pressure is solved in SI pascals through a projection step.
-    """
+    """Reference constant-density incompressible Navier-Stokes problem."""
 
     grid: UniformGrid2D
     initial_velocity: tuple[Vec2, ...]
@@ -86,6 +81,8 @@ class IncompressibleFlowSolution2D:
     density_si: float
     kinematic_viscosity_si: float
     name: str = "incompressible_flow2d"
+    velocity_boundary: BoundaryMode2D = "fixed"
+    pressure_boundary: BoundaryMode2D = "zero_gradient"
 
     def __post_init__(self) -> None:
         if not self.states:
@@ -96,6 +93,10 @@ class IncompressibleFlowSolution2D:
             raise ValueError("flow pressure state length must match grid")
         if any(right.time <= left.time for left, right in zip(self.states, self.states[1:])):
             raise ValueError("flow state times must be strictly increasing")
+        if self.velocity_boundary not in {"fixed", "periodic", "zero_gradient"}:
+            raise ValueError(f"unknown velocity boundary mode: {self.velocity_boundary}")
+        if self.pressure_boundary not in {"fixed", "periodic", "zero_gradient"}:
+            raise ValueError(f"unknown pressure boundary mode: {self.pressure_boundary}")
 
     @property
     def times(self) -> tuple[float, ...]:
@@ -109,10 +110,7 @@ class IncompressibleFlowSolution2D:
 def _is_boundary(grid: UniformGrid2D, index: int) -> bool:
     x_index = index % grid.x.count
     y_index = index // grid.x.count
-    return (
-        x_index in {0, grid.x.count - 1}
-        or y_index in {0, grid.y.count - 1}
-    )
+    return x_index in {0, grid.x.count - 1} or y_index in {0, grid.y.count - 1}
 
 
 def _subtract_mean(values: tuple[float, ...]) -> tuple[float, ...]:
@@ -124,7 +122,7 @@ class IncompressibleFlow2DDomain:
     """Projection-method reference solver composed from generic PDE capabilities."""
 
     name = "physics.incompressible_flow.2d"
-    version = "1"
+    version = "2"
     dependencies = (
         DomainDependency("pde.uniform_grid2d"),
         DomainDependency("pde.laplacian_2d"),
@@ -168,11 +166,7 @@ class IncompressibleFlow2DDomain:
             pressure = tuple(0.0 for _ in range(grid.count))
             initial_boundary_velocity = tuple(problem.initial_velocity)
 
-            initial_divergence = divergence(
-                velocity,
-                grid,
-                boundary=problem.velocity_boundary,
-            )
+            initial_divergence = divergence(velocity, grid, boundary=problem.velocity_boundary)
             states = [
                 IncompressibleFlowState2D(
                     time=problem.initial_time,
@@ -187,9 +181,7 @@ class IncompressibleFlow2DDomain:
             for step_index in range(steps):
                 time = problem.initial_time + step_index * dt
                 advection = vector_advection(
-                    velocity,
-                    grid,
-                    boundary=problem.velocity_boundary,
+                    velocity, grid, boundary=problem.velocity_boundary
                 )
                 lap_u = laplacian(
                     tuple(vector.x for vector in velocity),
@@ -212,18 +204,11 @@ class IncompressibleFlow2DDomain:
 
                 tentative = tuple(
                     Vec2(
-                        current.x
-                        + dt * (-advective.x + viscosity * diffuse_x + force.x),
-                        current.y
-                        + dt * (-advective.y + viscosity * diffuse_y + force.y),
+                        current.x + dt * (-advective.x + viscosity * diffuse_x + force.x),
+                        current.y + dt * (-advective.y + viscosity * diffuse_y + force.y),
                     )
                     for current, advective, diffuse_x, diffuse_y, force in zip(
-                        velocity,
-                        advection,
-                        lap_u,
-                        lap_v,
-                        body_force,
-                        strict=True,
+                        velocity, advection, lap_u, lap_v, body_force, strict=True
                     )
                 )
 
@@ -234,13 +219,9 @@ class IncompressibleFlow2DDomain:
                     )
 
                 tentative_divergence = divergence(
-                    tentative,
-                    grid,
-                    boundary=problem.velocity_boundary,
+                    tentative, grid, boundary=problem.velocity_boundary
                 )
-                pressure_source = tuple(
-                    density * value / dt for value in tentative_divergence
-                )
+                pressure_source = tuple(density * value / dt for value in tentative_divergence)
                 if problem.pressure_boundary in {"periodic", "zero_gradient"}:
                     pressure_source = _subtract_mean(pressure_source)
 
@@ -257,9 +238,7 @@ class IncompressibleFlow2DDomain:
                 )
                 pressure = pressure_solution.values
                 pressure_gradient = gradient(
-                    pressure,
-                    grid,
-                    boundary=problem.pressure_boundary,
+                    pressure, grid, boundary=problem.pressure_boundary
                 )
                 velocity = tuple(
                     Vec2(
@@ -276,9 +255,7 @@ class IncompressibleFlow2DDomain:
                     )
 
                 projected_divergence = divergence(
-                    velocity,
-                    grid,
-                    boundary=problem.velocity_boundary,
+                    velocity, grid, boundary=problem.velocity_boundary
                 )
                 states.append(
                     IncompressibleFlowState2D(
@@ -297,20 +274,21 @@ class IncompressibleFlow2DDomain:
                 density_si=density,
                 kinematic_viscosity_si=viscosity,
                 name=problem.name,
+                velocity_boundary=problem.velocity_boundary,
+                pressure_boundary=problem.pressure_boundary,
             )
 
         registry.register_semantic_type(
-            "physics.incompressible_flow.problem2d",
-            IncompressibleFlowProblem2D,
+            "physics.incompressible_flow.problem2d", IncompressibleFlowProblem2D
         )
         registry.register_semantic_type(
-            "physics.incompressible_flow.state2d",
-            IncompressibleFlowState2D,
+            "physics.incompressible_flow.state2d", IncompressibleFlowState2D
         )
         registry.register_semantic_type(
-            "physics.incompressible_flow.solution2d",
-            IncompressibleFlowSolution2D,
+            "physics.incompressible_flow.solution2d", IncompressibleFlowSolution2D
         )
         registry.provide("physics.incompressible_flow.problem2d", IncompressibleFlowProblem2D)
-        registry.provide("physics.incompressible_flow.simulate2d", simulate)
+        registry.provide("physics.incompressible_flow.state2d", IncompressibleFlowState2D, version=2)
+        registry.provide("physics.incompressible_flow.solution2d", IncompressibleFlowSolution2D, version=2)
+        registry.provide("physics.incompressible_flow.simulate2d", simulate, version=2)
         registry.register_visualization(IncompressibleFlowSolution2D, compile_incompressible_flow_scene)
