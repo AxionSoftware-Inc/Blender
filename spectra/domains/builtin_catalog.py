@@ -3,11 +3,13 @@ from __future__ import annotations
 from spectra.domains.calculus import CalculusDomain
 from spectra.domains.catalog import DomainCatalog, DomainDescriptor
 from spectra.domains.differential_equations import DifferentialEquationsDomain
+from spectra.domains.differential_geometry import DifferentialGeometryDomain, GeodesicsDomain
 from spectra.domains.graph_theory import GraphTheoryDomain
 from spectra.domains.linear_algebra import LinearAlgebraDomain
 from spectra.domains.mathematics import MathematicsDomain
 from spectra.domains.partial_differential_equations import (
     ComplexPartialDifferentialEquationsDomain,
+    PartialDifferentialEquations2DDomain,
     PartialDifferentialEquationsDomain,
 )
 from spectra.domains.physics import (
@@ -16,6 +18,7 @@ from spectra.domains.physics import (
     MechanicsDomain,
     ParticleSystemsDomain,
     QuantumDomain,
+    RelativityDomain,
     SchrodingerDomain,
     SpatialQuantumDomain,
     WavesDomain,
@@ -90,6 +93,10 @@ def builtin_domain_catalog() -> DomainCatalog:
                     "linear_algebra.is_hermitian",
                     "linear_algebra.complex_quadratic_form",
                     "linear_algebra.complex_identity",
+                    "linear_algebra.determinant",
+                    "linear_algebra.inverse",
+                    "linear_algebra.complex_determinant",
+                    "linear_algebra.complex_inverse",
                 ),
                 tags=("math", "linear-algebra"),
             ),
@@ -106,6 +113,32 @@ def builtin_domain_catalog() -> DomainCatalog:
                     "tensor.trace",
                 ),
                 tags=("math", "tensor", "foundation"),
+            ),
+            DomainDescriptor(
+                name="differential_geometry",
+                factory=DifferentialGeometryDomain,
+                provides=(
+                    "geometry.metric_tensor_field",
+                    "geometry.metric_matrix",
+                    "geometry.inverse_metric",
+                    "geometry.metric_inner_product",
+                    "geometry.lower_index",
+                    "geometry.raise_index",
+                    "geometry.christoffel_symbols",
+                    "geometry.riemann_curvature",
+                    "geometry.ricci_tensor",
+                    "geometry.scalar_curvature",
+                ),
+                tags=("math", "geometry", "metric", "curvature"),
+            ),
+            DomainDescriptor(
+                name="differential_geometry.geodesics",
+                factory=GeodesicsDomain,
+                provides=(
+                    "geometry.geodesic_problem",
+                    "geometry.solve_geodesic",
+                ),
+                tags=("math", "geometry", "geodesic", "ode"),
             ),
             DomainDescriptor(
                 name="probability",
@@ -155,6 +188,16 @@ def builtin_domain_catalog() -> DomainCatalog:
                     "pde.solve_method_of_lines",
                 ),
                 tags=("math", "pde", "solver"),
+            ),
+            DomainDescriptor(
+                name="partial_differential_equations.2d",
+                factory=PartialDifferentialEquations2DDomain,
+                provides=(
+                    "pde.uniform_grid2d",
+                    "pde.laplacian_2d",
+                    "pde.solve_method_of_lines_2d",
+                ),
+                tags=("math", "pde", "2d", "solver"),
             ),
             DomainDescriptor(
                 name="partial_differential_equations.complex",
@@ -255,6 +298,20 @@ def builtin_domain_catalog() -> DomainCatalog:
                     "physics.quantum.schrodinger1d.probability_mass",
                 ),
                 tags=("physics", "quantum", "pde", "schrodinger"),
+            ),
+            DomainDescriptor(
+                name="physics.relativity",
+                factory=RelativityDomain,
+                provides=(
+                    "physics.relativity.event",
+                    "physics.relativity.minkowski_metric",
+                    "physics.relativity.interval_squared",
+                    "physics.relativity.classify_interval",
+                    "physics.relativity.proper_time_between",
+                    "physics.relativity.lorentz_factor",
+                    "physics.relativity.four_velocity",
+                ),
+                tags=("physics", "relativity", "spacetime", "geometry"),
             ),
         )
     )
