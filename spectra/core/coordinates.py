@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 
 from spectra.core.types import Vec3
 
@@ -18,6 +19,14 @@ class CoordinateFrame3D:
         for axis in (self.basis_x, self.basis_y, self.basis_z):
             if axis.magnitude == 0.0:
                 raise ValueError("coordinate basis vectors cannot be zero")
+        determinant = self.basis_x.dot(self.basis_y.cross(self.basis_z))
+        if math.isclose(determinant, 0.0, abs_tol=1e-12):
+            raise ValueError("coordinate basis vectors must be linearly independent")
+
+    @property
+    def handedness(self) -> int:
+        determinant = self.basis_x.dot(self.basis_y.cross(self.basis_z))
+        return 1 if determinant > 0.0 else -1
 
     def point_to_parent(self, local: Vec3) -> Vec3:
         return (
