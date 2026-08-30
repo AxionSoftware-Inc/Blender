@@ -1,13 +1,24 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import math
 from typing import Literal
 
 from .transforms import Transform3D
 from .types import Color, Vec3
 
 
-PrimitiveKind = Literal["point", "polyline", "surface", "region", "vector_glyph", "text", "group"]
+PrimitiveKind = Literal[
+    "point",
+    "polyline",
+    "surface",
+    "region",
+    "vector_glyph",
+    "text",
+    "group",
+    "camera",
+]
+CameraProjection = Literal["perspective", "orthographic"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,3 +118,30 @@ class TextLabel(Primitive):
 class Group(Primitive):
     children: tuple[str, ...] = ()
     kind: PrimitiveKind = field(default="group", init=False)
+
+
+@dataclass(frozen=True, slots=True)
+class Camera(Primitive):
+    """Renderer-independent camera node.
+
+    Convention: camera local -Z is forward and local +Y is up. Backends map this
+    to their native camera convention.
+    """
+
+    projection: CameraProjection = "perspective"
+    fov_y_radians: float = math.radians(50.0)
+    orthographic_scale: float = 10.0
+    near_clip: float = 0.01
+    far_clip: float = 10000.0
+    kind: PrimitiveKind = field(default="camera", init=False)
+
+    def __post_init__(self) -> None:
+        Primitive.__post_init__(self)
+        if self.projection not in ("perspective", "orthographic"):
+            raise ValueError(f"unknown camera projection: {self.projection}")
+        if not 0.0 < self.fov_y_radians < math.pi:
+            raise ValueError("camera fov_y_radians must lie within (0, pi)")
+        if self.orthographic_scale <= 0.0:
+            raise ValueError("camera orthographic_scale must be positive")
+        if self.near_clip <= 0.0 or self.far_clip <= self.near_clip:
+            raise ValueError("camera clipping range is invalid")
