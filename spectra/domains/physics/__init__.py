@@ -11,6 +11,14 @@ from spectra.domains.physics.particles import (
     ParticleSystemsDomain,
 )
 from spectra.domains.physics.quantum import QuantumDomain, QuantumObservable, QuantumState
+from spectra.domains.physics.waves import (
+    HarmonicWave1D,
+    WaveAnimation1D,
+    WaveProfile1D,
+    WaveSuperposition1D,
+    WavesDomain,
+    as_time_scalar_field,
+)
 
 __all__ = [
     "ElectromagnetismDomain",
@@ -26,4 +34,10 @@ __all__ = [
     "QuantumDomain",
     "QuantumObservable",
     "QuantumState",
+    "HarmonicWave1D",
+    "WaveAnimation1D",
+    "WaveProfile1D",
+    "WaveSuperposition1D",
+    "WavesDomain",
+    "as_time_scalar_field",
 ]
