@@ -46,7 +46,7 @@ class VorticityStreamfunctionSolution2D:
         if not math.isfinite(self.residual_inf) or self.residual_inf < 0.0:
             raise ValueError("streamfunction residual must be finite and non-negative")
 
-    def as_steady_flow(self) -> SteadyFlow2D:
+    def as_nearest_steady_flow(self) -> SteadyFlow2D:
         x_values = self.grid.x.coordinates
         y_values = self.grid.y.coordinates
 
@@ -58,7 +58,7 @@ class VorticityStreamfunctionSolution2D:
         return SteadyFlow2D(
             VectorField2D(
                 evaluator=nearest,
-                name=f"{self.name}.velocity",
+                name=f"{self.name}.velocity.nearest",
                 output_unit=METER_PER_SECOND,
             ),
             name=self.name,
@@ -69,11 +69,12 @@ class VorticityStreamfunction2DDomain:
     """Reconstruct incompressible planar flow from vorticity via Poisson solve."""
 
     name = "physics.vorticity_streamfunction.2d"
-    version = "1"
+    version = "2"
     dependencies = (
         DomainDependency("pde.poisson_problem2d"),
         DomainDependency("pde.solve_poisson_2d"),
         DomainDependency("pde.gradient_grid_2d"),
+        DomainDependency("pde.vector_field_from_grid_2d"),
         DomainDependency("physics.fluid.steady_flow2d"),
     )
 
@@ -85,6 +86,7 @@ class VorticityStreamfunction2DDomain:
         poisson_problem_type = registry.require("pde.poisson_problem2d")
         solve_poisson = registry.require("pde.solve_poisson_2d")
         gradient = registry.require("pde.gradient_grid_2d")
+        vector_field_from_grid = registry.require("pde.vector_field_from_grid_2d")
 
         def solve_vorticity_flow(
             problem: VorticityStreamfunctionProblem2D,
@@ -117,6 +119,20 @@ class VorticityStreamfunction2DDomain:
                 name=problem.name,
             )
 
+        def as_steady_flow(
+            solution: VorticityStreamfunctionSolution2D,
+            *,
+            outside: str = "clamp",
+        ) -> SteadyFlow2D:
+            velocity_field = vector_field_from_grid(
+                solution.grid,
+                solution.velocity,
+                name=f"{solution.name}.velocity",
+                output_unit=METER_PER_SECOND,
+                outside=outside,
+            )
+            return SteadyFlow2D(velocity_field, name=solution.name)
+
         def compile_solution(solution: VorticityStreamfunctionSolution2D) -> Scene:
             return Scene(
                 primitives=(
@@ -142,4 +158,5 @@ class VorticityStreamfunction2DDomain:
             VorticityStreamfunctionProblem2D,
         )
         registry.provide("physics.vorticity_streamfunction.solve2d", solve_vorticity_flow)
+        registry.provide("physics.vorticity_streamfunction.as_steady_flow", as_steady_flow, version=2)
         registry.register_visualization(VorticityStreamfunctionSolution2D, compile_solution)
