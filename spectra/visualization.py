@@ -45,6 +45,10 @@ class VisualizationRegistry:
             )
         return self._compilers[registered_type](value)
 
+    def copy(self) -> "VisualizationRegistry":
+        """Return an independent snapshot for transactional domain loading."""
+        return VisualizationRegistry(dict(self._compilers))
+
     def _resolve_type(self, semantic_type: type[Any]) -> type[Any] | None:
         # Respect Python's normal inheritance order so a specialized compiler can
         # override a compiler registered for a base semantic type.
