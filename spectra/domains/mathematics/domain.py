@@ -7,6 +7,12 @@ from spectra.domains.mathematics.field_views import (
     TimeVectorFieldAnimation3D,
     VectorFieldView3D,
 )
+from spectra.domains.mathematics.field_views2d import (
+    ScalarFieldHeightView2D,
+    TimeScalarFieldHeightAnimation2D,
+    TimeVectorFieldAnimation2D,
+    VectorFieldView2D,
+)
 from spectra.domains.mathematics.fields import (
     RegularGrid3D,
     ScalarField3D,
@@ -35,7 +41,7 @@ from spectra.domains.registry import DomainRegistry
 
 class MathematicsDomain:
     name = "mathematics"
-    version = "3"
+    version = "4"
     dependencies = ()
 
     def register(self, registry: DomainRegistry) -> None:
@@ -47,6 +53,12 @@ class MathematicsDomain:
             compile_time_scalar_field_surface_animation_scene,
             compile_time_vector_field_animation_scene,
             compile_vector_field_view_scene,
+        )
+        from spectra.domains.mathematics.field_visualization2d import (
+            compile_scalar_field_height_2d_scene,
+            compile_time_scalar_field_height_2d_scene,
+            compile_time_vector_field_animation_2d_scene,
+            compile_vector_field_view_2d_scene,
         )
         from spectra.domains.mathematics.visualization import (
             compile_parametric_curve_scene,
@@ -70,6 +82,19 @@ class MathematicsDomain:
         registry.register_semantic_type(
             "mathematics.time_vector_field2d",
             TimeDependentVectorField2D,
+        )
+        registry.register_semantic_type("mathematics.vector_field_view2d", VectorFieldView2D)
+        registry.register_semantic_type(
+            "mathematics.time_vector_field_animation2d",
+            TimeVectorFieldAnimation2D,
+        )
+        registry.register_semantic_type(
+            "mathematics.scalar_field_height_view2d",
+            ScalarFieldHeightView2D,
+        )
+        registry.register_semantic_type(
+            "mathematics.time_scalar_field_height_animation2d",
+            TimeScalarFieldHeightAnimation2D,
         )
         registry.register_semantic_type("mathematics.scalar_field3d", ScalarField3D)
         registry.register_semantic_type("mathematics.vector_field3d", VectorField3D)
@@ -110,6 +135,14 @@ class MathematicsDomain:
         registry.provide("mathematics.vector_field2d", VectorField2D, version=1)
         registry.provide("mathematics.time_scalar_field2d", TimeDependentScalarField2D, version=1)
         registry.provide("mathematics.time_vector_field2d", TimeDependentVectorField2D, version=1)
+        registry.provide("mathematics.vector_field_view2d", VectorFieldView2D, version=1)
+        registry.provide("mathematics.time_vector_field_animation2d", TimeVectorFieldAnimation2D, version=1)
+        registry.provide("mathematics.scalar_field_height_view2d", ScalarFieldHeightView2D, version=1)
+        registry.provide(
+            "mathematics.time_scalar_field_height_animation2d",
+            TimeScalarFieldHeightAnimation2D,
+            version=1,
+        )
         registry.provide("mathematics.scalar_field3d", ScalarField3D)
         registry.provide("mathematics.vector_field3d", VectorField3D)
         registry.provide("mathematics.time_scalar_field3d", TimeDependentScalarField3D)
@@ -134,6 +167,19 @@ class MathematicsDomain:
         registry.register_visualization(Function2D, compile_function2d)
         registry.register_visualization(ParametricCurve3D, compile_parametric_curve_scene)
         registry.register_visualization(ParametricSurface3D, compile_parametric_surface_scene)
+        registry.register_visualization(VectorFieldView2D, compile_vector_field_view_2d_scene)
+        registry.register_visualization(
+            TimeVectorFieldAnimation2D,
+            compile_time_vector_field_animation_2d_scene,
+        )
+        registry.register_visualization(
+            ScalarFieldHeightView2D,
+            compile_scalar_field_height_2d_scene,
+        )
+        registry.register_visualization(
+            TimeScalarFieldHeightAnimation2D,
+            compile_time_scalar_field_height_2d_scene,
+        )
         registry.register_visualization(VectorFieldView3D, compile_vector_field_view_scene)
         registry.register_visualization(
             TimeVectorFieldAnimation3D,
