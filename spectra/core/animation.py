@@ -177,12 +177,20 @@ def interpolate_values(
     )
 
 
-def property_path_exists(value: object, property_path: str) -> bool:
+def get_property_path(value: object, property_path: str) -> object:
     current: object = value
     for segment in property_path.split("."):
         if not segment or not hasattr(current, segment):
-            return False
+            raise ValueError(f"unknown animation property: {property_path}")
         current = getattr(current, segment)
+    return current
+
+
+def property_path_exists(value: object, property_path: str) -> bool:
+    try:
+        get_property_path(value, property_path)
+    except ValueError:
+        return False
     return True
 
 
