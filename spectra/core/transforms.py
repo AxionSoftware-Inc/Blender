@@ -97,10 +97,11 @@ class Quaternion:
 
 @dataclass(frozen=True, slots=True)
 class Transform3D:
-    """Generic transform shared by every visual primitive.
+    """Generic local transform shared by every visual primitive.
 
-    Scientific geometry remains in scientific coordinates. This transform is a
-    visual-space operation that renderer backends map to their native transform.
+    Transform order is scale -> rotation -> translation. Scientific geometry is
+    transformed locally first; a Scene coordinate frame may then map the result
+    into renderer/world coordinates.
     """
 
     translation: Vec3 = Vec3(0.0, 0.0, 0.0)
@@ -110,6 +111,29 @@ class Transform3D:
     def __post_init__(self) -> None:
         if self.scale.x == 0.0 or self.scale.y == 0.0 or self.scale.z == 0.0:
             raise ValueError("transform scale components cannot be zero")
+
+    @property
+    def max_abs_scale(self) -> float:
+        return max(abs(self.scale.x), abs(self.scale.y), abs(self.scale.z))
+
+    @property
+    def is_identity(self) -> bool:
+        return (
+            self.translation == Vec3(0.0, 0.0, 0.0)
+            and self.rotation == Quaternion.identity()
+            and self.scale == Vec3(1.0, 1.0, 1.0)
+        )
+
+    def apply_vector(self, vector: Vec3) -> Vec3:
+        scaled = Vec3(
+            vector.x * self.scale.x,
+            vector.y * self.scale.y,
+            vector.z * self.scale.z,
+        )
+        return self.rotation.rotate(scaled)
+
+    def apply_point(self, point: Vec3) -> Vec3:
+        return self.translation + self.apply_vector(point)
 
     @staticmethod
     def look_at(
