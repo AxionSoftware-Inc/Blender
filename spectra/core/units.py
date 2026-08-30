@@ -56,8 +56,11 @@ TIME = Dimension(time=1)
 CURRENT = Dimension(current=1)
 TEMPERATURE = Dimension(temperature=1)
 CHARGE = CURRENT * TIME
+VELOCITY = LENGTH / TIME
+FREQUENCY = TIME ** -1
 FORCE = MASS * LENGTH / (TIME ** 2)
 ELECTRIC_FIELD = FORCE / CHARGE
+MAGNETIC_FIELD = MASS / (CURRENT * (TIME ** 2))
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,9 +106,12 @@ CENTIMETER = Unit("centimeter", "cm", LENGTH, scale_to_si=0.01)
 KILOMETER = Unit("kilometer", "km", LENGTH, scale_to_si=1000.0)
 SECOND = Unit("second", "s", TIME)
 MILLISECOND = Unit("millisecond", "ms", TIME, scale_to_si=0.001)
+HERTZ = Unit("hertz", "Hz", FREQUENCY)
+METER_PER_SECOND = Unit("meter per second", "m/s", VELOCITY)
 KILOGRAM = Unit("kilogram", "kg", MASS)
 AMPERE = Unit("ampere", "A", CURRENT)
 KELVIN = Unit("kelvin", "K", TEMPERATURE)
 COULOMB = Unit("coulomb", "C", CHARGE)
 NEWTON = Unit("newton", "N", FORCE)
 NEWTON_PER_COULOMB = Unit("newton per coulomb", "N/C", ELECTRIC_FIELD)
+TESLA = Unit("tesla", "T", MAGNETIC_FIELD)
