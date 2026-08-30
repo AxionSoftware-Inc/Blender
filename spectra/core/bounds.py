@@ -7,6 +7,7 @@ from typing import Iterable
 from .primitives import (
     Camera,
     Group,
+    Light,
     Point,
     PointCloud,
     Polyline,
@@ -121,7 +122,7 @@ def primitive_local_bounds(primitive: Primitive) -> Bounds3D | None:
     """Return Scene-local bounds for one visible scientific primitive."""
     if not primitive.visible or primitive.opacity <= 0.0:
         return None
-    if isinstance(primitive, (Camera, Group)):
+    if isinstance(primitive, (Camera, Group, Light)):
         return None
 
     if isinstance(primitive, Point):
