@@ -6,6 +6,7 @@ from .units import (
     COULOMB,
     JOULE,
     KELVIN,
+    KILOGRAM,
     METER,
     METER_PER_SECOND,
     NEWTON,
@@ -21,10 +22,14 @@ PLANCK_CONSTANT = Quantity(6.626_070_15e-34, JOULE * SECOND)
 REDUCED_PLANCK_CONSTANT = PLANCK_CONSTANT / (2.0 * math.pi)
 BOLTZMANN_CONSTANT = Quantity(1.380_649e-23, JOULE / KELVIN)
 
-# Reference electromagnetic constant used by the current electrostatics domain.
+# CODATA/reference constants used by current physics domains.
 COULOMB_CONSTANT = Quantity(
     8.987_551_792_3e9,
     NEWTON * (METER ** 2) / (COULOMB ** 2),
+)
+GRAVITATIONAL_CONSTANT = Quantity(
+    6.674_30e-11,
+    (METER ** 3) / (KILOGRAM * (SECOND ** 2)),
 )
 
 
@@ -32,6 +37,7 @@ __all__ = [
     "BOLTZMANN_CONSTANT",
     "COULOMB_CONSTANT",
     "ELEMENTARY_CHARGE",
+    "GRAVITATIONAL_CONSTANT",
     "PLANCK_CONSTANT",
     "REDUCED_PLANCK_CONSTANT",
     "SPEED_OF_LIGHT",
