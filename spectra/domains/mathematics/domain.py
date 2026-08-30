@@ -8,6 +8,7 @@ from spectra.domains.registry import DomainRegistry
 class MathematicsDomain:
     name = "mathematics"
     version = "1"
+    dependencies = ()
 
     def register(self, registry: DomainRegistry) -> None:
         registry.register_semantic_type("mathematics.interval", Interval)
