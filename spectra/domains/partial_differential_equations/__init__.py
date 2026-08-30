@@ -98,6 +98,7 @@ from spectra.domains.partial_differential_equations.operators3d import (
     curl_grid_3d,
     divergence_grid_3d,
     gradient_grid_3d,
+    vector_upwind_advection_grid_3d,
 )
 from spectra.domains.partial_differential_equations.second_order2d import (
     SecondOrderPDE2DDomain,
@@ -244,4 +245,5 @@ __all__ = [
     "vector_field_from_grid_2d",
     "vector_field_from_grid_3d",
     "vector_upwind_advection_grid_2d",
+    "vector_upwind_advection_grid_3d",
 ]
