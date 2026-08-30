@@ -55,6 +55,9 @@ MASS = Dimension(mass=1)
 TIME = Dimension(time=1)
 CURRENT = Dimension(current=1)
 TEMPERATURE = Dimension(temperature=1)
+CHARGE = CURRENT * TIME
+FORCE = MASS * LENGTH / (TIME ** 2)
+ELECTRIC_FIELD = FORCE / CHARGE
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,3 +106,6 @@ MILLISECOND = Unit("millisecond", "ms", TIME, scale_to_si=0.001)
 KILOGRAM = Unit("kilogram", "kg", MASS)
 AMPERE = Unit("ampere", "A", CURRENT)
 KELVIN = Unit("kelvin", "K", TEMPERATURE)
+COULOMB = Unit("coulomb", "C", CHARGE)
+NEWTON = Unit("newton", "N", FORCE)
+NEWTON_PER_COULOMB = Unit("newton per coulomb", "N/C", ELECTRIC_FIELD)
