@@ -22,12 +22,19 @@ from spectra.domains.linear_algebra.domain import (
     normalize_complex,
     transpose,
 )
+from spectra.domains.linear_algebra.eigensystems import (
+    SymmetricEigenDecomposition,
+    SymmetricEigensystemsDomain,
+    symmetric_eigendecomposition,
+)
 
 __all__ = [
     "ComplexMatrixN",
     "ComplexVectorN",
     "LinearAlgebraDomain",
     "MatrixN",
+    "SymmetricEigenDecomposition",
+    "SymmetricEigensystemsDomain",
     "VectorN",
     "complex_determinant",
     "complex_identity",
@@ -45,5 +52,6 @@ __all__ = [
     "norm",
     "normalize",
     "normalize_complex",
+    "symmetric_eigendecomposition",
     "transpose",
 ]
