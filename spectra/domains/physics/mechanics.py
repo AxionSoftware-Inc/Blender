@@ -70,7 +70,7 @@ class Trajectory:
 
 class MechanicsDomain:
     name = "mechanics"
-    version = "1"
+    version = "2"
     dependencies = (
         DomainDependency("ode.first_order_system"),
         DomainDependency("ode.solve_rk4"),
@@ -125,5 +125,6 @@ class MechanicsDomain:
         registry.register_semantic_type("physics.mechanics.particle_problem", ParticleProblem)
         registry.register_semantic_type("physics.mechanics.trajectory", Trajectory)
         registry.provide("physics.mechanics.particle_problem", ParticleProblem)
+        registry.provide("physics.mechanics.trajectory", Trajectory, version=2)
         registry.provide("physics.mechanics.solve_particle", solve_particle)
         registry.register_visualization(Trajectory, compile_trajectory_scene)
