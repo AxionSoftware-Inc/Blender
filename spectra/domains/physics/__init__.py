@@ -23,6 +23,11 @@ from spectra.domains.physics.electromagnetism import (
     SPEED_OF_LIGHT,
     electric_field_from_point_charges,
 )
+from spectra.domains.physics.electrostatic_potential2d import (
+    ElectrostaticPotential2DDomain,
+    ElectrostaticPotentialProblem2D,
+    ElectrostaticPotentialSolution2D,
+)
 from spectra.domains.physics.fluid_kinematics import (
     FluidKinematics2DDomain,
     SteadyFlow2D,
@@ -70,6 +75,11 @@ from spectra.domains.physics.schrodinger import (
     normalize_wavefunction_samples,
     probability_mass_1d,
 )
+from spectra.domains.physics.vorticity_streamfunction import (
+    VorticityStreamfunction2DDomain,
+    VorticityStreamfunctionProblem2D,
+    VorticityStreamfunctionSolution2D,
+)
 from spectra.domains.physics.waves import (
     HarmonicWave1D,
     WaveAnimation1D,
@@ -88,6 +98,9 @@ __all__ = [
     "DiffusionSolution2D",
     "ElasticityDomain",
     "ElectromagnetismDomain",
+    "ElectrostaticPotential2DDomain",
+    "ElectrostaticPotentialProblem2D",
+    "ElectrostaticPotentialSolution2D",
     "FluidKinematics2DDomain",
     "FluidTransport2DDomain",
     "GeneralRelativityDomain",
@@ -124,6 +137,9 @@ __all__ = [
     "StressTensor3D",
     "Trajectory",
     "UnsteadyFlow2D",
+    "VorticityStreamfunction2DDomain",
+    "VorticityStreamfunctionProblem2D",
+    "VorticityStreamfunctionSolution2D",
     "WaveAnimation1D",
     "WaveProfile1D",
     "WaveSuperposition1D",
