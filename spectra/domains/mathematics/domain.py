@@ -1,7 +1,13 @@
 from __future__ import annotations
 
 from spectra.core.expressions import compile_expression
-from spectra.domains.mathematics.fields import RegularGrid3D, ScalarField3D, VectorField3D
+from spectra.domains.mathematics.fields import (
+    RegularGrid3D,
+    ScalarField3D,
+    TimeDependentScalarField3D,
+    TimeDependentVectorField3D,
+    VectorField3D,
+)
 from spectra.domains.mathematics.functions import Function1D, Function2D, Interval, RectDomain2D
 from spectra.domains.mathematics.parametric import ParametricCurve3D, ParametricSurface3D
 from spectra.domains.registry import DomainRegistry
@@ -29,6 +35,14 @@ class MathematicsDomain:
         registry.register_semantic_type("mathematics.parametric_surface3d", ParametricSurface3D)
         registry.register_semantic_type("mathematics.scalar_field3d", ScalarField3D)
         registry.register_semantic_type("mathematics.vector_field3d", VectorField3D)
+        registry.register_semantic_type(
+            "mathematics.time_scalar_field3d",
+            TimeDependentScalarField3D,
+        )
+        registry.register_semantic_type(
+            "mathematics.time_vector_field3d",
+            TimeDependentVectorField3D,
+        )
         registry.register_semantic_type("mathematics.regular_grid3d", RegularGrid3D)
 
         registry.provide("mathematics.compile_expression", compile_expression)
@@ -40,6 +54,8 @@ class MathematicsDomain:
         registry.provide("mathematics.parametric_surface3d", ParametricSurface3D)
         registry.provide("mathematics.scalar_field3d", ScalarField3D)
         registry.provide("mathematics.vector_field3d", VectorField3D)
+        registry.provide("mathematics.time_scalar_field3d", TimeDependentScalarField3D)
+        registry.provide("mathematics.time_vector_field3d", TimeDependentVectorField3D)
         registry.provide("mathematics.regular_grid3d", RegularGrid3D)
 
         registry.register_visualization(Function1D, compile_function1d)
