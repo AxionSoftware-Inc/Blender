@@ -17,10 +17,17 @@ Capability = Any
 
 @dataclass(frozen=True)
 class DomainDependency:
-    """A stable capability dependency declared by a scientific domain."""
+    """A stable, versioned capability dependency declared by a scientific domain."""
 
     capability: str
     optional: bool = False
+    min_version: int = 1
+
+    def __post_init__(self) -> None:
+        if not self.capability:
+            raise ValueError("dependency capability cannot be empty")
+        if self.min_version < 1:
+            raise ValueError("dependency min_version must be >= 1")
 
 
 class DomainResolutionError(RuntimeError):
@@ -33,6 +40,7 @@ class _RegistrySnapshot:
     semantic_types: dict[str, type[Any]]
     compilers: dict[str, Compiler]
     capabilities: dict[str, Capability]
+    capability_versions: dict[str, int]
     visualizations: VisualizationRegistry
 
 
@@ -42,14 +50,15 @@ class DomainRegistry:
 
     The registry intentionally knows nothing about calculus, probability,
     statistics, physics, or any other particular field. Domains publish
-    semantics, compilers, reusable capabilities, and visualization compilers
-    through stable engine contracts.
+    semantics, compilers, reusable versioned capabilities, and visualization
+    compilers through stable engine contracts.
     """
 
     domains: dict[str, "DomainModule"] = field(default_factory=dict)
     semantic_types: dict[str, type[Any]] = field(default_factory=dict)
     compilers: dict[str, Compiler] = field(default_factory=dict)
     capabilities: dict[str, Capability] = field(default_factory=dict)
+    capability_versions: dict[str, int] = field(default_factory=dict)
     visualizations: VisualizationRegistry = field(default_factory=VisualizationRegistry)
 
     def _snapshot(self) -> _RegistrySnapshot:
@@ -58,6 +67,7 @@ class DomainRegistry:
             semantic_types=dict(self.semantic_types),
             compilers=dict(self.compilers),
             capabilities=dict(self.capabilities),
+            capability_versions=dict(self.capability_versions),
             visualizations=self.visualizations.copy(),
         )
 
@@ -70,6 +80,8 @@ class DomainRegistry:
         self.compilers.update(snapshot.compilers)
         self.capabilities.clear()
         self.capabilities.update(snapshot.capabilities)
+        self.capability_versions.clear()
+        self.capability_versions.update(snapshot.capability_versions)
         self.visualizations = snapshot.visualizations
 
     def add_domain(self, domain: "DomainModule") -> None:
@@ -91,9 +103,9 @@ class DomainRegistry:
         """Register a set of domains in dependency-resolved, atomic order.
 
         Callers may supply domains in arbitrary order. Required capability
-        dependencies are resolved iteratively. If any domain cannot be loaded,
-        the entire batch is rolled back so the registry never exposes a partial
-        scientific plugin graph.
+        dependencies (including minimum contract versions) are resolved
+        iteratively. If any domain cannot be loaded, the entire batch is rolled
+        back so the registry never exposes a partial scientific plugin graph.
         """
         pending = list(domains)
         names = [domain.name for domain in pending]
@@ -112,11 +124,17 @@ class DomainRegistry:
 
                 for domain in pending:
                     required = tuple(
-                        dependency.capability
+                        dependency
                         for dependency in getattr(domain, "dependencies", ())
                         if not dependency.optional
                     )
-                    if all(capability in self.capabilities for capability in required):
+                    if all(
+                        self.has_capability(
+                            dependency.capability,
+                            min_version=dependency.min_version,
+                        )
+                        for dependency in required
+                    ):
                         self.add_domain(domain)
                         progress = True
                     else:
@@ -128,9 +146,13 @@ class DomainRegistry:
 
                 missing_by_domain = {
                     domain.name: tuple(
-                        dependency.capability
+                        self._dependency_label(dependency)
                         for dependency in getattr(domain, "dependencies", ())
-                        if not dependency.optional and dependency.capability not in self.capabilities
+                        if not dependency.optional
+                        and not self.has_capability(
+                            dependency.capability,
+                            min_version=dependency.min_version,
+                        )
                     )
                     for domain in next_pending
                 }
@@ -142,6 +164,12 @@ class DomainRegistry:
         except Exception:
             self._restore(snapshot)
             raise
+
+    @staticmethod
+    def _dependency_label(dependency: DomainDependency) -> str:
+        if dependency.min_version <= 1:
+            return dependency.capability
+        return f"{dependency.capability}>={dependency.min_version}"
 
     def register_semantic_type(self, key: str, semantic_type: type[Any]) -> None:
         if key in self.semantic_types:
@@ -174,33 +202,61 @@ class DomainRegistry:
         """Compile a semantic object without the caller knowing its owning domain."""
         return self.visualizations.compile(semantic_object)
 
-    def provide(self, key: str, capability: Capability) -> None:
+    def provide(self, key: str, capability: Capability, *, version: int = 1) -> None:
         """Publish reusable scientific/computation functionality.
 
-        Examples: probability.expectation, linear_algebra.eigensystem,
-        complex.inner_product, ode.solve, units.convert.
+        Capability versions describe the stable contract exposed to consuming
+        domains, not the internal implementation version. Implementations may
+        move from Python to NumPy/Rust/C++/GPU while retaining the same contract.
         """
+        if not key:
+            raise ValueError("capability key cannot be empty")
+        if version < 1:
+            raise ValueError("capability version must be >= 1")
         if key in self.capabilities:
             raise ValueError(f"capability already registered: {key}")
         self.capabilities[key] = capability
+        self.capability_versions[key] = version
 
-    def has_capability(self, key: str) -> bool:
-        return key in self.capabilities
+    def has_capability(self, key: str, *, min_version: int = 1) -> bool:
+        return key in self.capabilities and self.capability_versions.get(key, 1) >= min_version
 
-    def require(self, key: str) -> Capability:
-        """Resolve a capability required by another domain."""
+    def capability_version(self, key: str) -> int:
+        if key not in self.capabilities:
+            raise KeyError(f"capability is not registered: {key}")
+        return self.capability_versions.get(key, 1)
+
+    def require(self, key: str, *, min_version: int = 1) -> Capability:
+        """Resolve a capability that satisfies a minimum contract version."""
         try:
-            return self.capabilities[key]
+            capability = self.capabilities[key]
         except KeyError as exc:
             raise KeyError(f"required capability is not registered: {key}") from exc
+        version = self.capability_versions.get(key, 1)
+        if version < min_version:
+            raise KeyError(
+                f"required capability version is not available: {key}>={min_version} "
+                f"(registered v{version})"
+            )
+        return capability
 
     def resolve_dependencies(self, dependencies: Iterable[DomainDependency]) -> dict[str, Capability]:
         resolved: dict[str, Capability] = {}
         for dependency in dependencies:
-            if dependency.capability in self.capabilities:
+            if self.has_capability(
+                dependency.capability,
+                min_version=dependency.min_version,
+            ):
                 resolved[dependency.capability] = self.capabilities[dependency.capability]
             elif not dependency.optional:
+                registered_version = self.capability_versions.get(dependency.capability)
+                if registered_version is None:
+                    raise KeyError(
+                        f"required capability is not registered: {dependency.capability}"
+                    )
                 raise KeyError(
-                    f"required capability is not registered: {dependency.capability}"
+                    "required capability version is not available: "
+                    f"{dependency.capability}>={dependency.min_version} "
+                    f"(registered v{registered_version})"
                 )
         return resolved
