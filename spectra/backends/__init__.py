@@ -4,6 +4,7 @@ from spectra.backends.base import (
     BackendCompatibilityError,
     validate_backend_compatibility,
 )
+from spectra.backends.blender import BlenderBackend, BlenderHandle, BlenderUnavailableError
 from spectra.backends.driver import BackendSession
 from spectra.backends.memory import MemoryBackend, MemoryHandle
 
@@ -12,6 +13,9 @@ __all__ = [
     "BackendCapabilities",
     "BackendCompatibilityError",
     "BackendSession",
+    "BlenderBackend",
+    "BlenderHandle",
+    "BlenderUnavailableError",
     "MemoryBackend",
     "MemoryHandle",
     "validate_backend_compatibility",
