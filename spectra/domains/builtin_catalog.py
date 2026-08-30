@@ -6,6 +6,7 @@ from spectra.domains.differential_equations import DifferentialEquationsDomain
 from spectra.domains.graph_theory import GraphTheoryDomain
 from spectra.domains.linear_algebra import LinearAlgebraDomain
 from spectra.domains.mathematics import MathematicsDomain
+from spectra.domains.partial_differential_equations import PartialDifferentialEquationsDomain
 from spectra.domains.physics import (
     ElectromagnetismDomain,
     MechanicsDomain,
@@ -120,6 +121,16 @@ def builtin_domain_catalog() -> DomainCatalog:
                 factory=DifferentialEquationsDomain,
                 provides=("ode.first_order_system", "ode.solve_rk4"),
                 tags=("math", "ode", "solver"),
+            ),
+            DomainDescriptor(
+                name="partial_differential_equations",
+                factory=PartialDifferentialEquationsDomain,
+                provides=(
+                    "pde.uniform_grid1d",
+                    "pde.second_derivative_1d",
+                    "pde.solve_method_of_lines",
+                ),
+                tags=("math", "pde", "solver"),
             ),
             DomainDescriptor(
                 name="graph_theory",
