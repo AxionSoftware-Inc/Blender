@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 from spectra.core.animation import Timeline, Track, draw_track, fade_track
-from spectra.core.primitives import Camera, Group, Polyline
+from spectra.core.primitives import Camera, Group, Light, Polyline
 from spectra.core.scene import Scene
 
 
@@ -25,11 +27,11 @@ def staggered_reveal(
     stagger: float = 0.12,
     include_groups: bool = False,
 ) -> Scene:
-    """Apply a renderer-neutral reveal animation to an existing Scene.
+    """Apply a renderer-neutral reveal animation to visible content.
 
-    Polylines are drawn through trim animation; other visual primitives fade in.
-    Cameras are presentation controls rather than visible scene content and are
-    never included in automatic reveal effects.
+    Cameras and lights are presentation controls and are not automatically
+    revealed. ``dataclasses.replace`` preserves future Scene-level resources so
+    this helper does not need to be rewritten whenever Scene gains a new field.
     """
     if start_time < 0.0:
         raise ValueError("start_time cannot be negative")
@@ -42,7 +44,7 @@ def staggered_reveal(
     end_time = scene.timeline.duration
     reveal_index = 0
     for primitive in scene.primitives:
-        if isinstance(primitive, Camera):
+        if isinstance(primitive, (Camera, Light)):
             continue
         if isinstance(primitive, Group) and not include_groups:
             continue
@@ -52,26 +54,9 @@ def staggered_reveal(
         end_time = max(end_time, item_end)
 
         if isinstance(primitive, Polyline):
-            tracks.append(
-                draw_track(
-                    primitive.id,
-                    start_time=item_start,
-                    end_time=item_end,
-                )
-            )
+            tracks.append(draw_track(primitive.id, start_time=item_start, end_time=item_end))
         else:
-            tracks.append(
-                fade_track(
-                    primitive.id,
-                    start_time=item_start,
-                    end_time=item_end,
-                )
-            )
+            tracks.append(fade_track(primitive.id, start_time=item_start, end_time=item_end))
 
     reveal_timeline = Timeline(duration=end_time, tracks=tuple(tracks))
-    return Scene(
-        primitives=scene.primitives,
-        timeline=merge_timelines(scene.timeline, reveal_timeline),
-        frame=scene.frame,
-        active_camera_id=scene.active_camera_id,
-    )
+    return replace(scene, timeline=merge_timelines(scene.timeline, reveal_timeline))
