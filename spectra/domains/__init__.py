@@ -1,4 +1,4 @@
 from spectra.domains.base import DomainModule
-from spectra.domains.registry import DomainRegistry
+from spectra.domains.registry import DomainDependency, DomainRegistry
 
-__all__ = ["DomainModule", "DomainRegistry"]
+__all__ = ["DomainDependency", "DomainModule", "DomainRegistry"]
