@@ -25,8 +25,11 @@ def test_calculus_composes_over_mathematics_domain() -> None:
 
     derivative_at = registry.require("calculus.derivative_at")
     tangent_at = registry.require("calculus.tangent_at")
+    integrate = registry.require("calculus.integrate", min_version=2)
 
     assert derivative_at(function, 1.5) == pytest.approx(3.0, rel=1e-4)
     tangent = tangent_at(function, 1.5)
     assert tangent.y == pytest.approx(2.25)
     assert tangent.slope == pytest.approx(3.0, rel=1e-4)
+    assert integrate(function, start=0.0, end=2.0) == pytest.approx(8.0 / 3.0, rel=1e-8)
+    assert registry.capability_version("calculus.integrate") == 2
