@@ -4,6 +4,10 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 import math
 
+from spectra.core.constants import (
+    COULOMB_CONSTANT as COULOMB_CONSTANT_QUANTITY,
+    SPEED_OF_LIGHT as SPEED_OF_LIGHT_QUANTITY,
+)
 from spectra.core.types import Vec3
 from spectra.core.units import (
     CHARGE,
@@ -19,8 +23,10 @@ from spectra.domains.mathematics.fields import (
 from spectra.domains.registry import DomainDependency, DomainRegistry
 
 
-COULOMB_CONSTANT = 8.9875517923e9
-SPEED_OF_LIGHT = 299_792_458.0
+# Backward-compatible scalar SI constants. Typed Quantity values above remain the
+# source of truth for dimensional composition and future quantity-aware APIs.
+COULOMB_CONSTANT = COULOMB_CONSTANT_QUANTITY.si_value
+SPEED_OF_LIGHT = SPEED_OF_LIGHT_QUANTITY.si_value
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,6 +53,7 @@ def electric_field_from_point_charges(
         raise ValueError("singularity_radius must be positive")
 
     frozen_charges = tuple(charges)
+    coulomb_constant_si = COULOMB_CONSTANT_QUANTITY.si_value
 
     def evaluate(position: Vec3) -> Vec3:
         field = Vec3(0.0, 0.0, 0.0)
@@ -55,7 +62,7 @@ def electric_field_from_point_charges(
             radius = displacement.magnitude
             if radius < singularity_radius:
                 continue
-            magnitude = COULOMB_CONSTANT * charge.charge.si_value / (radius * radius)
+            magnitude = coulomb_constant_si * charge.charge.si_value / (radius * radius)
             field = field + displacement.normalized() * magnitude
         return field
 
@@ -147,7 +154,7 @@ class PlaneElectromagneticWave:
 
 class ElectromagnetismDomain:
     name = "electromagnetism"
-    version = "1"
+    version = "2"
     dependencies = (
         DomainDependency("mathematics.vector_field3d"),
         DomainDependency("mathematics.time_vector_field3d"),
