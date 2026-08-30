@@ -26,6 +26,18 @@ def _evaluate(field: Field3D, position: Vec3, time: float) -> Vec3:
     return field.evaluate(position)
 
 
+def _evaluate_si(field: Field3D, position: Vec3, time: float) -> Vec3:
+    value = _evaluate(field, position, time)
+    unit = field.output_unit
+    if unit is None:
+        return value
+    return Vec3(
+        unit.to_si(value.x),
+        unit.to_si(value.y),
+        unit.to_si(value.z),
+    )
+
+
 def _require_dimension(field: Field3D, dimension, label: str) -> None:
     if field.output_unit is None:
         raise ValueError(f"{label} requires an explicit physical output unit")
@@ -37,7 +49,7 @@ class FieldParticleDynamicsDomain:
     """Bridge renderer-neutral fields into the generic Newtonian particle solver."""
 
     name = "physics.field_particles"
-    version = "1"
+    version = "2"
     dependencies = (
         DomainDependency("physics.mechanics.particle_problem"),
         DomainDependency("mathematics.vector_field3d"),
@@ -62,7 +74,7 @@ class FieldParticleDynamicsDomain:
             mass_si = mass.si_value
 
             def force(time: float, position: Vec3, _velocity: Vec3) -> Vec3:
-                return _evaluate(field, position, time) * mass_si
+                return _evaluate_si(field, position, time) * mass_si
 
             return particle_type(
                 mass=mass,
@@ -94,10 +106,10 @@ class FieldParticleDynamicsDomain:
             charge_si = charge.si_value
 
             def force(time: float, position: Vec3, velocity: Vec3) -> Vec3:
-                electric = _evaluate(electric_field, position, time)
+                electric = _evaluate_si(electric_field, position, time)
                 magnetic_term = Vec3(0.0, 0.0, 0.0)
                 if magnetic_field is not None:
-                    magnetic = _evaluate(magnetic_field, position, time)
+                    magnetic = _evaluate_si(magnetic_field, position, time)
                     magnetic_term = velocity.cross(magnetic)
                 return (electric + magnetic_term) * charge_si
 
@@ -113,8 +125,10 @@ class FieldParticleDynamicsDomain:
         registry.provide(
             "physics.field_particles.in_acceleration_field",
             in_acceleration_field,
+            version=2,
         )
         registry.provide(
             "physics.field_particles.in_electromagnetic_fields",
             in_electromagnetic_fields,
+            version=2,
         )
