@@ -1,3 +1,8 @@
+from spectra.domains.physics.acoustics3d import (
+    AcousticPressureProblem3D,
+    AcousticPressureSolution3D,
+    Acoustics3DDomain,
+)
 from spectra.domains.physics.diffusion import (
     DiffusionDomain,
     DiffusionProblem1D,
@@ -50,10 +55,19 @@ from spectra.domains.physics.fluid_diagnostics import (
     peclet_number,
     reynolds_number,
 )
+from spectra.domains.physics.fluid_diagnostics3d import (
+    FlowHistoryDiagnostics3D,
+    FluidDiagnostics3DDomain,
+)
 from spectra.domains.physics.fluid_invariants import (
     FlowInvariantHistory2D,
     FlowInvariantSnapshot2D,
     FluidInvariants2DDomain,
+)
+from spectra.domains.physics.fluid_invariants3d import (
+    FlowInvariantHistory3D,
+    FlowInvariantSnapshot3D,
+    FluidInvariants3DDomain,
 )
 from spectra.domains.physics.fluid_kinematics import (
     FluidKinematics2DDomain,
@@ -121,6 +135,11 @@ from spectra.domains.physics.potential_sources3d import (
     PotentialSources3DDomain,
 )
 from spectra.domains.physics.quantum import QuantumDomain, QuantumObservable, QuantumState
+from spectra.domains.physics.quantum_current3d import (
+    QuantumProbabilityCurrent3DDomain,
+    QuantumProbabilityFields3D,
+    QuantumProbabilityFlow3D,
+)
 from spectra.domains.physics.quantum_spatial import (
     SpatialQuantumDomain,
     SpatialWavefunction1D,
@@ -175,6 +194,9 @@ from spectra.domains.physics.waves import (
 )
 
 __all__ = [
+    "AcousticPressureProblem3D",
+    "AcousticPressureSolution3D",
+    "Acoustics3DDomain",
     "Diffusion2DDomain",
     "Diffusion3DDomain",
     "DiffusionDomain",
@@ -195,10 +217,15 @@ __all__ = [
     "ElectrostaticPotentialSolution3D",
     "FieldParticleDynamicsDomain",
     "FlowHistoryDiagnostics2D",
+    "FlowHistoryDiagnostics3D",
     "FlowInvariantHistory2D",
+    "FlowInvariantHistory3D",
     "FlowInvariantSnapshot2D",
+    "FlowInvariantSnapshot3D",
     "FluidDiagnostics2DDomain",
+    "FluidDiagnostics3DDomain",
     "FluidInvariants2DDomain",
+    "FluidInvariants3DDomain",
     "FluidKinematics2DDomain",
     "FluidKinematics3DDomain",
     "FluidTransport2DDomain",
@@ -242,6 +269,9 @@ __all__ = [
     "PrincipalStressState3D",
     "QuantumDomain",
     "QuantumObservable",
+    "QuantumProbabilityCurrent3DDomain",
+    "QuantumProbabilityFields3D",
+    "QuantumProbabilityFlow3D",
     "QuantumState",
     "RelativityDomain",
     "SPEED_OF_LIGHT",
