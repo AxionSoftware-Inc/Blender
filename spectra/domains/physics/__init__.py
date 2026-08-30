@@ -91,6 +91,11 @@ from spectra.domains.physics.particles import (
     ParticleSystemTrajectory,
     ParticleSystemsDomain,
 )
+from spectra.domains.physics.potential_sources3d import (
+    PointChargeSource3D,
+    PointMassSource3D,
+    PotentialSources3DDomain,
+)
 from spectra.domains.physics.quantum import QuantumDomain, QuantumObservable, QuantumState
 from spectra.domains.physics.quantum_spatial import (
     SpatialQuantumDomain,
@@ -184,6 +189,9 @@ __all__ = [
     "PassiveScalarSolution2D",
     "PlaneElectromagneticWave",
     "PointCharge",
+    "PointChargeSource3D",
+    "PointMassSource3D",
+    "PotentialSources3DDomain",
     "PrincipalStressDomain",
     "PrincipalStressState3D",
     "QuantumDomain",
