@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from spectra.core.primitives import Polyline, Surface, VectorGlyph
+from spectra.core.primitives import Polyline, Surface, VectorGlyphSet
 from spectra.core.scene import Scene
 from spectra.core.types import Color
 from spectra.domains.mathematics.fields import RegularGrid3D, VectorField3D
@@ -84,18 +84,20 @@ def compile_vector_field_scene(
     primitive_prefix: str = "vector_field",
     color: Color = Color(0.45, 0.75, 1.0, 1.0),
 ) -> Scene:
-    """Compile a mathematical vector field into renderer-independent glyphs."""
+    """Compile a field into one batched renderer-independent glyph set.
+
+    Dense scientific fields must not create one Python Scene primitive per
+    vector. A backend can map VectorGlyphSet directly to native/GPU instancing.
+    """
     if vector_scale <= 0.0:
         raise ValueError("vector_scale must be positive")
 
-    primitives = []
-    for index, position in enumerate(grid.points()):
-        primitives.append(
-            VectorGlyph(
-                id=f"{primitive_prefix}.{index}",
-                origin=position,
-                vector=field.evaluate(position) * vector_scale,
-                color=color,
-            )
-        )
-    return Scene(primitives=tuple(primitives))
+    origins = tuple(grid.points())
+    vectors = tuple(field.evaluate(position) * vector_scale for position in origins)
+    glyphs = VectorGlyphSet(
+        id=primitive_prefix,
+        origins=origins,
+        vectors=vectors,
+        color=color,
+    )
+    return Scene(primitives=(glyphs,))
