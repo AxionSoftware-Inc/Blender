@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from .animation import Timeline, get_property_path, replace_property_path
 from .coordinates import CoordinateFrame3D, WORLD_FRAME
-from .primitives import Group, Primitive
+from .primitives import Camera, Group, Primitive
 
 
 @dataclass(frozen=True, slots=True)
@@ -12,6 +12,7 @@ class Scene:
     primitives: tuple[Primitive, ...] = ()
     timeline: Timeline = Timeline()
     frame: CoordinateFrame3D = WORLD_FRAME
+    active_camera_id: str | None = None
 
     def __post_init__(self) -> None:
         ids = [primitive.id for primitive in self.primitives]
@@ -20,6 +21,7 @@ class Scene:
 
         primitive_by_id = {primitive.id: primitive for primitive in self.primitives}
         self._validate_groups(primitive_by_id)
+        self._validate_camera(primitive_by_id)
         self._validate_timeline(primitive_by_id)
 
     def _validate_groups(self, primitive_by_id: dict[str, Primitive]) -> None:
@@ -56,6 +58,18 @@ class Scene:
 
         for group_id in groups:
             visit(group_id)
+
+    def _validate_camera(self, primitive_by_id: dict[str, Primitive]) -> None:
+        if self.active_camera_id is None:
+            return
+        try:
+            camera = primitive_by_id[self.active_camera_id]
+        except KeyError as exc:
+            raise ValueError(
+                f"active camera references unknown primitive '{self.active_camera_id}'"
+            ) from exc
+        if not isinstance(camera, Camera):
+            raise ValueError("active_camera_id must reference a Camera primitive")
 
     def _validate_timeline(self, primitive_by_id: dict[str, Primitive]) -> None:
         for track in self.timeline.tracks:
@@ -95,12 +109,24 @@ class Scene:
                 return primitive
         raise KeyError(primitive_id)
 
+    def active_camera(self) -> Camera | None:
+        if self.active_camera_id is None:
+            return None
+        camera = self.get(self.active_camera_id)
+        assert isinstance(camera, Camera)
+        return camera
+
     def sample(self, time: float) -> "Scene":
         """Evaluate the engine-owned timeline into a static renderer-neutral Scene."""
         if not self.timeline.tracks:
             if self.timeline.duration == 0.0:
                 return self
-            return Scene(primitives=self.primitives, timeline=Timeline(), frame=self.frame)
+            return Scene(
+                primitives=self.primitives,
+                timeline=Timeline(),
+                frame=self.frame,
+                active_camera_id=self.active_camera_id,
+            )
 
         updates = self.timeline.evaluate(time)
         primitive_by_id = {primitive.id: primitive for primitive in self.primitives}
@@ -115,4 +141,5 @@ class Scene:
             primitives=tuple(primitive_by_id[primitive.id] for primitive in self.primitives),
             timeline=Timeline(),
             frame=self.frame,
+            active_camera_id=self.active_camera_id,
         )
