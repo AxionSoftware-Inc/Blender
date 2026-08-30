@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+import math
 
 from spectra.core.types import Vec3
 from spectra.core.units import MASS, KILOGRAM, Quantity
@@ -25,6 +26,8 @@ class ParticleProblem:
             raise ValueError("particle mass requires a mass quantity")
         if self.mass.si_value <= 0.0:
             raise ValueError("particle mass must be positive")
+        if not math.isfinite(self.initial_time):
+            raise ValueError("particle initial_time must be finite")
 
     @classmethod
     def kilograms(
@@ -59,6 +62,10 @@ class Trajectory:
             raise ValueError("trajectory cannot be empty")
         if not (len(self.times) == len(self.positions) == len(self.velocities)):
             raise ValueError("trajectory arrays must have equal lengths")
+        if any(not math.isfinite(time) for time in self.times):
+            raise ValueError("trajectory times must be finite")
+        if any(right <= left for left, right in zip(self.times, self.times[1:])):
+            raise ValueError("trajectory times must be strictly increasing")
 
 
 class MechanicsDomain:
