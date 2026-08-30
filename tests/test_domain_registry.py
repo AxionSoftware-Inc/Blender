@@ -61,3 +61,26 @@ def test_dependency_resolution_supports_required_and_optional_capabilities() -> 
 
     with pytest.raises(KeyError, match="required capability"):
         registry.resolve_dependencies([DomainDependency("complex.norm")])
+
+
+def test_capability_contract_versions_are_enforced() -> None:
+    registry = DomainRegistry()
+    registry.provide("linear_algebra.operator", object(), version=2)
+
+    assert registry.capability_version("linear_algebra.operator") == 2
+    assert registry.has_capability("linear_algebra.operator", min_version=2)
+    assert not registry.has_capability("linear_algebra.operator", min_version=3)
+    assert registry.require("linear_algebra.operator", min_version=2) is not None
+
+    with pytest.raises(KeyError, match="version is not available"):
+        registry.require("linear_algebra.operator", min_version=3)
+
+
+def test_optional_dependency_with_insufficient_version_is_skipped() -> None:
+    registry = DomainRegistry()
+    registry.provide("probability.sample", object(), version=1)
+
+    resolved = registry.resolve_dependencies(
+        [DomainDependency("probability.sample", optional=True, min_version=2)]
+    )
+    assert resolved == {}
