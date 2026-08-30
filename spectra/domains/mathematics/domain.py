@@ -14,14 +14,22 @@ from spectra.domains.mathematics.fields import (
     TimeDependentVectorField3D,
     VectorField3D,
 )
-from spectra.domains.mathematics.functions import Function1D, Function2D, Interval, RectDomain2D
+from spectra.domains.mathematics.functions import (
+    CallableFunction1D,
+    ComplexFunction1D,
+    Function1D,
+    Function2D,
+    Interval,
+    RealFunction1D,
+    RectDomain2D,
+)
 from spectra.domains.mathematics.parametric import ParametricCurve3D, ParametricSurface3D
 from spectra.domains.registry import DomainRegistry
 
 
 class MathematicsDomain:
     name = "mathematics"
-    version = "1"
+    version = "2"
     dependencies = ()
 
     def register(self, registry: DomainRegistry) -> None:
@@ -42,6 +50,8 @@ class MathematicsDomain:
         registry.register_semantic_type("mathematics.interval", Interval)
         registry.register_semantic_type("mathematics.rect_domain2d", RectDomain2D)
         registry.register_semantic_type("mathematics.function1d", Function1D)
+        registry.register_semantic_type("mathematics.callable_function1d", CallableFunction1D)
+        registry.register_semantic_type("mathematics.complex_function1d", ComplexFunction1D)
         registry.register_semantic_type("mathematics.function2d", Function2D)
         registry.register_semantic_type("mathematics.parametric_curve3d", ParametricCurve3D)
         registry.register_semantic_type("mathematics.parametric_surface3d", ParametricSurface3D)
@@ -73,7 +83,10 @@ class MathematicsDomain:
         registry.provide("mathematics.compile_expression", compile_expression)
         registry.provide("mathematics.interval", Interval)
         registry.provide("mathematics.rect_domain2d", RectDomain2D)
+        registry.provide("mathematics.real_function1d", RealFunction1D, version=1)
         registry.provide("mathematics.function1d", Function1D)
+        registry.provide("mathematics.callable_function1d", CallableFunction1D)
+        registry.provide("mathematics.complex_function1d", ComplexFunction1D)
         registry.provide("mathematics.function2d", Function2D)
         registry.provide("mathematics.parametric_curve3d", ParametricCurve3D)
         registry.provide("mathematics.parametric_surface3d", ParametricSurface3D)
@@ -97,6 +110,7 @@ class MathematicsDomain:
         )
 
         registry.register_visualization(Function1D, compile_function1d)
+        registry.register_visualization(CallableFunction1D, compile_function1d)
         registry.register_visualization(Function2D, compile_function2d)
         registry.register_visualization(ParametricCurve3D, compile_parametric_curve_scene)
         registry.register_visualization(ParametricSurface3D, compile_parametric_surface_scene)
