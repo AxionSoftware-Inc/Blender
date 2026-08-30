@@ -19,7 +19,6 @@ from spectra.core.primitives import (
     VectorGlyphSet,
 )
 from spectra.core.scene import Scene
-from spectra.core.types import Vec3
 
 from .backend import (
     BlenderUnavailableError,
@@ -32,6 +31,7 @@ from .backend import (
     _remove_owned_scene,
     _require_blender,
     _transform_matrix,
+    _visible_polyline_points,
 )
 
 
@@ -52,9 +52,10 @@ class IncrementalBlenderBackend:
 
     Spectra still owns time: this backend receives static `Scene.sample(t)`
     snapshots. Stable Spectra primitive IDs map to stable Blender objects. When
-    possible, frequently-changing numeric buffers (particle positions, vector
-    fields, surface vertices) are updated in-place. Structural changes fall back
-    to a deterministic rebuild without changing Core/domain semantics.
+    possible, frequently-changing numeric buffers (particle positions, wave
+    polylines, vector fields, surface vertices) are updated in-place. Structural
+    changes fall back to a deterministic rebuild without changing Core/domain
+    semantics.
     """
 
     name = "blender"
@@ -127,6 +128,9 @@ class IncrementalBlenderBackend:
                 _apply_common(mathutils, native, new)
                 continue
             if _fast_update_point_cloud(native, old, new):
+                _apply_common(mathutils, native, new)
+                continue
+            if _fast_update_polyline(native, old, new):
                 _apply_common(mathutils, native, new)
                 continue
             if _fast_update_surface(native, old, new):
@@ -317,6 +321,29 @@ def _fast_update_point_cloud(native: Any, previous: Primitive, current: Primitiv
             mesh.vertices[cursor].co = coordinates
             cursor += 1
     mesh.update()
+    return True
+
+
+def _fast_update_polyline(native: Any, previous: Primitive, current: Primitive) -> bool:
+    if not isinstance(previous, Polyline) or not isinstance(current, Polyline):
+        return False
+    if not _same_except(previous, current, points=current.points):
+        return False
+
+    previous_visible = _visible_polyline_points(previous)
+    current_visible = _visible_polyline_points(current)
+    if len(previous_visible) != len(current_visible):
+        return False
+
+    curve = getattr(native, "data", None)
+    splines = getattr(curve, "splines", None) if curve is not None else None
+    if splines is None or len(splines) != 1:
+        return False
+    spline = splines[0]
+    if len(spline.points) != len(current_visible):
+        return False
+    for native_point, point in zip(spline.points, current_visible, strict=True):
+        native_point.co = (point.x, point.y, point.z, 1.0)
     return True
 
 
