@@ -42,7 +42,7 @@ class Polyline(Primitive):
     kind: PrimitiveKind = field(default="polyline", init=False)
 
     def __post_init__(self) -> None:
-        super().__post_init__()
+        Primitive.__post_init__(self)
         if len(self.points) < 2:
             raise ValueError("Polyline requires at least two points")
         if not 0.0 <= self.trim_start <= 1.0 or not 0.0 <= self.trim_end <= 1.0:
@@ -61,7 +61,7 @@ class Surface(Primitive):
     kind: PrimitiveKind = field(default="surface", init=False)
 
     def __post_init__(self) -> None:
-        super().__post_init__()
+        Primitive.__post_init__(self)
         if len(self.vertices) < 3:
             raise ValueError("Surface requires at least three vertices")
         if not self.triangles:
@@ -81,7 +81,7 @@ class Region(Primitive):
     kind: PrimitiveKind = field(default="region", init=False)
 
     def __post_init__(self) -> None:
-        super().__post_init__()
+        Primitive.__post_init__(self)
         if len(self.boundary) < 3:
             raise ValueError("Region requires at least three boundary points")
 
