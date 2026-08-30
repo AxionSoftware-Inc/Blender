@@ -10,6 +10,12 @@ from spectra.domains.partial_differential_equations.complex2d import (
     ComplexPDEProblem2D,
     ComplexPDESolution2D,
 )
+from spectra.domains.partial_differential_equations.deposition3d import (
+    PointSource3D,
+    SourceDeposition3DDomain,
+    deposit_point_density_3d,
+    deposit_point_weights_3d,
+)
 from spectra.domains.partial_differential_equations.domain import (
     BoundaryMode1D,
     PartialDifferentialEquationsDomain,
@@ -132,6 +138,7 @@ __all__ = [
     "PartialDifferentialEquations2DDomain",
     "PartialDifferentialEquations3DDomain",
     "PartialDifferentialEquationsDomain",
+    "PointSource3D",
     "PoissonProblem2D",
     "PoissonProblem3D",
     "PoissonSolution2D",
@@ -146,6 +153,7 @@ __all__ = [
     "SecondOrderPDE2DDomain",
     "SecondOrderScalarPDEProblem2D",
     "SecondOrderScalarPDESolution2D",
+    "SourceDeposition3DDomain",
     "Stability2DDomain",
     "Transport2DDomain",
     "UniformGrid1D",
@@ -157,6 +165,8 @@ __all__ = [
     "complex_second_derivative_1d",
     "curl_grid_2d",
     "curl_grid_3d",
+    "deposit_point_density_3d",
+    "deposit_point_weights_3d",
     "divergence_grid_2d",
     "divergence_grid_3d",
     "explicit_stability_for_field_2d",
