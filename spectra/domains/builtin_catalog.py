@@ -59,6 +59,7 @@ from spectra.domains.physics import (
     WaveEquation2DDomain,
     WavesDomain,
 )
+from spectra.domains.potential_fields import PotentialFields3DDomain, PotentialFieldViews3DDomain
 from spectra.domains.probability import ContinuousProbabilityDomain, ProbabilityDomain
 from spectra.domains.statistics import StatisticsDomain
 from spectra.domains.tensor_algebra import TensorAlgebraDomain
@@ -100,6 +101,8 @@ BUILTIN_DOMAIN_FACTORIES = (
     ComplexPartialDifferentialEquationsDomain,
     ComplexPDE2DDomain,
     PDESlices3DDomain,
+    PotentialFields3DDomain,
+    PotentialFieldViews3DDomain,
     GraphTheoryDomain,
     MechanicsDomain,
     ParticleSystemsDomain,
@@ -143,6 +146,8 @@ BUILTIN_DOMAIN_TAGS = {
     "partial_differential_equations": ("math", "pde", "solver"),
     "partial_differential_equations.2d": ("math", "pde", "2d"),
     "partial_differential_equations.3d": ("math", "pde", "3d"),
+    "physics.potential_fields.3d": ("physics", "fields", "potential", "3d"),
+    "physics.potential_fields.views3d": ("physics", "fields", "visualization", "3d"),
     "physics.incompressible_flow.2d": ("physics", "fluid", "2d"),
     "physics.elasticity": ("physics", "solid-mechanics", "elasticity"),
     "electromagnetism": ("physics", "electromagnetism"),
