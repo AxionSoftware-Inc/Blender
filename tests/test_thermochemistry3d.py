@@ -1,5 +1,6 @@
 import pytest
 
+from spectra.core.types import Vec3
 from spectra.core.units import (
     JOULE,
     JOULE_PER_KILOGRAM_KELVIN,
@@ -66,12 +67,10 @@ def test_exothermic_reaction_history_becomes_positive_heat_source() -> None:
 
     assert "chemistry.reaction_diffusion.3d" in loaded
     assert "physics.heat_conduction.3d" in loaded
-    assert field.evaluate(solution.grid_coordinate if False else __import__("spectra").core.types.Vec3(0.5, 0.5, 0.5), 0.5) == pytest.approx(200.0)
+    assert field.evaluate(Vec3(0.5, 0.5, 0.5), 0.5) == pytest.approx(200.0)
 
 
 def test_thermochemical_heat_problem_reuses_heat_solver() -> None:
-    from spectra.core.types import Vec3
-
     registry = DomainRegistry()
     builtin_domain_catalog().load(registry, ["chemistry.thermochemistry.3d"])
     reaction_solution = _reaction_solution()
