@@ -23,6 +23,13 @@ from spectra.domains.physics.quantum_spatial import (
     SpatialWavefunction1D,
     compile_spatial_wavefunction_scene,
 )
+from spectra.domains.physics.relativity import (
+    RelativityDomain,
+    SpacetimeEvent,
+    four_velocity,
+    lorentz_factor,
+    minkowski_metric,
+)
 from spectra.domains.physics.schrodinger import (
     SchrodingerDomain,
     SchrodingerProblem1D,
@@ -58,6 +65,11 @@ __all__ = [
     "QuantumDomain",
     "QuantumObservable",
     "QuantumState",
+    "RelativityDomain",
+    "SpacetimeEvent",
+    "four_velocity",
+    "lorentz_factor",
+    "minkowski_metric",
     "SpatialQuantumDomain",
     "SpatialWavefunction1D",
     "compile_spatial_wavefunction_scene",
