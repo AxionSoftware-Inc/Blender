@@ -8,6 +8,11 @@ from spectra.domains.physics.diffusion2d import (
     DiffusionProblem2D,
     DiffusionSolution2D,
 )
+from spectra.domains.physics.diffusion3d import (
+    Diffusion3DDomain,
+    DiffusionProblem3D,
+    DiffusionSolution3D,
+)
 from spectra.domains.physics.elasticity import (
     ElasticityDomain,
     IsotropicElasticMaterial,
@@ -57,6 +62,11 @@ from spectra.domains.physics.fluid_transport import (
 from spectra.domains.physics.general_relativity import (
     GeneralRelativityDomain,
     SchwarzschildSpacetime,
+)
+from spectra.domains.physics.gravitational_potential3d import (
+    GravitationalPotential3DDomain,
+    GravitationalPotentialProblem3D,
+    GravitationalPotentialSolution3D,
 )
 from spectra.domains.physics.incompressible_flow import (
     IncompressibleFlow2DDomain,
@@ -121,11 +131,14 @@ from spectra.domains.physics.waves import (
 
 __all__ = [
     "Diffusion2DDomain",
+    "Diffusion3DDomain",
     "DiffusionDomain",
     "DiffusionProblem1D",
     "DiffusionProblem2D",
+    "DiffusionProblem3D",
     "DiffusionSolution1D",
     "DiffusionSolution2D",
+    "DiffusionSolution3D",
     "ElasticityDomain",
     "ElasticityFieldsDomain",
     "ElectromagnetismDomain",
@@ -140,6 +153,9 @@ __all__ = [
     "FluidKinematics2DDomain",
     "FluidTransport2DDomain",
     "GeneralRelativityDomain",
+    "GravitationalPotential3DDomain",
+    "GravitationalPotentialProblem3D",
+    "GravitationalPotentialSolution3D",
     "HarmonicWave1D",
     "IncompressibleFlow2DDomain",
     "IncompressibleFlowFields2D",
