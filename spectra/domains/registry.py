@@ -41,6 +41,7 @@ class _RegistrySnapshot:
     compilers: dict[str, Compiler]
     capabilities: dict[str, Capability]
     capability_versions: dict[str, int]
+    capability_providers: dict[str, str | None]
     visualizations: VisualizationRegistry
 
 
@@ -52,6 +53,10 @@ class DomainRegistry:
     statistics, physics, or any other particular field. Domains publish
     semantics, compilers, reusable versioned capabilities, and visualization
     compilers through stable engine contracts.
+
+    Capability ownership metadata is recorded during domain registration. This
+    lets discovery/catalog layers derive provider manifests from the same source
+    of truth instead of manually duplicating capability-name lists.
     """
 
     domains: dict[str, "DomainModule"] = field(default_factory=dict)
@@ -59,7 +64,9 @@ class DomainRegistry:
     compilers: dict[str, Compiler] = field(default_factory=dict)
     capabilities: dict[str, Capability] = field(default_factory=dict)
     capability_versions: dict[str, int] = field(default_factory=dict)
+    capability_providers: dict[str, str | None] = field(default_factory=dict)
     visualizations: VisualizationRegistry = field(default_factory=VisualizationRegistry)
+    _active_domain_name: str | None = field(default=None, init=False, repr=False)
 
     def _snapshot(self) -> _RegistrySnapshot:
         return _RegistrySnapshot(
@@ -68,6 +75,7 @@ class DomainRegistry:
             compilers=dict(self.compilers),
             capabilities=dict(self.capabilities),
             capability_versions=dict(self.capability_versions),
+            capability_providers=dict(self.capability_providers),
             visualizations=self.visualizations.copy(),
         )
 
@@ -82,6 +90,8 @@ class DomainRegistry:
         self.capabilities.update(snapshot.capabilities)
         self.capability_versions.clear()
         self.capability_versions.update(snapshot.capability_versions)
+        self.capability_providers.clear()
+        self.capability_providers.update(snapshot.capability_providers)
         self.visualizations = snapshot.visualizations
 
     def add_domain(self, domain: "DomainModule") -> None:
@@ -91,22 +101,21 @@ class DomainRegistry:
         dependencies = tuple(getattr(domain, "dependencies", ()))
         self.resolve_dependencies(dependencies)
         snapshot = self._snapshot()
+        previous_active = self._active_domain_name
 
         try:
             self.domains[domain.name] = domain
+            self._active_domain_name = domain.name
             domain.register(self)
         except Exception:
             self._restore(snapshot)
             raise
+        finally:
+            self._active_domain_name = previous_active
 
     def add_domains(self, domains: Iterable["DomainModule"]) -> None:
-        """Register a set of domains in dependency-resolved, atomic order.
+        """Register a set of domains in dependency-resolved, atomic order."""
 
-        Callers may supply domains in arbitrary order. Required capability
-        dependencies (including minimum contract versions) are resolved
-        iteratively. If any domain cannot be loaded, the entire batch is rolled
-        back so the registry never exposes a partial scientific plugin graph.
-        """
         pending = list(domains)
         names = [domain.name for domain in pending]
         if len(names) != len(set(names)):
@@ -192,23 +201,17 @@ class DomainRegistry:
         semantic_type: type[Any],
         compiler: SceneCompiler,
     ) -> None:
-        """Register the default renderer-independent Scene compiler for a semantic type."""
         self.visualizations.register(semantic_type, compiler)
 
     def can_visualize(self, value_or_type: Any) -> bool:
         return self.visualizations.supports(value_or_type)
 
     def compile_scene(self, semantic_object: Any) -> Scene:
-        """Compile a semantic object without the caller knowing its owning domain."""
         return self.visualizations.compile(semantic_object)
 
     def provide(self, key: str, capability: Capability, *, version: int = 1) -> None:
-        """Publish reusable scientific/computation functionality.
+        """Publish reusable scientific/computation functionality."""
 
-        Capability versions describe the stable contract exposed to consuming
-        domains, not the internal implementation version. Implementations may
-        move from Python to NumPy/Rust/C++/GPU while retaining the same contract.
-        """
         if not key:
             raise ValueError("capability key cannot be empty")
         if version < 1:
@@ -217,6 +220,7 @@ class DomainRegistry:
             raise ValueError(f"capability already registered: {key}")
         self.capabilities[key] = capability
         self.capability_versions[key] = version
+        self.capability_providers[key] = self._active_domain_name
 
     def has_capability(self, key: str, *, min_version: int = 1) -> bool:
         return key in self.capabilities and self.capability_versions.get(key, 1) >= min_version
@@ -226,8 +230,25 @@ class DomainRegistry:
             raise KeyError(f"capability is not registered: {key}")
         return self.capability_versions.get(key, 1)
 
+    def capability_provider(self, key: str) -> str | None:
+        """Return the registering domain name, or None for externally-provided capabilities."""
+
+        if key not in self.capabilities:
+            raise KeyError(f"capability is not registered: {key}")
+        return self.capability_providers.get(key)
+
+    def provided_capabilities(self, domain_name: str) -> tuple[str, ...]:
+        """Return capabilities published by one registered domain in stable key order."""
+
+        if domain_name not in self.domains:
+            raise KeyError(f"domain is not registered: {domain_name}")
+        return tuple(
+            key
+            for key in self.capabilities
+            if self.capability_providers.get(key) == domain_name
+        )
+
     def require(self, key: str, *, min_version: int = 1) -> Capability:
-        """Resolve a capability that satisfies a minimum contract version."""
         try:
             capability = self.capabilities[key]
         except KeyError as exc:
