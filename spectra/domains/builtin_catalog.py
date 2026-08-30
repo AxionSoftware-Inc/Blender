@@ -1,45 +1,65 @@
 from __future__ import annotations
 
-from spectra.domains.calculus import (
-    CalculusDomain,
-    Jacobian3DDomain,
-    VectorCalculus2DDomain,
-)
+from spectra.domains.calculus import CalculusDomain, Jacobian3DDomain, VectorCalculus2DDomain
 from spectra.domains.catalog import DomainCatalog, DomainDescriptor
 from spectra.domains.differential_equations import DifferentialEquationsDomain
 from spectra.domains.differential_geometry import DifferentialGeometryDomain, GeodesicsDomain
 from spectra.domains.field_dynamics import FieldDynamics2DDomain, FieldDynamicsDomain
 from spectra.domains.graph_theory import GraphTheoryDomain
-from spectra.domains.linear_algebra import LinearAlgebraDomain
+from spectra.domains.linear_algebra import LinearAlgebraDomain, SymmetricEigensystemsDomain
 from spectra.domains.mathematics import MathematicsDomain
 from spectra.domains.partial_differential_equations import (
+    ComplexPDE2DDomain,
     ComplexPartialDifferentialEquationsDomain,
     EllipticPDE2DDomain,
+    GridIntegrals2DDomain,
+    PDEFieldAdapters2DDomain,
     PDEOperators2DDomain,
     PartialDifferentialEquations2DDomain,
     PartialDifferentialEquationsDomain,
+    SecondOrderPDE2DDomain,
+    Stability2DDomain,
     Transport2DDomain,
 )
 from spectra.domains.physics import (
     Diffusion2DDomain,
     DiffusionDomain,
     ElasticityDomain,
+    ElasticityFieldsDomain,
     ElectromagnetismDomain,
+    ElectrostaticPotential2DDomain,
+    FluidDiagnostics2DDomain,
+    FluidInvariants2DDomain,
     FluidKinematics2DDomain,
     FluidTransport2DDomain,
     GeneralRelativityDomain,
     IncompressibleFlow2DDomain,
+    IncompressibleFlowViews2DDomain,
     MechanicsDomain,
     ParticleSystemsDomain,
+    PrincipalStressDomain,
     QuantumDomain,
     RelativityDomain,
+    Schrodinger2DDomain,
     SchrodingerDomain,
     SpatialQuantumDomain,
+    VorticityStreamfunction2DDomain,
+    WaveEquation2DDomain,
     WavesDomain,
 )
 from spectra.domains.probability import ContinuousProbabilityDomain, ProbabilityDomain
 from spectra.domains.statistics import StatisticsDomain
 from spectra.domains.tensor_algebra import TensorAlgebraDomain
+from spectra.domains.tensor_fields import TensorFieldsDomain
+
+
+def _descriptor(name, factory, provides, *tags):
+    return DomainDescriptor(
+        name=name,
+        factory=factory,
+        provides=tuple(provides),
+        tags=tuple(tags),
+    )
 
 
 def builtin_domain_catalog() -> DomainCatalog:
@@ -48,10 +68,10 @@ def builtin_domain_catalog() -> DomainCatalog:
     catalog = DomainCatalog()
     catalog.register_many(
         (
-            DomainDescriptor(
-                name="mathematics",
-                factory=MathematicsDomain,
-                provides=(
+            _descriptor(
+                "mathematics",
+                MathematicsDomain,
+                (
                     "mathematics.compile_expression",
                     "mathematics.interval",
                     "mathematics.rect_domain2d",
@@ -80,12 +100,14 @@ def builtin_domain_catalog() -> DomainCatalog:
                     "mathematics.scalar_field_surface_view2d",
                     "mathematics.time_scalar_field_surface_animation2d",
                 ),
-                tags=("math", "foundation", "fields"),
+                "math",
+                "foundation",
+                "fields",
             ),
-            DomainDescriptor(
-                name="calculus",
-                factory=CalculusDomain,
-                provides=(
+            _descriptor(
+                "calculus",
+                CalculusDomain,
+                (
                     "calculus.derivative_at",
                     "calculus.tangent_at",
                     "calculus.integrate",
@@ -93,28 +115,33 @@ def builtin_domain_catalog() -> DomainCatalog:
                     "calculus.divergence_at",
                     "calculus.curl_at",
                 ),
-                tags=("math", "calculus", "vector-calculus"),
+                "math",
+                "calculus",
             ),
-            DomainDescriptor(
-                name="calculus.vector2d",
-                factory=VectorCalculus2DDomain,
-                provides=(
+            _descriptor(
+                "calculus.vector2d",
+                VectorCalculus2DDomain,
+                (
                     "calculus.gradient_at_2d",
                     "calculus.divergence_at_2d",
                     "calculus.scalar_curl_at_2d",
                 ),
-                tags=("math", "calculus", "vector-calculus", "2d"),
+                "math",
+                "calculus",
+                "2d",
             ),
-            DomainDescriptor(
-                name="calculus.jacobian3d",
-                factory=Jacobian3DDomain,
-                provides=("calculus.jacobian_at_3d",),
-                tags=("math", "calculus", "jacobian", "3d"),
+            _descriptor(
+                "calculus.jacobian3d",
+                Jacobian3DDomain,
+                ("calculus.jacobian_at_3d",),
+                "math",
+                "calculus",
+                "3d",
             ),
-            DomainDescriptor(
-                name="linear_algebra",
-                factory=LinearAlgebraDomain,
-                provides=(
+            _descriptor(
+                "linear_algebra",
+                LinearAlgebraDomain,
+                (
                     "linear_algebra.vector",
                     "linear_algebra.complex_vector",
                     "linear_algebra.matrix",
@@ -137,12 +164,21 @@ def builtin_domain_catalog() -> DomainCatalog:
                     "linear_algebra.complex_determinant",
                     "linear_algebra.complex_inverse",
                 ),
-                tags=("math", "linear-algebra"),
+                "math",
+                "linear-algebra",
             ),
-            DomainDescriptor(
-                name="tensor_algebra",
-                factory=TensorAlgebraDomain,
-                provides=(
+            _descriptor(
+                "linear_algebra.symmetric_eigensystems",
+                SymmetricEigensystemsDomain,
+                ("linear_algebra.symmetric_eigendecomposition",),
+                "math",
+                "linear-algebra",
+                "eigensystem",
+            ),
+            _descriptor(
+                "tensor_algebra",
+                TensorAlgebraDomain,
+                (
                     "tensor.tensor",
                     "tensor.add",
                     "tensor.scale",
@@ -151,12 +187,21 @@ def builtin_domain_catalog() -> DomainCatalog:
                     "tensor.contract",
                     "tensor.trace",
                 ),
-                tags=("math", "tensor", "foundation"),
+                "math",
+                "tensor",
             ),
-            DomainDescriptor(
-                name="differential_geometry",
-                factory=DifferentialGeometryDomain,
-                provides=(
+            _descriptor(
+                "tensor_fields",
+                TensorFieldsDomain,
+                ("tensor.field3d", "tensor.time_field3d"),
+                "math",
+                "tensor",
+                "fields",
+            ),
+            _descriptor(
+                "differential_geometry",
+                DifferentialGeometryDomain,
+                (
                     "geometry.metric_tensor_field",
                     "geometry.metric_matrix",
                     "geometry.inverse_metric",
@@ -168,42 +213,48 @@ def builtin_domain_catalog() -> DomainCatalog:
                     "geometry.ricci_tensor",
                     "geometry.scalar_curvature",
                 ),
-                tags=("math", "geometry", "metric", "curvature"),
+                "math",
+                "geometry",
             ),
-            DomainDescriptor(
-                name="differential_geometry.geodesics",
-                factory=GeodesicsDomain,
-                provides=(
+            _descriptor(
+                "differential_geometry.geodesics",
+                GeodesicsDomain,
+                (
                     "geometry.geodesic_problem",
                     "geometry.geodesic_view3d",
                     "geometry.solve_geodesic",
                 ),
-                tags=("math", "geometry", "geodesic", "ode"),
+                "math",
+                "geometry",
+                "ode",
             ),
-            DomainDescriptor(
-                name="probability",
-                factory=ProbabilityDomain,
-                provides=(
+            _descriptor(
+                "probability",
+                ProbabilityDomain,
+                (
                     "probability.discrete_distribution",
                     "probability.expectation",
                     "probability.variance",
                 ),
-                tags=("math", "probability"),
+                "math",
+                "probability",
             ),
-            DomainDescriptor(
-                name="probability.continuous",
-                factory=ContinuousProbabilityDomain,
-                provides=(
+            _descriptor(
+                "probability.continuous",
+                ContinuousProbabilityDomain,
+                (
                     "probability.continuous.make_distribution",
                     "probability.continuous.probability_between",
                     "probability.continuous.cdf",
                 ),
-                tags=("math", "probability", "continuous"),
+                "math",
+                "probability",
+                "continuous",
             ),
-            DomainDescriptor(
-                name="statistics",
-                factory=StatisticsDomain,
-                provides=(
+            _descriptor(
+                "statistics",
+                StatisticsDomain,
+                (
                     "statistics.dataset1d",
                     "statistics.mean",
                     "statistics.sample_variance",
@@ -211,145 +262,221 @@ def builtin_domain_catalog() -> DomainCatalog:
                     "statistics.histogram",
                     "statistics.empirical_distribution",
                 ),
-                tags=("math", "statistics"),
+                "math",
+                "statistics",
             ),
-            DomainDescriptor(
-                name="differential_equations",
-                factory=DifferentialEquationsDomain,
-                provides=("ode.first_order_system", "ode.solve_rk4"),
-                tags=("math", "ode", "solver"),
+            _descriptor(
+                "differential_equations",
+                DifferentialEquationsDomain,
+                ("ode.first_order_system", "ode.solve_rk4"),
+                "math",
+                "ode",
+                "solver",
             ),
-            DomainDescriptor(
-                name="field_dynamics",
-                factory=FieldDynamicsDomain,
-                provides=(
+            _descriptor(
+                "field_dynamics",
+                FieldDynamicsDomain,
+                (
                     "field_dynamics.integral_curve_problem3d",
                     "field_dynamics.pathline_problem3d",
                     "field_dynamics.solve_integral_curve",
                     "field_dynamics.solve_pathline",
                 ),
-                tags=("math", "fields", "ode", "integral-curves"),
+                "math",
+                "fields",
+                "ode",
             ),
-            DomainDescriptor(
-                name="field_dynamics.2d",
-                factory=FieldDynamics2DDomain,
-                provides=(
+            _descriptor(
+                "field_dynamics.2d",
+                FieldDynamics2DDomain,
+                (
                     "field_dynamics.integral_curve_problem2d",
                     "field_dynamics.pathline_problem2d",
                     "field_dynamics.solve_integral_curve_2d",
                     "field_dynamics.solve_pathline_2d",
                 ),
-                tags=("math", "fields", "ode", "integral-curves", "2d"),
+                "math",
+                "fields",
+                "ode",
+                "2d",
             ),
-            DomainDescriptor(
-                name="partial_differential_equations",
-                factory=PartialDifferentialEquationsDomain,
-                provides=(
+            _descriptor(
+                "partial_differential_equations",
+                PartialDifferentialEquationsDomain,
+                (
                     "pde.uniform_grid1d",
                     "pde.second_derivative_1d",
                     "pde.solve_method_of_lines",
                 ),
-                tags=("math", "pde", "solver"),
+                "math",
+                "pde",
+                "solver",
             ),
-            DomainDescriptor(
-                name="partial_differential_equations.2d",
-                factory=PartialDifferentialEquations2DDomain,
-                provides=(
+            _descriptor(
+                "partial_differential_equations.2d",
+                PartialDifferentialEquations2DDomain,
+                (
                     "pde.uniform_grid2d",
                     "pde.laplacian_2d",
                     "pde.solve_method_of_lines_2d",
                 ),
-                tags=("math", "pde", "2d", "solver"),
+                "math",
+                "pde",
+                "2d",
             ),
-            DomainDescriptor(
-                name="partial_differential_equations.operators2d",
-                factory=PDEOperators2DDomain,
-                provides=(
+            _descriptor(
+                "partial_differential_equations.operators2d",
+                PDEOperators2DDomain,
+                (
                     "pde.gradient_grid_2d",
                     "pde.divergence_grid_2d",
+                    "pde.curl_grid_2d",
                     "pde.vector_upwind_advection_grid_2d",
                 ),
-                tags=("math", "pde", "operators", "2d"),
+                "math",
+                "pde",
+                "operators",
+                "2d",
             ),
-            DomainDescriptor(
-                name="partial_differential_equations.elliptic2d",
-                factory=EllipticPDE2DDomain,
-                provides=(
-                    "pde.poisson_problem2d",
-                    "pde.solve_poisson_2d",
+            _descriptor(
+                "partial_differential_equations.field_adapters2d",
+                PDEFieldAdapters2DDomain,
+                (
+                    "pde.scalar_field_from_grid_2d",
+                    "pde.vector_field_from_grid_2d",
+                    "pde.time_scalar_field_from_grid_2d",
+                    "pde.time_vector_field_from_grid_2d",
                 ),
-                tags=("math", "pde", "elliptic", "poisson", "2d"),
+                "math",
+                "pde",
+                "fields",
+                "2d",
             ),
-            DomainDescriptor(
-                name="partial_differential_equations.transport2d",
-                factory=Transport2DDomain,
-                provides=(
+            _descriptor(
+                "partial_differential_equations.integrals2d",
+                GridIntegrals2DDomain,
+                (
+                    "pde.integrate_scalar_grid_2d",
+                    "pde.integrate_vector_magnitude_squared_grid_2d",
+                    "pde.scalar_l2_norm_grid_2d",
+                ),
+                "math",
+                "pde",
+                "integrals",
+                "2d",
+            ),
+            _descriptor(
+                "partial_differential_equations.stability2d",
+                Stability2DDomain,
+                (
+                    "pde.explicit_stability_from_samples_2d",
+                    "pde.explicit_stability_for_field_2d",
+                ),
+                "math",
+                "pde",
+                "stability",
+                "2d",
+            ),
+            _descriptor(
+                "partial_differential_equations.elliptic2d",
+                EllipticPDE2DDomain,
+                ("pde.poisson_problem2d", "pde.solve_poisson_2d"),
+                "math",
+                "pde",
+                "elliptic",
+                "2d",
+            ),
+            _descriptor(
+                "partial_differential_equations.transport2d",
+                Transport2DDomain,
+                (
                     "pde.transport2d.problem",
                     "pde.transport2d.upwind_advection",
                     "pde.transport2d.solve",
                 ),
-                tags=("math", "pde", "transport", "advection", "diffusion", "2d"),
+                "math",
+                "pde",
+                "transport",
+                "2d",
             ),
-            DomainDescriptor(
-                name="partial_differential_equations.complex",
-                factory=ComplexPartialDifferentialEquationsDomain,
-                provides=(
+            _descriptor(
+                "partial_differential_equations.second_order2d",
+                SecondOrderPDE2DDomain,
+                ("pde.second_order_problem2d", "pde.solve_second_order_2d"),
+                "math",
+                "pde",
+                "second-order",
+                "2d",
+            ),
+            _descriptor(
+                "partial_differential_equations.complex",
+                ComplexPartialDifferentialEquationsDomain,
+                (
                     "pde.complex.problem1d",
                     "pde.complex.second_derivative_1d",
                     "pde.complex.solve_method_of_lines",
                 ),
-                tags=("math", "pde", "complex", "solver"),
+                "math",
+                "pde",
+                "complex",
             ),
-            DomainDescriptor(
-                name="graph_theory",
-                factory=GraphTheoryDomain,
-                provides=(
+            _descriptor(
+                "partial_differential_equations.complex2d",
+                ComplexPDE2DDomain,
+                (
+                    "pde.complex.problem2d",
+                    "pde.complex.laplacian_2d",
+                    "pde.complex.solve_method_of_lines_2d",
+                ),
+                "math",
+                "pde",
+                "complex",
+                "2d",
+            ),
+            _descriptor(
+                "graph_theory",
+                GraphTheoryDomain,
+                (
                     "graph_theory.graph",
                     "graph_theory.neighbors",
                     "graph_theory.shortest_path_unweighted",
                 ),
-                tags=("math", "discrete", "graph-theory"),
+                "math",
+                "discrete",
             ),
-            DomainDescriptor(
-                name="mechanics",
-                factory=MechanicsDomain,
-                provides=(
-                    "physics.mechanics.particle_problem",
-                    "physics.mechanics.solve_particle",
-                ),
-                tags=("physics", "mechanics"),
+            _descriptor(
+                "mechanics",
+                MechanicsDomain,
+                ("physics.mechanics.particle_problem", "physics.mechanics.solve_particle"),
+                "physics",
+                "mechanics",
             ),
-            DomainDescriptor(
-                name="physics.particles",
-                factory=ParticleSystemsDomain,
-                provides=(
-                    "physics.particles.particle",
-                    "physics.particles.solve_system",
-                ),
-                tags=("physics", "particles", "simulation"),
+            _descriptor(
+                "physics.particles",
+                ParticleSystemsDomain,
+                ("physics.particles.particle", "physics.particles.solve_system"),
+                "physics",
+                "particles",
             ),
-            DomainDescriptor(
-                name="physics.diffusion",
-                factory=DiffusionDomain,
-                provides=(
-                    "physics.diffusion.problem1d",
-                    "physics.diffusion.solve1d",
-                ),
-                tags=("physics", "diffusion", "pde"),
+            _descriptor(
+                "physics.diffusion",
+                DiffusionDomain,
+                ("physics.diffusion.problem1d", "physics.diffusion.solve1d"),
+                "physics",
+                "diffusion",
             ),
-            DomainDescriptor(
-                name="physics.diffusion.2d",
-                factory=Diffusion2DDomain,
-                provides=(
-                    "physics.diffusion.problem2d",
-                    "physics.diffusion.solve2d",
-                ),
-                tags=("physics", "diffusion", "pde", "2d"),
+            _descriptor(
+                "physics.diffusion.2d",
+                Diffusion2DDomain,
+                ("physics.diffusion.problem2d", "physics.diffusion.solve2d"),
+                "physics",
+                "diffusion",
+                "2d",
             ),
-            DomainDescriptor(
-                name="physics.fluid_kinematics.2d",
-                factory=FluidKinematics2DDomain,
-                provides=(
+            _descriptor(
+                "physics.fluid_kinematics.2d",
+                FluidKinematics2DDomain,
+                (
                     "physics.fluid.steady_flow2d",
                     "physics.fluid.unsteady_flow2d",
                     "physics.fluid.speed_at",
@@ -362,30 +489,91 @@ def builtin_domain_catalog() -> DomainCatalog:
                     "physics.fluid.streamline_problem",
                     "physics.fluid.pathline_problem",
                 ),
-                tags=("physics", "fluid", "kinematics", "fields", "2d"),
+                "physics",
+                "fluid",
+                "kinematics",
+                "2d",
             ),
-            DomainDescriptor(
-                name="physics.fluid_transport.2d",
-                factory=FluidTransport2DDomain,
-                provides=(
+            _descriptor(
+                "physics.fluid_transport.2d",
+                FluidTransport2DDomain,
+                (
                     "physics.fluid.passive_scalar_problem2d",
                     "physics.fluid.solve_passive_scalar2d",
                 ),
-                tags=("physics", "fluid", "transport", "2d"),
+                "physics",
+                "fluid",
+                "transport",
+                "2d",
             ),
-            DomainDescriptor(
-                name="physics.incompressible_flow.2d",
-                factory=IncompressibleFlow2DDomain,
-                provides=(
+            _descriptor(
+                "physics.incompressible_flow.2d",
+                IncompressibleFlow2DDomain,
+                (
                     "physics.incompressible_flow.problem2d",
+                    "physics.incompressible_flow.state2d",
+                    "physics.incompressible_flow.solution2d",
                     "physics.incompressible_flow.simulate2d",
                 ),
-                tags=("physics", "fluid", "navier-stokes", "incompressible", "2d"),
+                "physics",
+                "fluid",
+                "navier-stokes",
+                "2d",
             ),
-            DomainDescriptor(
-                name="physics.elasticity",
-                factory=ElasticityDomain,
-                provides=(
+            _descriptor(
+                "physics.incompressible_flow.views2d",
+                IncompressibleFlowViews2DDomain,
+                (
+                    "physics.incompressible_flow.fields_from_solution2d",
+                    "physics.incompressible_flow.velocity_animation2d",
+                    "physics.incompressible_flow.scalar_animation2d",
+                    "physics.incompressible_flow.pathline_problem2d",
+                ),
+                "physics",
+                "fluid",
+                "views",
+                "2d",
+            ),
+            _descriptor(
+                "physics.fluid_diagnostics.2d",
+                FluidDiagnostics2DDomain,
+                (
+                    "physics.fluid.diagnose_solution2d",
+                    "physics.fluid.reynolds_number",
+                    "physics.fluid.peclet_number",
+                ),
+                "physics",
+                "fluid",
+                "diagnostics",
+                "2d",
+            ),
+            _descriptor(
+                "physics.fluid_invariants.2d",
+                FluidInvariants2DDomain,
+                ("physics.fluid.invariant_history2d",),
+                "physics",
+                "fluid",
+                "invariants",
+                "2d",
+            ),
+            _descriptor(
+                "physics.vorticity_streamfunction.2d",
+                VorticityStreamfunction2DDomain,
+                (
+                    "physics.vorticity_streamfunction.problem2d",
+                    "physics.vorticity_streamfunction.solve2d",
+                ),
+                "physics",
+                "fluid",
+                "vorticity",
+                "2d",
+            ),
+            _descriptor(
+                "physics.elasticity",
+                ElasticityDomain,
+                (
+                    "physics.elasticity.strain_tensor3d",
+                    "physics.elasticity.stress_tensor3d",
                     "physics.elasticity.material",
                     "physics.elasticity.small_strain_at",
                     "physics.elasticity.stress_from_strain",
@@ -393,65 +581,128 @@ def builtin_domain_catalog() -> DomainCatalog:
                     "physics.elasticity.traction_at",
                     "physics.elasticity.von_mises_stress",
                 ),
-                tags=("physics", "solid-mechanics", "elasticity", "tensor"),
+                "physics",
+                "elasticity",
+                "solid-mechanics",
             ),
-            DomainDescriptor(
-                name="electromagnetism",
-                factory=ElectromagnetismDomain,
-                provides=(
+            _descriptor(
+                "physics.elasticity.fields",
+                ElasticityFieldsDomain,
+                (
+                    "physics.elasticity.strain_field_from_displacement",
+                    "physics.elasticity.stress_field_from_displacement",
+                ),
+                "physics",
+                "elasticity",
+                "fields",
+            ),
+            _descriptor(
+                "physics.elasticity.principal",
+                PrincipalStressDomain,
+                ("physics.elasticity.principal_stresses",),
+                "physics",
+                "elasticity",
+                "eigensystem",
+            ),
+            _descriptor(
+                "electromagnetism",
+                ElectromagnetismDomain,
+                (
                     "physics.electromagnetism.point_charge",
                     "physics.electromagnetism.electric_field_from_point_charges",
                     "physics.electromagnetism.plane_wave",
                 ),
-                tags=("physics", "electromagnetism", "fields"),
+                "physics",
+                "electromagnetism",
             ),
-            DomainDescriptor(
-                name="physics.waves",
-                factory=WavesDomain,
-                provides=(
+            _descriptor(
+                "physics.electrostatic_potential.2d",
+                ElectrostaticPotential2DDomain,
+                (
+                    "physics.electrostatic_potential.problem2d",
+                    "physics.electrostatic_potential.solve2d",
+                ),
+                "physics",
+                "electromagnetism",
+                "poisson",
+                "2d",
+            ),
+            _descriptor(
+                "physics.waves",
+                WavesDomain,
+                (
                     "physics.waves.harmonic1d",
                     "physics.waves.superposition1d",
                     "physics.waves.as_time_scalar_field",
                 ),
-                tags=("physics", "waves", "fields"),
+                "physics",
+                "waves",
             ),
-            DomainDescriptor(
-                name="physics.quantum",
-                factory=QuantumDomain,
-                provides=(
+            _descriptor(
+                "physics.wave_equation.2d",
+                WaveEquation2DDomain,
+                ("physics.wave_equation.problem2d", "physics.wave_equation.solve2d"),
+                "physics",
+                "waves",
+                "pde",
+                "2d",
+            ),
+            _descriptor(
+                "physics.quantum",
+                QuantumDomain,
+                (
                     "physics.quantum.make_state",
                     "physics.quantum.measurement_distribution",
                     "physics.quantum.make_observable",
                     "physics.quantum.apply_observable",
                     "physics.quantum.expectation_value",
                 ),
-                tags=("physics", "quantum"),
+                "physics",
+                "quantum",
             ),
-            DomainDescriptor(
-                name="physics.quantum.spatial",
-                factory=SpatialQuantumDomain,
-                provides=(
+            _descriptor(
+                "physics.quantum.spatial",
+                SpatialQuantumDomain,
+                (
                     "physics.quantum.spatial.make_wavefunction",
                     "physics.quantum.spatial.normalize",
                     "physics.quantum.spatial.position_distribution",
                     "physics.quantum.spatial.probability_between",
                 ),
-                tags=("physics", "quantum", "wavefunction", "probability"),
+                "physics",
+                "quantum",
+                "wavefunction",
             ),
-            DomainDescriptor(
-                name="physics.quantum.schrodinger1d",
-                factory=SchrodingerDomain,
-                provides=(
+            _descriptor(
+                "physics.quantum.schrodinger1d",
+                SchrodingerDomain,
+                (
                     "physics.quantum.schrodinger1d.problem",
                     "physics.quantum.schrodinger1d.solve",
                     "physics.quantum.schrodinger1d.probability_mass",
                 ),
-                tags=("physics", "quantum", "pde", "schrodinger"),
+                "physics",
+                "quantum",
+                "pde",
             ),
-            DomainDescriptor(
-                name="physics.relativity",
-                factory=RelativityDomain,
-                provides=(
+            _descriptor(
+                "physics.quantum.schrodinger2d",
+                Schrodinger2DDomain,
+                (
+                    "physics.quantum.schrodinger2d.problem",
+                    "physics.quantum.schrodinger2d.solve",
+                    "physics.quantum.schrodinger2d.probability_mass",
+                    "physics.quantum.schrodinger2d.normalize",
+                ),
+                "physics",
+                "quantum",
+                "pde",
+                "2d",
+            ),
+            _descriptor(
+                "physics.relativity",
+                RelativityDomain,
+                (
                     "physics.relativity.event",
                     "physics.relativity.minkowski_metric",
                     "physics.relativity.interval_squared",
@@ -460,17 +711,20 @@ def builtin_domain_catalog() -> DomainCatalog:
                     "physics.relativity.lorentz_factor",
                     "physics.relativity.four_velocity",
                 ),
-                tags=("physics", "relativity", "spacetime", "geometry"),
+                "physics",
+                "relativity",
             ),
-            DomainDescriptor(
-                name="physics.relativity.general",
-                factory=GeneralRelativityDomain,
-                provides=(
+            _descriptor(
+                "physics.relativity.general",
+                GeneralRelativityDomain,
+                (
                     "physics.relativity.schwarzschild",
                     "physics.relativity.einstein_tensor",
                     "physics.relativity.vacuum_residual",
                 ),
-                tags=("physics", "relativity", "general-relativity", "geometry"),
+                "physics",
+                "relativity",
+                "general-relativity",
             ),
         )
     )
