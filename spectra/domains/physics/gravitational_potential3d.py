@@ -68,8 +68,9 @@ class GravitationalPotentialSolution3D:
 
 class GravitationalPotential3DDomain:
     name = "physics.gravitational_potential.3d"
-    version = "1"
+    version = "2"
     dependencies = (
+        DomainDependency("physics.potential_field3d"),
         DomainDependency("pde.poisson_problem3d"),
         DomainDependency("pde.solve_poisson_3d"),
         DomainDependency("pde.gradient_grid_3d"),
@@ -78,6 +79,7 @@ class GravitationalPotential3DDomain:
     )
 
     def register(self, registry: DomainRegistry) -> None:
+        potential_field_type = registry.require("physics.potential_field3d")
         poisson_problem_type = registry.require("pde.poisson_problem3d")
         solve_poisson = registry.require("pde.solve_poisson_3d")
         gradient = registry.require("pde.gradient_grid_3d")
@@ -146,6 +148,13 @@ class GravitationalPotential3DDomain:
                 outside="clamp",
             )
 
+        def potential_model(solution: GravitationalPotentialSolution3D):
+            return potential_field_type(
+                potential=potential_field(solution),
+                field=gravitational_field(solution),
+                name=solution.name,
+            )
+
         registry.register_semantic_type(
             "physics.gravitational_potential.problem3d",
             GravitationalPotentialProblem3D,
@@ -166,4 +175,9 @@ class GravitationalPotential3DDomain:
         registry.provide(
             "physics.gravitational_potential.vector_field3d",
             gravitational_field,
+        )
+        registry.provide(
+            "physics.gravitational_potential.potential_field3d",
+            potential_model,
+            version=2,
         )
