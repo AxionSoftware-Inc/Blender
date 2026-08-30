@@ -83,6 +83,17 @@ class Quaternion:
     def dot(self, other: "Quaternion") -> float:
         return self.w * other.w + self.x * other.x + self.y * other.y + self.z * other.z
 
+    def rotate(self, vector: Vec3) -> Vec3:
+        """Rotate a vector by this unit quaternion."""
+        axis = Vec3(self.x, self.y, self.z)
+        axis_dot = axis.dot(vector)
+        axis_norm_sq = axis.dot(axis)
+        return (
+            axis * (2.0 * axis_dot)
+            + vector * (self.w * self.w - axis_norm_sq)
+            + axis.cross(vector) * (2.0 * self.w)
+        )
+
 
 @dataclass(frozen=True, slots=True)
 class Transform3D:
