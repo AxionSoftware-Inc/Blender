@@ -18,6 +18,7 @@ def test_builtin_domain_factories_are_auto_discovered_unique_and_sorted() -> Non
     assert "experiments.calibration" in names
     assert "experiments.convergence" in names
     assert "experiments.sensitivity" in names
+    assert "experiments.tracing" in names
     assert "experiments.uncertainty" in names
     assert "experiments.views" in names
     assert "physics.electromagnetism.maxwell3d" in names
@@ -31,6 +32,7 @@ def test_auto_discovered_catalog_indexes_new_provider_chains() -> None:
     assert catalog.provider_for("ode.solve_rk4.method").name == "differential_equations"
     assert catalog.provider_for("ode.solver_role.first_order").name == "differential_equations"
     assert catalog.provider_for("ode.solve_first_order").name == "differential_equations"
+    assert catalog.provider_for("ode.solve_first_order.tracked").name == "differential_equations"
     assert catalog.provider_for("ode.first_order.rk45_reference").name == "differential_equations.adaptive_reference"
     assert catalog.provider_for("pde.solve_method_of_lines_3d.method").name == "partial_differential_equations.3d"
     assert catalog.provider_for("pde.solve_coupled_scalar_3d").name == "partial_differential_equations.coupled3d"
@@ -41,8 +43,10 @@ def test_auto_discovered_catalog_indexes_new_provider_chains() -> None:
     assert catalog.provider_for("experiments.run_sweep_batched").name == "experiments.batching"
     assert catalog.provider_for("experiments.run_solver_convergence").name == "experiments.convergence"
     assert catalog.provider_for("experiments.local_sensitivity").name == "experiments.sensitivity"
+    assert catalog.provider_for("experiments.run_sweep_traced").name == "experiments.tracing"
     assert catalog.provider_for("experiments.propagate_uncertainty").name == "experiments.uncertainty"
     assert catalog.provider_for("experiments.calibrate_grid").name == "experiments.calibration"
+    assert catalog.provider_for("experiments.artifact_from_traced").name == "experiments.artifacts"
     assert catalog.provider_for("experiments.artifact_to_json").name == "experiments.artifacts"
     assert catalog.provider_for("experiments.metric_series_view2d").name == "experiments.views"
     assert catalog.provider_for("physics.maxwell.solve3d").name == "physics.electromagnetism.maxwell3d"
