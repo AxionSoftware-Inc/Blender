@@ -5,6 +5,11 @@ import pytest
 from spectra.domains import DomainRegistry, builtin_domain_catalog
 from spectra.domains.differential_equations import FirstOrderSystem, ODESolution
 from spectra.domains.experiments import MetricSpec, ParameterAxis, ParameterSweep
+from spectra.domains.partial_differential_equations import (
+    ScalarPDEProblem3D,
+    UniformGrid1D,
+    UniformGrid3D,
+)
 from spectra.numerics import (
     NumericalExecutionDescriptor,
     NumericalMethodDescriptor,
@@ -104,6 +109,53 @@ def test_execution_requirements_select_matching_solver_implementation() -> None:
                 minimum_order=4,
             ),
         )
+
+
+def test_pde_time_integration_follows_runtime_default_ode_solver() -> None:
+    registry = DomainRegistry()
+    builtin_domain_catalog().load(registry, ["partial_differential_equations.3d"])
+    reference = registry.require("ode.solve_rk4")
+    calls: list[str] = []
+    spy_method = NumericalMethodDescriptor(
+        method_id="spy.rk4",
+        family="test-wrapper",
+        implementation="tests.spy",
+        order=4,
+        reference_implementation=False,
+    )
+
+    def spy_solver(system: FirstOrderSystem, *, end_time: float, steps: int = 8) -> ODESolution:
+        calls.append(system.name)
+        return reference(system, end_time=end_time, steps=steps)
+
+    registry.register_numerical_solver(
+        "ode.first_order",
+        "spy.test",
+        spy_solver,
+        spy_method,
+    )
+    registry.set_default_numerical_solver("ode.first_order", "spy.test")
+
+    axis = UniformGrid1D(0.0, 1.0, 3)
+    grid = UniformGrid3D(axis, axis, axis)
+    problem = ScalarPDEProblem3D(
+        grid=grid,
+        initial_values=(1.0,) * grid.count,
+        rhs=lambda _time, _grid, values: (0.0,) * len(values),
+        name="solver_dispatch_probe",
+    )
+    solve = registry.require("pde.solve_method_of_lines_3d")
+    solution = solve(problem, end_time=0.1, steps=2)
+
+    assert calls == ["solver_dispatch_probe"]
+    assert solution.states[-1] == pytest.approx((1.0,) * grid.count)
+
+    tracked = registry.require("pde.solve_method_of_lines_3d.tracked")(
+        problem,
+        end_time=0.1,
+        steps=2,
+    )
+    assert tracked.run.method.stages[-1].method_id == "spy.rk4"
 
 
 def test_failed_domain_registration_rolls_back_solver_registry_mutation() -> None:
