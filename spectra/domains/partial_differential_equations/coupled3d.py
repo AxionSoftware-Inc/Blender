@@ -111,19 +111,19 @@ def _decode(values: tuple[float, ...], component_count: int, grid_count: int) ->
 
 
 class CoupledScalarPDE3DDomain:
-    """Generic N-component first-order PDE system lowered to the ODE capability."""
+    """Generic N-component first-order PDE system lowered to the selectable ODE role."""
 
     name = "partial_differential_equations.coupled3d"
-    version = "1"
+    version = "2"
     dependencies = (
         DomainDependency("pde.uniform_grid3d"),
         DomainDependency("ode.first_order_system"),
-        DomainDependency("ode.solve_rk4"),
+        DomainDependency("ode.solve_first_order", min_version=2),
     )
 
     def register(self, registry: DomainRegistry) -> None:
         system_type = registry.require("ode.first_order_system")
-        solve_ode = registry.require("ode.solve_rk4")
+        solve_ode = registry.require("ode.solve_first_order", min_version=2)
 
         def solve(
             problem: CoupledScalarPDEProblem3D,
@@ -180,4 +180,4 @@ class CoupledScalarPDE3DDomain:
         )
         registry.provide("pde.coupled_scalar_problem3d", CoupledScalarPDEProblem3D)
         registry.provide("pde.coupled_scalar_solution3d", CoupledScalarPDESolution3D)
-        registry.provide("pde.solve_coupled_scalar_3d", solve)
+        registry.provide("pde.solve_coupled_scalar_3d", solve, version=2)
