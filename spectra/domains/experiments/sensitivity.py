@@ -92,7 +92,7 @@ class SensitivityExperimentsDomain:
     """Unit-aware local central-difference sensitivity for arbitrary experiment evaluators."""
 
     name = "experiments.sensitivity"
-    version = "1"
+    version = "2"
     dependencies = (
         DomainDependency("experiments.metric_spec"),
     )
@@ -175,4 +175,6 @@ class SensitivityExperimentsDomain:
         registry.register_semantic_type("experiments.sensitivity_estimate", SensitivityEstimate)
         registry.register_semantic_type("experiments.local_sensitivity_result", LocalSensitivityResult)
         registry.provide("experiments.sensitivity_parameter", SensitivityParameter)
+        registry.provide("experiments.sensitivity_estimate", SensitivityEstimate)
+        registry.provide("experiments.local_sensitivity_result", LocalSensitivityResult)
         registry.provide("experiments.local_sensitivity", local_sensitivity)
