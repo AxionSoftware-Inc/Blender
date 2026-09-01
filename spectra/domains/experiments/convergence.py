@@ -91,10 +91,10 @@ def _observed_order(
 
 
 class ConvergenceExperimentsDomain:
-    """Convergence studies for interchangeable fixed-step solver implementations."""
+    """Step-refinement convergence studies for interchangeable fixed-step solvers."""
 
     name = "experiments.convergence"
-    version = "2"
+    version = "3"
     dependencies = (
         DomainDependency("ode.solver_role.first_order"),
     )
@@ -129,6 +129,11 @@ class ConvergenceExperimentsDomain:
                 raise ValueError("convergence time interval must be finite and positive")
 
             implementation = registry.numerical_solvers.implementation(role, implementation_id)
+            if implementation.adaptive:
+                raise ValueError(
+                    "step-count convergence requires a fixed-step solver; "
+                    f"'{implementation.implementation_id}' is adaptive"
+                )
             samples = []
             for count in steps:
                 solution = implementation.solver(problem, end_time=finish, steps=count)
