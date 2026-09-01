@@ -83,17 +83,17 @@ class ParticleSystemTrajectory:
 
 class ParticleSystemsDomain:
     name = "physics.particles"
-    version = "1"
+    version = "2"
     dependencies = (
         DomainDependency("ode.first_order_system"),
-        DomainDependency("ode.solve_rk4"),
+        DomainDependency("ode.solve_first_order", min_version=2),
     )
 
     def register(self, registry: DomainRegistry) -> None:
         from spectra.domains.physics.particles_visualization import compile_particle_system_scene
 
         system_type = registry.require("ode.first_order_system")
-        solve_ode = registry.require("ode.solve_rk4")
+        solve_ode = registry.require("ode.solve_first_order", min_version=2)
 
         def solve_system(
             problem: ParticleSystemProblem,
@@ -179,7 +179,7 @@ class ParticleSystemsDomain:
                     )
                 )
 
-            trajectory = ParticleSystemTrajectory(
+            return ParticleSystemTrajectory(
                 times=solution.times,
                 positions=tuple(positions_by_time),
                 velocities=tuple(velocities_by_time),
@@ -187,11 +187,10 @@ class ParticleSystemsDomain:
                 colors=tuple(particle.color for particle in problem.particles),
                 name=problem.name,
             )
-            return trajectory
 
         registry.register_semantic_type("physics.particles.particle", Particle)
         registry.register_semantic_type("physics.particles.problem", ParticleSystemProblem)
         registry.register_semantic_type("physics.particles.trajectory", ParticleSystemTrajectory)
         registry.provide("physics.particles.particle", Particle, version=1)
-        registry.provide("physics.particles.solve_system", solve_system, version=1)
+        registry.provide("physics.particles.solve_system", solve_system, version=2)
         registry.register_visualization(ParticleSystemTrajectory, compile_particle_system_scene)
