@@ -11,7 +11,7 @@ from spectra.numerics import (
     NumericalMethodDescriptor,
     NumericalPipelineDescriptor,
     TrackedNumericalResult,
-    fixed_step_record,
+    run_record,
 )
 
 
@@ -183,44 +183,47 @@ def laplacian_3d(
 
 class PartialDifferentialEquations3DDomain:
     name = "partial_differential_equations.3d"
-    version = "3"
+    version = "4"
     dependencies = (
         DomainDependency("pde.uniform_grid1d"),
         DomainDependency("ode.first_order_system"),
-        DomainDependency("ode.solve_first_order", min_version=2),
+        DomainDependency("ode.solve_first_order", min_version=3),
+        DomainDependency("ode.solve_first_order.tracked"),
         DomainDependency("ode.solver_role.first_order"),
     )
 
     def register(self, registry: DomainRegistry) -> None:
         system_type = registry.require("ode.first_order_system")
-        solve_ode = registry.require("ode.solve_first_order", min_version=2)
+        solve_ode = registry.require("ode.solve_first_order", min_version=3)
+        solve_ode_tracked = registry.require("ode.solve_first_order.tracked")
         ode_role = registry.require("ode.solver_role.first_order")
 
-        def current_pipeline() -> NumericalPipelineDescriptor:
-            ode_method = registry.numerical_solver_method(ode_role)
+        def pipeline_for_method(method) -> NumericalPipelineDescriptor:
+            stages = (
+                (method,)
+                if isinstance(method, NumericalMethodDescriptor)
+                else method.stages
+            )
+            method_id = (
+                method.method_id
+                if isinstance(method, NumericalMethodDescriptor)
+                else method.pipeline_id
+            )
             return NumericalPipelineDescriptor(
-                pipeline_id="method-of-lines.scalar3d+" + (
-                    ode_method.method_id
-                    if isinstance(ode_method, NumericalMethodDescriptor)
-                    else ode_method.pipeline_id
-                ),
-                stages=(
-                    METHOD_OF_LINES_3D_STAGE,
-                    *((ode_method,) if isinstance(ode_method, NumericalMethodDescriptor) else ode_method.stages),
-                ),
+                pipeline_id=f"method-of-lines.scalar3d+{method_id}",
+                stages=(METHOD_OF_LINES_3D_STAGE, *stages),
                 reference_implementation=(
                     METHOD_OF_LINES_3D_STAGE.reference_implementation
-                    and ode_method.reference_implementation
+                    and method.reference_implementation
                 ),
                 notes=("generic scalar 3D PDE time integration",),
             )
 
-        def solve_method_of_lines_3d(
-            problem: ScalarPDEProblem3D,
-            *,
-            end_time: float,
-            steps: int = 128,
-        ) -> ScalarPDESolution3D:
+        def current_pipeline() -> NumericalPipelineDescriptor:
+            implementation = registry.numerical_solvers.resolve(ode_role)
+            return pipeline_for_method(implementation.method)
+
+        def build_system(problem: ScalarPDEProblem3D):
             def derivative(time: float, state: tuple[float, ...]) -> tuple[float, ...]:
                 values = tuple(float(value) for value in state)
                 result = tuple(float(value) for value in problem.rhs(time, problem.grid, values))
@@ -230,22 +233,36 @@ class PartialDifferentialEquations3DDomain:
                     raise ValueError("3D PDE rhs returned non-finite derivative")
                 return result
 
-            ode_solution = solve_ode(
-                system_type(
-                    derivative=derivative,
-                    initial_time=problem.initial_time,
-                    initial_state=tuple(float(value) for value in problem.initial_values),
-                    name=problem.name,
-                ),
-                end_time=end_time,
-                steps=steps,
+            return system_type(
+                derivative=derivative,
+                initial_time=problem.initial_time,
+                initial_state=tuple(float(value) for value in problem.initial_values),
+                name=problem.name,
             )
+
+        def solution_from_ode(problem: ScalarPDEProblem3D, ode_solution) -> ScalarPDESolution3D:
             return ScalarPDESolution3D(
                 grid=problem.grid,
                 times=ode_solution.times,
-                states=tuple(tuple(float(value) for value in state) for state in ode_solution.states),
+                states=tuple(
+                    tuple(float(value) for value in state)
+                    for state in ode_solution.states
+                ),
                 name=problem.name,
             )
+
+        def solve_method_of_lines_3d(
+            problem: ScalarPDEProblem3D,
+            *,
+            end_time: float,
+            steps: int = 128,
+        ) -> ScalarPDESolution3D:
+            ode_solution = solve_ode(
+                build_system(problem),
+                end_time=end_time,
+                steps=steps,
+            )
+            return solution_from_ode(problem, ode_solution)
 
         def solve_method_of_lines_3d_tracked(
             problem: ScalarPDEProblem3D,
@@ -253,17 +270,34 @@ class PartialDifferentialEquations3DDomain:
             end_time: float,
             steps: int = 128,
         ) -> TrackedNumericalResult[ScalarPDESolution3D]:
-            pipeline = current_pipeline()
-            result = solve_method_of_lines_3d(problem, end_time=end_time, steps=steps)
+            ode_tracked = solve_ode_tracked(
+                build_system(problem),
+                end_time=end_time,
+                steps=steps,
+            )
+            result = solution_from_ode(problem, ode_tracked.result)
+            ode_run = ode_tracked.run
+            pipeline = pipeline_for_method(ode_run.method)
             return TrackedNumericalResult(
                 result=result,
-                run=fixed_step_record(
+                run=run_record(
                     pipeline,
                     start_time=problem.initial_time,
                     end_time=end_time,
-                    steps=steps,
+                    steps=ode_run.steps,
+                    requested_steps=ode_run.requested_steps,
                     state_size=problem.grid.count,
                     tags=(("problem", problem.name), ("grid", "uniform3d")),
+                    solver_role=ode_run.solver_role,
+                    implementation_id=ode_run.implementation_id,
+                    execution=(
+                        None
+                        if ode_run.execution_kind is None
+                        else registry.numerical_solvers.implementation(
+                            ode_run.solver_role,
+                            ode_run.implementation_id,
+                        ).execution
+                    ),
                 ),
             )
 
@@ -274,11 +308,11 @@ class PartialDifferentialEquations3DDomain:
         registry.provide("pde.scalar_problem3d", ScalarPDEProblem3D)
         registry.provide("pde.scalar_solution3d", ScalarPDESolution3D)
         registry.provide("pde.laplacian_3d", laplacian_3d)
-        registry.provide("pde.solve_method_of_lines_3d", solve_method_of_lines_3d, version=2)
+        registry.provide("pde.solve_method_of_lines_3d", solve_method_of_lines_3d, version=3)
         registry.provide("pde.solve_method_of_lines_3d.method", current_pipeline())
         registry.provide("pde.solve_method_of_lines_3d.method_for_current", current_pipeline)
         registry.provide(
             "pde.solve_method_of_lines_3d.tracked",
             solve_method_of_lines_3d_tracked,
-            version=2,
+            version=3,
         )
