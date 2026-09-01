@@ -9,6 +9,7 @@ from typing import Any, Literal
 from spectra.core.units import Unit
 from spectra.domains.registry import DomainRegistry
 from spectra.numerics import NumericalSolverImplementation
+from spectra.reproducibility import ScientificEnvironmentSnapshot, capture_environment
 
 
 FailurePolicy = Literal["raise", "record"]
@@ -154,6 +155,16 @@ class ExperimentResult:
 
 
 @dataclass(frozen=True, slots=True)
+class TrackedExperimentResult:
+    experiment: ExperimentResult
+    environment: ScientificEnvironmentSnapshot
+
+    @property
+    def environment_fingerprint(self) -> str:
+        return self.environment.fingerprint
+
+
+@dataclass(frozen=True, slots=True)
 class SolverComparisonResult:
     role: str
     implementations: tuple[NumericalSolverImplementation, ...]
@@ -170,7 +181,7 @@ class ExperimentsDomain:
     """Generic deterministic parameter studies and numerical solver comparisons."""
 
     name = "experiments"
-    version = "1"
+    version = "2"
     dependencies = ()
 
     def register(self, registry: DomainRegistry) -> None:
@@ -222,6 +233,27 @@ class ExperimentsDomain:
                 sweep=sweep,
                 cases=tuple(results),
                 name=name or sweep.name,
+            )
+
+        def run_sweep_tracked(
+            sweep: ParameterSweep,
+            evaluator: CaseEvaluator,
+            *,
+            metrics: tuple[MetricSpec, ...] = (),
+            failure_policy: FailurePolicy = "raise",
+            name: str | None = None,
+        ) -> TrackedExperimentResult:
+            environment = capture_environment(registry)
+            experiment = run_sweep(
+                sweep,
+                evaluator,
+                metrics=metrics,
+                failure_policy=failure_policy,
+                name=name,
+            )
+            return TrackedExperimentResult(
+                experiment=experiment,
+                environment=environment,
             )
 
         def compare_solvers(
@@ -290,9 +322,12 @@ class ExperimentsDomain:
         registry.register_semantic_type("experiments.metric_value", MetricValue)
         registry.register_semantic_type("experiments.case_result", ExperimentCaseResult)
         registry.register_semantic_type("experiments.result", ExperimentResult)
+        registry.register_semantic_type("experiments.tracked_result", TrackedExperimentResult)
         registry.register_semantic_type("experiments.solver_comparison", SolverComparisonResult)
         registry.provide("experiments.parameter_axis", ParameterAxis)
         registry.provide("experiments.parameter_sweep", ParameterSweep)
         registry.provide("experiments.metric_spec", MetricSpec)
+        registry.provide("experiments.environment_snapshot", lambda: capture_environment(registry))
         registry.provide("experiments.run_sweep", run_sweep)
+        registry.provide("experiments.run_sweep_tracked", run_sweep_tracked)
         registry.provide("experiments.compare_solvers", compare_solvers)
