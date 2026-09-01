@@ -70,17 +70,17 @@ class Trajectory:
 
 class MechanicsDomain:
     name = "mechanics"
-    version = "2"
+    version = "3"
     dependencies = (
         DomainDependency("ode.first_order_system"),
-        DomainDependency("ode.solve_rk4"),
+        DomainDependency("ode.solve_first_order", min_version=2),
     )
 
     def register(self, registry: DomainRegistry) -> None:
         from spectra.domains.physics.mechanics_visualization import compile_trajectory_scene
 
         system_type = registry.require("ode.first_order_system")
-        solve_ode = registry.require("ode.solve_rk4")
+        solve_ode = registry.require("ode.solve_first_order", min_version=2)
 
         def solve_particle(
             problem: ParticleProblem,
@@ -126,5 +126,5 @@ class MechanicsDomain:
         registry.register_semantic_type("physics.mechanics.trajectory", Trajectory)
         registry.provide("physics.mechanics.particle_problem", ParticleProblem)
         registry.provide("physics.mechanics.trajectory", Trajectory, version=2)
-        registry.provide("physics.mechanics.solve_particle", solve_particle)
+        registry.provide("physics.mechanics.solve_particle", solve_particle, version=2)
         registry.register_visualization(Trajectory, compile_trajectory_scene)
