@@ -63,19 +63,19 @@ class ReactionKineticsSolution:
 
 
 class ReactionKineticsDomain:
-    """Well-mixed chemical kinetics lowered to the generic ODE solver."""
+    """Well-mixed chemical kinetics lowered to the selectable ODE solver role."""
 
     name = "chemistry.kinetics"
-    version = "1"
+    version = "2"
     dependencies = (
         DomainDependency("chemistry.reaction_network"),
         DomainDependency("ode.first_order_system"),
-        DomainDependency("ode.solve_rk4"),
+        DomainDependency("ode.solve_first_order", min_version=2),
     )
 
     def register(self, registry: DomainRegistry) -> None:
         system_type = registry.require("ode.first_order_system")
-        solve_ode = registry.require("ode.solve_rk4")
+        solve_ode = registry.require("ode.solve_first_order", min_version=2)
 
         def solve(
             problem: ReactionKineticsProblem,
@@ -107,4 +107,4 @@ class ReactionKineticsDomain:
         registry.register_semantic_type("chemistry.kinetics.solution", ReactionKineticsSolution)
         registry.provide("chemistry.kinetics.problem", ReactionKineticsProblem)
         registry.provide("chemistry.kinetics.solution", ReactionKineticsSolution)
-        registry.provide("chemistry.kinetics.solve", solve)
+        registry.provide("chemistry.kinetics.solve", solve, version=2)
