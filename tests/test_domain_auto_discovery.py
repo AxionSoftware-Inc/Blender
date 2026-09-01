@@ -12,6 +12,7 @@ def test_builtin_domain_factories_are_auto_discovered_unique_and_sorted() -> Non
     assert "chemistry.thermochemistry.3d" in names
     assert "experiments" in names
     assert "experiments.batching" in names
+    assert "experiments.convergence" in names
     assert "physics.electromagnetism.maxwell3d" in names
     assert "physics.electromagnetism.maxwell_sources3d" in names
     assert "physics.electrothermal.3d" in names
@@ -30,6 +31,7 @@ def test_auto_discovered_catalog_indexes_new_provider_chains() -> None:
     assert catalog.provider_for("experiments.run_sweep").name == "experiments"
     assert catalog.provider_for("experiments.run_sweep_tracked").name == "experiments"
     assert catalog.provider_for("experiments.run_sweep_batched").name == "experiments.batching"
+    assert catalog.provider_for("experiments.run_solver_convergence").name == "experiments.convergence"
     assert catalog.provider_for("physics.maxwell.solve3d").name == "physics.electromagnetism.maxwell3d"
     assert catalog.provider_for("physics.maxwell.source_diagnostics3d").name == "physics.electromagnetism.maxwell_sources3d"
     assert catalog.provider_for("physics.electrothermal.joule_heat_field3d").name == "physics.electrothermal.3d"
