@@ -14,7 +14,8 @@ For a new contributor/agent, read in this order:
 4. `SOLVERS_AND_EXPERIMENTS.md`
 5. `PREMIUM_PRESENTATION_SYSTEM.md`
 6. `PRODUCT_WORKFLOWS.md`
-7. the subsystem-specific documents relevant to the task.
+7. `POST_VALIDATION_IMPLEMENTATION_PLAN.md`
+8. the subsystem-specific documents relevant to the task.
 
 ## Engine and domain architecture
 
@@ -51,6 +52,10 @@ How Blender UI, standalone clients, CLI/headless workers, WebGPU, Python, and AI
 ### `PROJECT_DOCUMENT_MODEL.md`
 
 Future renderer-independent persistent project/study envelope for scientific models, solver policies, experiment artifacts, presentation variants, Scene caches, and external data resources.
+
+### `POST_VALIDATION_IMPLEMENTATION_PLAN.md`
+
+Recommended implementation order after the next green validation: presentation semantics/composer, quantitative colors/legends, canonical premium scenes, Blender premium mapping, SDK/plugins/project format, then native CPU/GPU execution phases.
 
 ## Numerical execution
 
