@@ -62,19 +62,19 @@ class CurveSolution2D:
 
 class FieldDynamics2DDomain:
     name = "field_dynamics.2d"
-    version = "1"
+    version = "2"
     dependencies = (
         DomainDependency("mathematics.vector_field2d"),
         DomainDependency("mathematics.time_vector_field2d"),
         DomainDependency("ode.first_order_system"),
-        DomainDependency("ode.solve_rk4"),
+        DomainDependency("ode.solve_first_order", min_version=2),
     )
 
     def register(self, registry: DomainRegistry) -> None:
         from spectra.domains.field_dynamics.visualization2d import compile_curve_solution_2d_scene
 
         system_type = registry.require("ode.first_order_system")
-        solve_ode = registry.require("ode.solve_rk4")
+        solve_ode = registry.require("ode.solve_first_order", min_version=2)
 
         def solve_integral_curve_2d(
             problem: IntegralCurveProblem2D,
@@ -151,6 +151,6 @@ class FieldDynamics2DDomain:
         registry.register_semantic_type("field_dynamics.curve_solution2d", CurveSolution2D)
         registry.provide("field_dynamics.integral_curve_problem2d", IntegralCurveProblem2D)
         registry.provide("field_dynamics.pathline_problem2d", PathlineProblem2D)
-        registry.provide("field_dynamics.solve_integral_curve_2d", solve_integral_curve_2d)
-        registry.provide("field_dynamics.solve_pathline_2d", solve_pathline_2d)
+        registry.provide("field_dynamics.solve_integral_curve_2d", solve_integral_curve_2d, version=2)
+        registry.provide("field_dynamics.solve_pathline_2d", solve_pathline_2d, version=2)
         registry.register_visualization(CurveSolution2D, compile_curve_solution_2d_scene)
