@@ -26,6 +26,12 @@ from spectra.domains.experiments.domain import (
     SolverComparisonResult,
     TrackedExperimentResult,
 )
+from spectra.domains.experiments.sensitivity import (
+    LocalSensitivityResult,
+    SensitivityEstimate,
+    SensitivityExperimentsDomain,
+    SensitivityParameter,
+)
 
 __all__ = [
     "BatchedExperimentResult",
@@ -37,6 +43,7 @@ __all__ = [
     "ExperimentCaseResult",
     "ExperimentResult",
     "ExperimentsDomain",
+    "LocalSensitivityResult",
     "MetricObjective",
     "MetricSpec",
     "MetricValue",
@@ -45,6 +52,9 @@ __all__ = [
     "ParameterSweep",
     "ParetoFront",
     "RankedExperimentCase",
+    "SensitivityEstimate",
+    "SensitivityExperimentsDomain",
+    "SensitivityParameter",
     "SolverComparisonResult",
     "SolverConvergenceResult",
     "TrackedExperimentResult",
