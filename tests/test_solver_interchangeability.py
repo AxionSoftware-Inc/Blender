@@ -5,7 +5,11 @@ import pytest
 from spectra.domains import DomainRegistry, builtin_domain_catalog
 from spectra.domains.differential_equations import FirstOrderSystem, ODESolution
 from spectra.domains.experiments import MetricSpec, ParameterAxis, ParameterSweep
-from spectra.numerics import NumericalMethodDescriptor
+from spectra.numerics import (
+    NumericalExecutionDescriptor,
+    NumericalMethodDescriptor,
+    NumericalSolverRequirements,
+)
 
 
 EULER_METHOD = NumericalMethodDescriptor(
@@ -57,6 +61,49 @@ def test_domain_registry_supports_multiple_solver_implementations_and_default_se
     registry.set_default_numerical_solver("ode.first_order", "euler.test")
     assert registry.numerical_solver_for("ode.first_order") is _solve_euler
     assert registry.numerical_solver_method("ode.first_order").method_id == "euler.fixed"
+
+
+def test_execution_requirements_select_matching_solver_implementation() -> None:
+    registry = DomainRegistry()
+    builtin_domain_catalog().load(registry, ["differential_equations"])
+    registry.register_numerical_solver(
+        "ode.first_order",
+        "euler.gpu.test",
+        _solve_euler,
+        EULER_METHOD,
+        priority=10,
+        tags=("gpu", "batched"),
+        execution=NumericalExecutionDescriptor(
+            kind="gpu",
+            backend="test-gpu",
+            precision="float32",
+            device="test-device",
+            supports_in_place=True,
+            batched=True,
+        ),
+    )
+
+    selected = registry.select_numerical_solver(
+        "ode.first_order",
+        NumericalSolverRequirements(
+            execution_kinds=("gpu",),
+            precisions=("float32",),
+            allow_reference=False,
+            required_tags=("batched",),
+        ),
+    )
+    assert selected.implementation_id == "euler.gpu.test"
+    assert selected.execution.kind == "gpu"
+    assert selected.execution.batched
+
+    with pytest.raises(LookupError):
+        registry.select_numerical_solver(
+            "ode.first_order",
+            NumericalSolverRequirements(
+                execution_kinds=("gpu",),
+                minimum_order=4,
+            ),
+        )
 
 
 def test_failed_domain_registration_rolls_back_solver_registry_mutation() -> None:
