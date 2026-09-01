@@ -4,6 +4,18 @@ from spectra.domains.experiments.analysis import (
     ParetoFront,
     RankedExperimentCase,
 )
+from spectra.domains.experiments.artifacts import (
+    EXPERIMENT_ARTIFACT_SCHEMA,
+    EXPERIMENT_ARTIFACT_VERSION,
+    ExperimentArtifact,
+    ExperimentArtifactsDomain,
+    ExperimentAxisArtifact,
+    ExperimentCaseArtifact,
+    ExperimentMetricArtifact,
+    artifact_from_json,
+    artifact_from_tracked_experiment,
+    artifact_to_json,
+)
 from spectra.domains.experiments.batching import (
     BatchedExperimentResult,
     BatchedExperimentsDomain,
@@ -58,8 +70,15 @@ __all__ = [
     "ConvergenceEstimate",
     "ConvergenceExperimentsDomain",
     "ConvergenceSample",
+    "EXPERIMENT_ARTIFACT_SCHEMA",
+    "EXPERIMENT_ARTIFACT_VERSION",
     "ExperimentAnalysisDomain",
+    "ExperimentArtifact",
+    "ExperimentArtifactsDomain",
+    "ExperimentAxisArtifact",
+    "ExperimentCaseArtifact",
     "ExperimentCaseResult",
+    "ExperimentMetricArtifact",
     "ExperimentResult",
     "ExperimentsDomain",
     "LocalSensitivityResult",
@@ -84,4 +103,7 @@ __all__ = [
     "UncertaintyPropagationResult",
     "UncertaintyScenario",
     "WeightedSample",
+    "artifact_from_json",
+    "artifact_from_tracked_experiment",
+    "artifact_to_json",
 ]
