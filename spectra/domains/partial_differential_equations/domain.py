@@ -45,7 +45,7 @@ class ScalarPDEProblem1D:
 
     `rhs(t, grid, values)` defines du/dt after spatial discretization. The PDE
     domain deliberately does not own a separate time integrator; it delegates
-    temporal evolution to the versioned ODE capability.
+    temporal evolution to the stable first-order ODE solver role.
     """
 
     grid: UniformGrid1D
@@ -124,13 +124,13 @@ def second_derivative_1d(
 
 
 class PartialDifferentialEquationsDomain:
-    """Spatial-discretization layer that reuses Spectra's ODE solver contract."""
+    """Spatial-discretization layer that reuses Spectra's ODE solver role."""
 
     name = "partial_differential_equations"
-    version = "1"
+    version = "2"
     dependencies = (
         DomainDependency("ode.first_order_system"),
-        DomainDependency("ode.solve_rk4"),
+        DomainDependency("ode.solve_first_order", min_version=2),
     )
 
     def register(self, registry: DomainRegistry) -> None:
@@ -139,7 +139,7 @@ class PartialDifferentialEquationsDomain:
         )
 
         system_type = registry.require("ode.first_order_system")
-        solve_ode = registry.require("ode.solve_rk4")
+        solve_ode = registry.require("ode.solve_first_order", min_version=2)
 
         def solve_method_of_lines(
             problem: ScalarPDEProblem1D,
@@ -179,5 +179,5 @@ class PartialDifferentialEquationsDomain:
 
         registry.provide("pde.uniform_grid1d", UniformGrid1D)
         registry.provide("pde.second_derivative_1d", second_derivative_1d)
-        registry.provide("pde.solve_method_of_lines", solve_method_of_lines)
+        registry.provide("pde.solve_method_of_lines", solve_method_of_lines, version=2)
         registry.register_visualization(ScalarPDESolution1D, compile_scalar_pde_solution_scene)
