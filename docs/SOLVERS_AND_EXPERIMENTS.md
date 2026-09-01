@@ -1,290 +1,357 @@
 # Spectra Science — Solvers, Experiments, and Reproducibility
 
-This document describes the numerical execution layer that sits underneath scientific domains without making Core depend on any particular solver technology.
+This document describes the numerical execution and experiment layer underneath scientific domains. Core and scientific semantics remain independent from any particular CPU/GPU solver technology.
 
-## Separation of responsibilities
-
-Spectra uses two related but different mechanisms:
+## Two separate mechanisms
 
 ```text
 DomainCatalog / capabilities
-    -> discover and load the scientific/numerical provider domain
+    -> discover and load provider domains
 
 NumericalSolverRegistry
     -> choose one loaded implementation for a stable solver role at runtime
 ```
 
-A capability answers **what functionality/domain must be available**. A solver role answers **which loaded implementation should execute that numerical contract**.
+A capability answers **what provider functionality must exist**. A solver role answers **which loaded implementation executes a numerical contract**.
 
-For example, the first-order ODE role is:
+The first-order ODE role is:
 
 ```text
 ode.first_order
 ```
 
-The default implementation is currently:
+Built-in implementations currently include:
 
-```text
-rk4.reference
-```
+- `rk4.reference` — fixed-step fourth-order RK4, default;
+- `heun.reference` — optional fixed-step second-order Heun/RK2;
+- `rk45.reference` — optional adaptive Dormand–Prince 5(4).
 
-An optional provider domain adds:
+Legacy `ode.solve_rk4` remains available for compatibility and reference validation.
 
-```text
-heun.reference
-```
+## Role-dispatched scientific composition
 
-without replacing the existing `ode.solve_rk4` compatibility capability.
-
-## Role-dispatched composition
-
-High-level scientific domains should not depend on a concrete implementation name such as RK4. They depend on the stable dispatch capability:
+High-level domains depend on:
 
 ```text
 ode.first_order_system
-ode.solve_first_order >= 2
+ode.solve_first_order
 ```
 
-`ode.solve_first_order` resolves the current default implementation of the `ode.first_order` role when it is called.
-
-This means a stack such as:
+rather than a concrete RK method.
 
 ```text
-native/GPU first-order solver
-        ↓
-ode.first_order role
-        ↓
-method-of-lines PDE
-        ↓
-wave / heat / chemistry / fluid / quantum / solid dynamics
+native/GPU/adaptive first-order implementation
+                  ↓
+          ode.first_order role
+                  ↓
+   method-of-lines / mechanics / fields
+                  ↓
+wave / heat / chemistry / fluid / quantum / solids / Maxwell
 ```
 
-can change execution implementation without changing the scientific domain code.
+`ode.solve_first_order` is problem-aware and policy-aware. Changing the runtime implementation does not require editing physics or PDE code.
 
-The legacy/reference capability `ode.solve_rk4` remains available for compatibility, direct reference testing, and controlled comparisons.
+Explicit dispatch is also available:
+
+- `ode.solve_first_order_with` — exact implementation ID;
+- `ode.solve_first_order_selected` — one-off requirements;
+- tracked variants preserve the selected execution provenance.
 
 ## Loading optional implementations
 
-A solver-provider domain should expose at least one ordinary discoverable capability in addition to registering its runtime implementation.
+A solver-provider domain exposes an ordinary capability and registers its runtime implementation.
 
-The built-in Heun provider demonstrates this pattern:
+Examples:
 
 ```text
-capability: ode.first_order.heun_reference
-provider:   differential_equations.reference_solvers
-runtime:    ode.first_order / heun.reference
+ode.first_order.heun_reference
+    -> differential_equations.reference_solvers
+    -> ode.first_order / heun.reference
+
+ode.first_order.rk45_reference
+    -> differential_equations.adaptive_reference
+    -> ode.first_order / rk45.reference
 ```
 
-Capability-driven loading can then be used:
+Capability-driven loading is supported:
 
 ```python
 catalog.load_capabilities(
     registry,
-    ("ode.first_order.heun_reference",),
+    ("ode.first_order.rk45_reference",),
 )
 ```
 
-The catalog resolves and loads the provider's dependency closure. During registration, the provider calls `registry.register_numerical_solver(...)`.
-
-A future native/GPU provider should follow the same structure, for example:
+A future native provider follows the same pattern:
 
 ```text
-capability: ode.first_order.native_gpu
-provider domain loads
-    ↓
+normal discoverable capability
+        ↓
+provider domain dependency closure
+        ↓
 registry.register_numerical_solver(
     role="ode.first_order",
-    implementation_id="rk4.cuda",
+    implementation_id="rk4.native_gpu",
     ...
 )
 ```
 
-No central solver switch statement is required.
+No central backend switch statement is required.
 
-## Execution metadata
+## Execution metadata and requirements
 
-Each numerical implementation can describe execution independently from scientific semantics:
+Each implementation can describe:
 
-- execution kind: `python`, `cpu`, `gpu`, or `external`
-- backend identifier
-- precision
-- optional device identifier
-- in-place support
-- batched execution support
-- priority
-- tags
+- execution kind: `python`, `cpu`, `gpu`, or `external`;
+- backend identifier;
+- precision;
+- optional device identifier;
+- in-place support;
+- batch support;
+- priority;
+- tags;
+- optional semantic `supports_problem` predicate.
 
 Selection requirements can constrain:
 
-- execution kind
-- precision
-- minimum numerical order
-- adaptive/fixed behavior
-- whether reference implementations are allowed
-- required implementation tags
+- execution kind;
+- precision;
+- minimum order;
+- adaptive/fixed behavior;
+- reference implementations;
+- required tags.
 
-This supports policies such as:
+Problem-aware selection filters by both requirements and the semantic problem predicate.
+
+## Ordered solver policies
+
+A `NumericalSolverPolicy` stores ordered requirement rules plus optional fallback to the exact default implementation.
+
+Conceptually:
 
 ```text
-prefer GPU
-require float32
-require batched support
-minimum order >= 4
-exclude reference implementations
+1. prefer compatible GPU non-reference
+2. otherwise prefer compatible CPU non-reference
+3. otherwise use default reference solver
 ```
 
-without teaching physics/PDE domains about CUDA, Metal, WebGPU, NumPy, or any other execution backend.
+The high-level `ode.solve_first_order` dispatch applies the active policy automatically. Scientific domains do not contain `if CUDA`, `if Metal`, or backend-specific fallback code.
 
-## Problem compatibility
-
-Execution metadata alone is insufficient. A native implementation may support only certain semantic problems or state sizes.
-
-A solver implementation may therefore provide a `supports_problem` predicate. Selection can use:
-
-```python
-registry.select_numerical_solver_for_problem(
-    role,
-    problem,
-    requirements,
-)
-```
-
-Only implementations satisfying both the execution requirements and the semantic problem predicate are candidates.
-
-This is intentionally a runtime compatibility check. Domain/capability discovery remains the mechanism for loading the provider itself.
+Policies are transactional registry state. Failed domain registration rolls policy mutations back together with capabilities and solver implementations.
 
 ## Numerical provenance
 
-Reference solvers expose method descriptors and tracked execution records.
+Tracked runs distinguish **requested work** from **executed work**.
 
-A tracked run records, where applicable:
+A `NumericalRunRecord` can contain:
 
-- method/pipeline identity
-- start/end time
-- step count
-- fixed step size
-- state size
-- semantic tags
+- method or composed pipeline identity;
+- start/end time;
+- accepted/executed step count;
+- requested step count or adaptive initial-step hint;
+- state size;
+- semantic tags;
+- solver role and implementation ID;
+- execution kind/backend/precision.
 
-For a 3D method-of-lines PDE, provenance is composed dynamically:
+For fixed-step solvers:
+
+```text
+requested_steps == accepted steps
+fixed_step_size is defined
+```
+
+For adaptive solvers:
+
+```text
+requested_steps = initial step-size hint
+steps           = accepted integration steps
+average_step_size is available
+fixed_step_size is intentionally undefined
+```
+
+A tracked 3D method-of-lines run composes:
 
 ```text
 method-of-lines scalar 3D
         +
-currently selected ode.first_order implementation
+actual policy-selected ODE method
         ↓
-current numerical pipeline descriptor
+PDE pipeline provenance
 ```
 
-This is important because changing the runtime ODE default must also change the reported numerical provenance. A static declaration that always claimed RK4 would be incorrect.
+The PDE trace propagates the selected solver ID, backend, precision, requested hint, and actual accepted step count.
 
-## Parameter sweeps
+## Parameter sweeps and batching
 
-The `experiments` domain provides deterministic Cartesian parameter sweeps:
+The base `experiments` domain provides deterministic Cartesian sweeps:
 
 ```text
 ParameterAxis × ParameterAxis × ...
         ↓
-deterministic ParameterCase IDs
+stable ParameterCase IDs
         ↓
-case evaluator
+evaluator
         ↓
 unit-aware metrics
         ↓
 ExperimentResult
 ```
 
-Failure policy can either raise immediately or record an error for the failed case.
+Failures can raise immediately or be recorded per case.
 
-Parameter values are intentionally generic semantic values. A scientific domain can therefore sweep plain numbers, quantities, model choices, boundary modes, or other immutable semantic objects.
+`experiments.batching` groups stable case sequences for vectorized/native/GPU evaluators without assuming a particular compute API.
 
-## Batched experiments
+## Per-case numerical execution traces
 
-`experiments.batching` provides a batch evaluator contract for vectorized/native/GPU workflows.
+`experiments.tracing` allows a case evaluator to return its scientific output together with one or more `NumericalRunRecord` values.
 
-A sweep is still deterministic, but cases are supplied to the evaluator in stable batches:
-
-```text
-5 cases, batch_size=2
-    -> [0,1]
-    -> [2,3]
-    -> [4]
-```
-
-The evaluator must return one output per input case. Batch failures can either raise or be recorded for every case in that failed batch.
-
-This layer does not assume CUDA/WebGPU/NumPy. It only establishes the batching contract that such implementations can consume later.
-
-## Solver comparison
-
-`experiments.compare_solvers` executes the same problem and solver keyword arguments across multiple implementations of one role.
-
-Metrics are evaluated on every result, enabling comparisons such as:
-
-- absolute/relative solution error
-- conservation residual
-- final energy error
-- divergence residual
-- domain-specific validation metrics
-
-The built-in RK4 and optional Heun reference implementations provide a real comparison path rather than a test-only mock architecture.
-
-## Convergence studies
-
-`experiments.convergence` runs a fixed-step solver implementation over increasing step counts and computes observed convergence order:
+This supports workflows such as:
 
 ```text
-p ≈ log(error_coarse / error_fine)
-     --------------------------------
-     log(step_coarse / step_fine)
+one experiment case
+    -> heat solve
+    -> elasticity solve
+    -> particle solve
+    -> metrics
 ```
 
-The result also carries the method's declared order when available, allowing an observed-vs-declared consistency check.
+while preserving every numerical run used by that case.
 
-Reference tests use exponential growth `y' = y` to verify approximately fourth-order behavior for RK4 and second-order behavior for Heun.
+The trace records selected implementations, so two cases may legitimately use different compatible solvers under a problem-aware policy.
 
-Convergence tests are an important parity tool for future native/GPU implementations: a faster solver should preserve the expected numerical contract rather than merely produce visually plausible output.
+## Solver comparison and convergence
+
+`experiments.compare_solvers` executes one problem through multiple implementations of the same role and applies common metrics.
+
+`experiments.convergence` performs step-refinement convergence studies for **fixed-step** implementations. It computes observed order from error ratios and compares it with declared method order.
+
+Adaptive solvers are deliberately rejected by the fixed-step convergence API because their `steps` argument is only a step-size hint. Adaptive tolerance/refinement studies should use a separate tolerance-based experiment contract rather than pretending requested step counts are fixed discretizations.
+
+## Experiment analysis
+
+`experiments.analysis` provides generic result analysis:
+
+- deterministic metric ranking;
+- best-case selection;
+- minimize/maximize objectives;
+- multi-objective Pareto fronts.
+
+These operate on experiment metrics and do not know any particular scientific domain.
+
+## Local sensitivity
+
+`experiments.sensitivity` provides unit-aware central finite-difference sensitivities.
+
+For each parameter/metric pair it records:
+
+- baseline parameter in SI;
+- baseline response in SI;
+- raw SI derivative;
+- dimensionless normalized sensitivity when defined.
+
+This makes the same analysis usable for material properties, reaction rates, geometry parameters, field strengths, and other domains.
+
+## Deterministic uncertainty propagation
+
+`experiments.uncertainty` uses weighted discrete parameter samples and deterministic Cartesian scenarios.
+
+It computes unit-aware metric:
+
+- expectation;
+- variance;
+- standard deviation.
+
+The first uncertainty foundation is intentionally deterministic and seed-free. Monte Carlo, Latin hypercube, or quasi-random providers can later use compatible result semantics.
+
+## Calibration
+
+`experiments.calibration` performs deterministic candidate-grid fitting using weighted least-squares residuals in SI units.
+
+It returns:
+
+- all candidate results;
+- failed candidates when recording is enabled;
+- the best parameter set;
+- normalized observation residuals;
+- final objective value.
+
+This establishes a calibration semantic contract without coupling Spectra to one optimizer implementation.
+
+## Renderer-independent experiment views
+
+`experiments.views` makes visualization explicit rather than asking a backend to infer scientific intent.
+
+Current views include:
+
+- metric response series → `PointCloud + Polyline`;
+- Pareto front → batched `PointCloud`;
+- convergence plot → `Polyline + PointCloud`;
+- sensitivity stems → `Polyline + TextLabel + PointCloud`.
+
+They use the same generic Scene vocabulary already validated by the Blender backend and are equally usable by future WebGPU or other renderers.
 
 ## Reproducibility snapshots
 
-`spectra.reproducibility.capture_environment(registry)` records the currently loaded scientific environment:
+`spectra.reproducibility.capture_environment(registry)` records:
 
-- domain names and versions
-- capability names, versions, and provider domains
-- numerical solver roles/implementation IDs
-- method IDs
-- execution kind/backend/precision
-- default solver selection
-- priority/tags
+- domain names and versions;
+- capability names, versions, and providers;
+- solver roles and implementation IDs;
+- method IDs;
+- execution kind/backend/precision;
+- defaults, priority, and tags;
+- active ordered solver policies and their requirement rules.
 
-The canonical snapshot produces a deterministic SHA-256 fingerprint.
+The canonical payload supports deterministic `to_dict/from_dict` and SHA-256 fingerprinting.
 
-Tracked experiments can store this environment snapshot alongside the result. If the scientific environment changes, the fingerprint changes.
+Changing a solver policy therefore changes the environment fingerprint even when the loaded implementation inventory is unchanged.
 
-This fingerprint is an engine-environment fingerprint, not a replacement for source-control revision, input-data hashes, or platform/compiler metadata. Those can be layered on later when execution packaging requires them.
+The environment fingerprint complements rather than replaces source-control commit IDs, input hashes, compiler/device metadata, and other packaging provenance.
+
+## Durable experiment artifacts
+
+`experiments.artifacts` creates schema-versioned JSON-friendly experiment summaries.
+
+Artifacts preserve:
+
+- parameter axes and values;
+- quantity/unit metadata;
+- metric definitions and values;
+- recorded failures;
+- full scientific environment snapshot and fingerprint;
+- optional per-case numerical run summaries;
+- arbitrary string metadata.
+
+Arbitrary runtime solver outputs are intentionally not serialized by this layer. Durable scientific summaries and runtime Python/native objects remain separate contracts.
+
+Artifacts have their own canonical SHA-256 fingerprint and validate the embedded environment fingerprint during loading.
 
 ## Extension rule for native/GPU solvers
 
-A new implementation should normally:
+A new numerical implementation should normally:
 
 1. live in a provider domain/plugin rather than Core;
-2. depend on the stable solver-role capability it implements;
-3. expose a normal capability so DomainCatalog can discover/load it;
-4. register a unique implementation ID in `NumericalSolverRegistry`;
+2. depend on the stable solver role it implements;
+3. expose a normal capability for catalog loading;
+4. register a unique implementation ID;
 5. provide method and execution metadata;
-6. optionally provide a semantic problem compatibility predicate;
+6. declare problem compatibility when its support is limited;
 7. preserve the common role call contract;
-8. be validated with solver comparison and convergence studies;
-9. avoid leaking backend-specific concepts into scientific domains.
+8. participate in comparison/convergence or other verification studies;
+9. expose tracked provenance;
+10. avoid leaking backend-specific concepts into scientific domains.
 
-The intended result is:
+The intended boundary is:
 
 ```text
-science semantics stay stable
-        ↓
-numerical role stays stable
-        ↓
-reference Python / native CPU / GPU / external solver can change
+scientific semantics remain stable
+          ↓
+solver role remains stable
+          ↓
+policy selects compatible execution
+          ↓
+Python reference / native CPU / GPU / external implementation
 ```
 
-That is the execution boundary Spectra needs before high-performance numerical backends are introduced.
+This is the execution foundation Spectra needs for high-performance scientific backends without sacrificing reproducibility or modularity.
