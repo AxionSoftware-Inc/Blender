@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 import math
-from typing import Generic, TypeVar
+from typing import Any, Generic, TypeVar
 
 
 T = TypeVar("T")
@@ -83,6 +84,124 @@ class TrackedNumericalResult(Generic[T]):
     run: NumericalRunRecord
 
 
+@dataclass(frozen=True, slots=True)
+class NumericalSolverImplementation:
+    """One interchangeable implementation of a stable numerical solver role."""
+
+    role: str
+    implementation_id: str
+    solver: Callable[..., Any]
+    method: NumericalMethodDescriptor | NumericalPipelineDescriptor
+    provider_domain: str | None = None
+    priority: int = 0
+    tags: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not self.role:
+            raise ValueError("numerical solver role cannot be empty")
+        if not self.implementation_id:
+            raise ValueError("numerical solver implementation_id cannot be empty")
+        if not callable(self.solver):
+            raise TypeError("numerical solver implementation must be callable")
+        if self.provider_domain is not None and not self.provider_domain:
+            raise ValueError("numerical solver provider_domain cannot be empty")
+        if any(not tag for tag in self.tags):
+            raise ValueError("numerical solver tags cannot contain empty strings")
+
+
+class NumericalSolverRegistry:
+    """Registry for multiple implementations of the same numerical solver role.
+
+    Domain capabilities remain the dependency-discovery mechanism. This registry
+    handles runtime implementation choice once the relevant solver domains are
+    loaded, allowing reference Python, native CPU, GPU, or external implementations
+    to coexist without competing for one capability key.
+    """
+
+    def __init__(self) -> None:
+        self._implementations: dict[str, dict[str, NumericalSolverImplementation]] = {}
+        self._defaults: dict[str, str] = {}
+
+    def copy(self) -> "NumericalSolverRegistry":
+        clone = NumericalSolverRegistry()
+        clone._implementations = {
+            role: dict(implementations)
+            for role, implementations in self._implementations.items()
+        }
+        clone._defaults = dict(self._defaults)
+        return clone
+
+    def register(
+        self,
+        implementation: NumericalSolverImplementation,
+        *,
+        make_default: bool = False,
+    ) -> None:
+        role_implementations = self._implementations.setdefault(implementation.role, {})
+        if implementation.implementation_id in role_implementations:
+            raise ValueError(
+                "numerical solver implementation already registered: "
+                f"{implementation.role}/{implementation.implementation_id}"
+            )
+        role_implementations[implementation.implementation_id] = implementation
+        if make_default or implementation.role not in self._defaults:
+            self._defaults[implementation.role] = implementation.implementation_id
+
+    def roles(self) -> tuple[str, ...]:
+        return tuple(sorted(self._implementations))
+
+    def implementations(self, role: str) -> tuple[NumericalSolverImplementation, ...]:
+        implementations = self._implementations.get(role)
+        if implementations is None:
+            raise KeyError(f"unknown numerical solver role: {role}")
+        return tuple(
+            implementations[key]
+            for key in sorted(implementations)
+        )
+
+    def default_implementation_id(self, role: str) -> str:
+        try:
+            return self._defaults[role]
+        except KeyError as exc:
+            raise KeyError(f"unknown numerical solver role: {role}") from exc
+
+    def set_default(self, role: str, implementation_id: str) -> None:
+        implementations = self._implementations.get(role)
+        if implementations is None or implementation_id not in implementations:
+            raise KeyError(
+                "unknown numerical solver implementation: "
+                f"{role}/{implementation_id}"
+            )
+        self._defaults[role] = implementation_id
+
+    def implementation(
+        self,
+        role: str,
+        implementation_id: str | None = None,
+    ) -> NumericalSolverImplementation:
+        implementations = self._implementations.get(role)
+        if implementations is None:
+            raise KeyError(f"unknown numerical solver role: {role}")
+        selected = implementation_id or self.default_implementation_id(role)
+        try:
+            return implementations[selected]
+        except KeyError as exc:
+            raise KeyError(
+                "unknown numerical solver implementation: "
+                f"{role}/{selected}"
+            ) from exc
+
+    def solver_for(self, role: str, implementation_id: str | None = None) -> Callable[..., Any]:
+        return self.implementation(role, implementation_id).solver
+
+    def method_for(
+        self,
+        role: str,
+        implementation_id: str | None = None,
+    ) -> NumericalMethodDescriptor | NumericalPipelineDescriptor:
+        return self.implementation(role, implementation_id).method
+
+
 def fixed_step_record(
     method: NumericalMethodDescriptor | NumericalPipelineDescriptor,
     *,
@@ -106,6 +225,8 @@ __all__ = [
     "NumericalMethodDescriptor",
     "NumericalPipelineDescriptor",
     "NumericalRunRecord",
+    "NumericalSolverImplementation",
+    "NumericalSolverRegistry",
     "TrackedNumericalResult",
     "fixed_step_record",
 ]
