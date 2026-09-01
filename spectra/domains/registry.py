@@ -6,10 +6,12 @@ from typing import Any, TYPE_CHECKING
 
 from spectra.core.scene import Scene
 from spectra.numerics import (
+    NumericalExecutionDescriptor,
     NumericalMethodDescriptor,
     NumericalPipelineDescriptor,
     NumericalSolverImplementation,
     NumericalSolverRegistry,
+    NumericalSolverRequirements,
 )
 from spectra.visualization import SceneCompiler, VisualizationRegistry
 
@@ -243,6 +245,7 @@ class DomainRegistry:
         make_default: bool = False,
         priority: int = 0,
         tags: tuple[str, ...] = (),
+        execution: NumericalExecutionDescriptor | None = None,
     ) -> None:
         """Register one selectable implementation for a stable solver role."""
 
@@ -255,6 +258,7 @@ class DomainRegistry:
                 provider_domain=self._active_domain_name,
                 priority=priority,
                 tags=tags,
+                execution=execution or NumericalExecutionDescriptor(),
             ),
             make_default=make_default,
         )
@@ -278,6 +282,13 @@ class DomainRegistry:
         role: str,
     ) -> tuple[NumericalSolverImplementation, ...]:
         return self.numerical_solvers.implementations(role)
+
+    def select_numerical_solver(
+        self,
+        role: str,
+        requirements: NumericalSolverRequirements,
+    ) -> NumericalSolverImplementation:
+        return self.numerical_solvers.select(role, requirements)
 
     def set_default_numerical_solver(self, role: str, implementation_id: str) -> None:
         self.numerical_solvers.set_default(role, implementation_id)
