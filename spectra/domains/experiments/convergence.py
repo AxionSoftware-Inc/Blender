@@ -94,7 +94,7 @@ class ConvergenceExperimentsDomain:
     """Convergence studies for interchangeable fixed-step solver implementations."""
 
     name = "experiments.convergence"
-    version = "1"
+    version = "2"
     dependencies = (
         DomainDependency("ode.solver_role.first_order"),
     )
@@ -168,4 +168,7 @@ class ConvergenceExperimentsDomain:
         registry.register_semantic_type("experiments.convergence_sample", ConvergenceSample)
         registry.register_semantic_type("experiments.convergence_estimate", ConvergenceEstimate)
         registry.register_semantic_type("experiments.solver_convergence", SolverConvergenceResult)
+        registry.provide("experiments.convergence_sample", ConvergenceSample)
+        registry.provide("experiments.convergence_estimate", ConvergenceEstimate)
+        registry.provide("experiments.solver_convergence", SolverConvergenceResult)
         registry.provide("experiments.run_solver_convergence", run_solver_convergence)
