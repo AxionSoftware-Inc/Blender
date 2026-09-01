@@ -183,7 +183,7 @@ def laplacian_3d(
 
 class PartialDifferentialEquations3DDomain:
     name = "partial_differential_equations.3d"
-    version = "4"
+    version = "5"
     dependencies = (
         DomainDependency("pde.uniform_grid1d"),
         DomainDependency("ode.first_order_system"),
@@ -278,26 +278,25 @@ class PartialDifferentialEquations3DDomain:
             result = solution_from_ode(problem, ode_tracked.result)
             ode_run = ode_tracked.run
             pipeline = pipeline_for_method(ode_run.method)
+            execution = None
+            if ode_run.solver_role is not None and ode_run.implementation_id is not None:
+                execution = registry.numerical_solvers.implementation(
+                    ode_run.solver_role,
+                    ode_run.implementation_id,
+                ).execution
             return TrackedNumericalResult(
                 result=result,
                 run=run_record(
                     pipeline,
-                    start_time=problem.initial_time,
-                    end_time=end_time,
+                    start_time=ode_run.start_time,
+                    end_time=ode_run.end_time,
                     steps=ode_run.steps,
                     requested_steps=ode_run.requested_steps,
                     state_size=problem.grid.count,
                     tags=(("problem", problem.name), ("grid", "uniform3d")),
                     solver_role=ode_run.solver_role,
                     implementation_id=ode_run.implementation_id,
-                    execution=(
-                        None
-                        if ode_run.execution_kind is None
-                        else registry.numerical_solvers.implementation(
-                            ode_run.solver_role,
-                            ode_run.implementation_id,
-                        ).execution
-                    ),
+                    execution=execution,
                 ),
             )
 
