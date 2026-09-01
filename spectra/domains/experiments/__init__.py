@@ -32,6 +32,15 @@ from spectra.domains.experiments.sensitivity import (
     SensitivityExperimentsDomain,
     SensitivityParameter,
 )
+from spectra.domains.experiments.uncertainty import (
+    UncertainParameter,
+    UncertaintyCaseResult,
+    UncertaintyExperimentsDomain,
+    UncertaintyMetricSummary,
+    UncertaintyPropagationResult,
+    UncertaintyScenario,
+    WeightedSample,
+)
 
 __all__ = [
     "BatchedExperimentResult",
@@ -58,4 +67,11 @@ __all__ = [
     "SolverComparisonResult",
     "SolverConvergenceResult",
     "TrackedExperimentResult",
+    "UncertainParameter",
+    "UncertaintyCaseResult",
+    "UncertaintyExperimentsDomain",
+    "UncertaintyMetricSummary",
+    "UncertaintyPropagationResult",
+    "UncertaintyScenario",
+    "WeightedSample",
 ]
