@@ -50,6 +50,13 @@ from spectra.domains.experiments.sensitivity import (
     SensitivityExperimentsDomain,
     SensitivityParameter,
 )
+from spectra.domains.experiments.tracing import (
+    ExperimentCaseExecutionTrace,
+    ExperimentTracingDomain,
+    TracedCaseOutput,
+    TracedExperimentResult,
+    traced_output,
+)
 from spectra.domains.experiments.uncertainty import (
     UncertainParameter,
     UncertaintyCaseResult,
@@ -85,9 +92,11 @@ __all__ = [
     "ExperimentArtifactsDomain",
     "ExperimentAxisArtifact",
     "ExperimentCaseArtifact",
+    "ExperimentCaseExecutionTrace",
     "ExperimentCaseResult",
     "ExperimentMetricArtifact",
     "ExperimentResult",
+    "ExperimentTracingDomain",
     "ExperimentViewsDomain",
     "ExperimentsDomain",
     "LocalSensitivityResult",
@@ -107,6 +116,8 @@ __all__ = [
     "SensitivityView2D",
     "SolverComparisonResult",
     "SolverConvergenceResult",
+    "TracedCaseOutput",
+    "TracedExperimentResult",
     "TrackedExperimentResult",
     "UncertainParameter",
     "UncertaintyCaseResult",
@@ -118,4 +129,5 @@ __all__ = [
     "artifact_from_json",
     "artifact_from_tracked_experiment",
     "artifact_to_json",
+    "traced_output",
 ]
