@@ -119,21 +119,21 @@ def _vector_to_si(field: TimeDependentVectorField3D, value: Vec3) -> Vec3:
 
 
 class Maxwell3DDomain:
-    """Vacuum/source Maxwell evolution lowered to the generic real ODE solver."""
+    """Vacuum/source Maxwell evolution lowered to the selectable real ODE role."""
 
     name = "physics.electromagnetism.maxwell3d"
-    version = "1"
+    version = "2"
     dependencies = (
         DomainDependency("pde.uniform_grid3d"),
         DomainDependency("pde.curl_grid_3d"),
         DomainDependency("ode.first_order_system"),
-        DomainDependency("ode.solve_rk4"),
+        DomainDependency("ode.solve_first_order", min_version=2),
     )
 
     def register(self, registry: DomainRegistry) -> None:
         curl = registry.require("pde.curl_grid_3d")
         system_type = registry.require("ode.first_order_system")
-        solve_ode = registry.require("ode.solve_rk4")
+        solve_ode = registry.require("ode.solve_first_order", min_version=2)
         c_squared = SPEED_OF_LIGHT.si_value ** 2
         inverse_epsilon = 1.0 / VACUUM_PERMITTIVITY.si_value
 
@@ -197,4 +197,4 @@ class Maxwell3DDomain:
         registry.register_semantic_type("physics.maxwell.solution3d", MaxwellSolution3D)
         registry.provide("physics.maxwell.problem3d", MaxwellProblem3D)
         registry.provide("physics.maxwell.solution3d", MaxwellSolution3D)
-        registry.provide("physics.maxwell.solve3d", solve)
+        registry.provide("physics.maxwell.solve3d", solve, version=2)
