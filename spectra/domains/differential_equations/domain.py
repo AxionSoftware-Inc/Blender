@@ -13,6 +13,7 @@ from spectra.numerics import (
 
 State = tuple[float, ...]
 DerivativeFunction = Callable[[float, State], State]
+ODE_FIRST_ORDER_SOLVER_ROLE = "ode.first_order"
 
 
 RK4_METHOD = NumericalMethodDescriptor(
@@ -115,7 +116,7 @@ def solve_rk4_tracked(
 
 class DifferentialEquationsDomain:
     name = "differential_equations"
-    version = "2"
+    version = "3"
     dependencies = ()
 
     def register(self, registry: DomainRegistry) -> None:
@@ -125,3 +126,12 @@ class DifferentialEquationsDomain:
         registry.provide("ode.solve_rk4", solve_rk4)
         registry.provide("ode.solve_rk4.method", RK4_METHOD)
         registry.provide("ode.solve_rk4.tracked", solve_rk4_tracked)
+        registry.provide("ode.solver_role.first_order", ODE_FIRST_ORDER_SOLVER_ROLE)
+        registry.register_numerical_solver(
+            ODE_FIRST_ORDER_SOLVER_ROLE,
+            "rk4.reference",
+            solve_rk4,
+            RK4_METHOD,
+            make_default=True,
+            tags=("reference", "cpu", "fixed-step"),
+        )
