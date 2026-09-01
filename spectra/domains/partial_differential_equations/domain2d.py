@@ -156,14 +156,14 @@ def laplacian_2d(
 
 
 class PartialDifferentialEquations2DDomain:
-    """Two-dimensional scalar PDE layer reusing the generic ODE integrator."""
+    """Two-dimensional scalar PDE layer reusing the selectable ODE solver role."""
 
     name = "partial_differential_equations.2d"
-    version = "1"
+    version = "2"
     dependencies = (
         DomainDependency("pde.uniform_grid1d"),
         DomainDependency("ode.first_order_system"),
-        DomainDependency("ode.solve_rk4"),
+        DomainDependency("ode.solve_first_order", min_version=2),
     )
 
     def register(self, registry: DomainRegistry) -> None:
@@ -172,7 +172,7 @@ class PartialDifferentialEquations2DDomain:
         )
 
         system_type = registry.require("ode.first_order_system")
-        solve_ode = registry.require("ode.solve_rk4")
+        solve_ode = registry.require("ode.solve_first_order", min_version=2)
 
         def solve_method_of_lines_2d(
             problem: ScalarPDEProblem2D,
@@ -211,5 +211,5 @@ class PartialDifferentialEquations2DDomain:
         registry.register_semantic_type("pde.scalar_solution2d", ScalarPDESolution2D)
         registry.provide("pde.uniform_grid2d", UniformGrid2D)
         registry.provide("pde.laplacian_2d", laplacian_2d)
-        registry.provide("pde.solve_method_of_lines_2d", solve_method_of_lines_2d)
+        registry.provide("pde.solve_method_of_lines_2d", solve_method_of_lines_2d, version=2)
         registry.register_visualization(ScalarPDESolution2D, compile_scalar_pde_solution_2d_scene)
