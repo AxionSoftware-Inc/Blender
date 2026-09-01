@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import hashlib
 import json
-from typing import TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 from spectra.numerics import NumericalMethodDescriptor, NumericalPipelineDescriptor
 
@@ -60,9 +60,8 @@ class ScientificEnvironmentSnapshot:
     capabilities: tuple[CapabilityVersionRecord, ...]
     solvers: tuple[SolverImplementationRecord, ...]
 
-    @property
-    def fingerprint(self) -> str:
-        payload = {
+    def to_dict(self) -> dict[str, Any]:
+        return {
             "domains": [
                 {"name": record.name, "version": record.version}
                 for record in self.domains
@@ -91,7 +90,55 @@ class ScientificEnvironmentSnapshot:
                 for record in self.solvers
             ],
         }
-        encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "ScientificEnvironmentSnapshot":
+        if not isinstance(payload, dict):
+            raise TypeError("scientific environment payload must be a dictionary")
+        try:
+            domains_raw = payload["domains"]
+            capabilities_raw = payload["capabilities"]
+            solvers_raw = payload["solvers"]
+        except KeyError as exc:
+            raise ValueError(f"scientific environment payload missing key: {exc.args[0]}") from exc
+        if not isinstance(domains_raw, list) or not isinstance(capabilities_raw, list) or not isinstance(solvers_raw, list):
+            raise ValueError("scientific environment collections must be lists")
+        domains = tuple(
+            DomainVersionRecord(name=str(item["name"]), version=str(item["version"]))
+            for item in domains_raw
+        )
+        capabilities = tuple(
+            CapabilityVersionRecord(
+                key=str(item["key"]),
+                version=int(item["version"]),
+                provider_domain=(
+                    None if item.get("provider_domain") is None else str(item["provider_domain"])
+                ),
+            )
+            for item in capabilities_raw
+        )
+        solvers = tuple(
+            SolverImplementationRecord(
+                role=str(item["role"]),
+                implementation_id=str(item["implementation_id"]),
+                provider_domain=(
+                    None if item.get("provider_domain") is None else str(item["provider_domain"])
+                ),
+                method_id=str(item["method_id"]),
+                execution_kind=str(item["execution_kind"]),
+                backend=str(item["backend"]),
+                precision=str(item["precision"]),
+                is_default=bool(item["is_default"]),
+                priority=int(item["priority"]),
+                tags=tuple(str(tag) for tag in item.get("tags", ())),
+            )
+            for item in solvers_raw
+        )
+        return cls(domains=domains, capabilities=capabilities, solvers=solvers)
+
+    @property
+    def fingerprint(self) -> str:
+        encoded = json.dumps(self.to_dict(), sort_keys=True, separators=(",", ":")).encode("utf-8")
         return hashlib.sha256(encoded).hexdigest()
 
 
