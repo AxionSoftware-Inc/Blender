@@ -7,6 +7,7 @@ from spectra.domains.registry import DomainRegistry
 from spectra.numerics import (
     NumericalExecutionDescriptor,
     NumericalMethodDescriptor,
+    NumericalSolverRequirements,
     TrackedNumericalResult,
     fixed_step_record,
 )
@@ -67,11 +68,7 @@ def _add_scaled(state: State, derivative: State, scale: float) -> State:
 
 
 def solve_rk4(system: FirstOrderSystem, *, end_time: float, steps: int = 256) -> ODESolution:
-    """Deterministic fixed-step RK4 reference solver.
-
-    This is intentionally a small reference implementation. Faster/adaptive
-    solvers can replace it behind the same capability contract later.
-    """
+    """Deterministic fixed-step RK4 reference solver."""
     if steps < 1:
         raise ValueError("steps must be >= 1")
     if end_time <= system.initial_time:
@@ -125,7 +122,7 @@ def solve_rk4_tracked(
 
 class DifferentialEquationsDomain:
     name = "differential_equations"
-    version = "5"
+    version = "6"
     dependencies = ()
 
     def register(self, registry: DomainRegistry) -> None:
@@ -135,7 +132,10 @@ class DifferentialEquationsDomain:
             end_time: float,
             steps: int = 256,
         ) -> ODESolution:
-            solver = registry.numerical_solver_for(ODE_FIRST_ORDER_SOLVER_ROLE)
+            solver = registry.numerical_solver_for_problem(
+                ODE_FIRST_ORDER_SOLVER_ROLE,
+                system,
+            )
             return solver(system, end_time=end_time, steps=steps)
 
         def solve_first_order_with(
@@ -145,22 +145,43 @@ class DifferentialEquationsDomain:
             end_time: float,
             steps: int = 256,
         ) -> ODESolution:
-            solver = registry.numerical_solver_for(
+            implementation = registry.numerical_solvers.implementation(
                 ODE_FIRST_ORDER_SOLVER_ROLE,
                 implementation_id,
             )
-            return solver(system, end_time=end_time, steps=steps)
+            if not implementation.accepts_problem(system):
+                raise LookupError(
+                    "selected first-order solver does not support problem: "
+                    f"{implementation_id}"
+                )
+            return implementation.solver(system, end_time=end_time, steps=steps)
+
+        def solve_first_order_selected(
+            system: FirstOrderSystem,
+            *,
+            requirements: NumericalSolverRequirements,
+            end_time: float,
+            steps: int = 256,
+        ) -> ODESolution:
+            implementation = registry.select_numerical_solver_for_problem(
+                ODE_FIRST_ORDER_SOLVER_ROLE,
+                system,
+                requirements,
+            )
+            return implementation.solver(system, end_time=end_time, steps=steps)
 
         registry.register_semantic_type("ode.first_order_system", FirstOrderSystem)
         registry.register_semantic_type("ode.solution", ODESolution)
         registry.provide("ode.first_order_system", FirstOrderSystem)
+        registry.provide("ode.solution", ODESolution)
         registry.provide("ode.solve_rk4", solve_rk4)
         registry.provide("ode.solve_rk4.method", RK4_METHOD)
         registry.provide("ode.solve_rk4.execution", RK4_EXECUTION)
         registry.provide("ode.solve_rk4.tracked", solve_rk4_tracked)
         registry.provide("ode.solver_role.first_order", ODE_FIRST_ORDER_SOLVER_ROLE)
-        registry.provide("ode.solve_first_order", solve_first_order, version=2)
-        registry.provide("ode.solve_first_order_with", solve_first_order_with, version=2)
+        registry.provide("ode.solve_first_order", solve_first_order, version=3)
+        registry.provide("ode.solve_first_order_with", solve_first_order_with, version=3)
+        registry.provide("ode.solve_first_order_selected", solve_first_order_selected)
         registry.register_numerical_solver(
             ODE_FIRST_ORDER_SOLVER_ROLE,
             "rk4.reference",
