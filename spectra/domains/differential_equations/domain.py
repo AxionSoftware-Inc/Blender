@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from spectra.domains.registry import DomainRegistry
 from spectra.numerics import (
+    NumericalExecutionDescriptor,
     NumericalMethodDescriptor,
     TrackedNumericalResult,
     fixed_step_record,
@@ -24,6 +25,14 @@ RK4_METHOD = NumericalMethodDescriptor(
     adaptive=False,
     reference_implementation=True,
     notes=("deterministic fixed-step reference solver",),
+)
+
+RK4_EXECUTION = NumericalExecutionDescriptor(
+    kind="python",
+    backend="spectra.reference",
+    precision="float64",
+    supports_in_place=False,
+    batched=False,
 )
 
 
@@ -116,7 +125,7 @@ def solve_rk4_tracked(
 
 class DifferentialEquationsDomain:
     name = "differential_equations"
-    version = "3"
+    version = "4"
     dependencies = ()
 
     def register(self, registry: DomainRegistry) -> None:
@@ -125,6 +134,7 @@ class DifferentialEquationsDomain:
         registry.provide("ode.first_order_system", FirstOrderSystem)
         registry.provide("ode.solve_rk4", solve_rk4)
         registry.provide("ode.solve_rk4.method", RK4_METHOD)
+        registry.provide("ode.solve_rk4.execution", RK4_EXECUTION)
         registry.provide("ode.solve_rk4.tracked", solve_rk4_tracked)
         registry.provide("ode.solver_role.first_order", ODE_FIRST_ORDER_SOLVER_ROLE)
         registry.register_numerical_solver(
@@ -134,4 +144,5 @@ class DifferentialEquationsDomain:
             RK4_METHOD,
             make_default=True,
             tags=("reference", "cpu", "fixed-step"),
+            execution=RK4_EXECUTION,
         )
