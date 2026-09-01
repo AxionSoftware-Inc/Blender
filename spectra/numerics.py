@@ -53,6 +53,10 @@ class NumericalPipelineDescriptor:
         if any(not note for note in self.notes):
             raise ValueError("numerical pipeline notes cannot contain empty strings")
 
+    @property
+    def adaptive(self) -> bool:
+        return any(stage.adaptive for stage in self.stages)
+
 
 @dataclass(frozen=True, slots=True)
 class NumericalRunRecord:
@@ -62,6 +66,12 @@ class NumericalRunRecord:
     steps: int
     state_size: int | None = None
     tags: tuple[tuple[str, str], ...] = ()
+    requested_steps: int | None = None
+    solver_role: str | None = None
+    implementation_id: str | None = None
+    execution_kind: str | None = None
+    backend: str | None = None
+    precision: str | None = None
 
     def __post_init__(self) -> None:
         if not math.isfinite(self.start_time) or not math.isfinite(self.end_time):
@@ -70,14 +80,34 @@ class NumericalRunRecord:
             raise ValueError("numerical run end_time must be greater than start_time")
         if self.steps < 1:
             raise ValueError("numerical run steps must be >= 1")
+        if self.requested_steps is not None and self.requested_steps < 1:
+            raise ValueError("numerical run requested_steps must be >= 1")
         if self.state_size is not None and self.state_size < 1:
             raise ValueError("numerical run state_size must be >= 1")
         if any(not key or not value for key, value in self.tags):
             raise ValueError("numerical run tags require non-empty keys and values")
+        if (self.solver_role is None) != (self.implementation_id is None):
+            raise ValueError("numerical run solver_role and implementation_id must be set together")
+        if self.solver_role == "" or self.implementation_id == "":
+            raise ValueError("numerical run solver identifiers cannot be empty")
+        if self.execution_kind == "" or self.backend == "" or self.precision == "":
+            raise ValueError("numerical run execution metadata cannot be empty strings")
+
+    @property
+    def adaptive(self) -> bool:
+        if isinstance(self.method, NumericalMethodDescriptor):
+            return self.method.adaptive
+        return self.method.adaptive
+
+    @property
+    def average_step_size(self) -> float:
+        return (self.end_time - self.start_time) / self.steps
 
     @property
     def fixed_step_size(self) -> float:
-        return (self.end_time - self.start_time) / self.steps
+        if self.adaptive:
+            raise ValueError("adaptive numerical runs do not have one fixed step size")
+        return self.average_step_size
 
 
 @dataclass(frozen=True, slots=True)
@@ -184,7 +214,7 @@ class NumericalSolverImplementation:
     def adaptive(self) -> bool:
         if isinstance(self.method, NumericalMethodDescriptor):
             return self.method.adaptive
-        return any(stage.adaptive for stage in self.method.stages)
+        return self.method.adaptive
 
     @property
     def reference_implementation(self) -> bool:
@@ -387,6 +417,35 @@ class NumericalSolverRegistry:
         return self.implementation(role, implementation_id).method
 
 
+def run_record(
+    method: NumericalMethodDescriptor | NumericalPipelineDescriptor,
+    *,
+    start_time: float,
+    end_time: float,
+    steps: int,
+    requested_steps: int | None = None,
+    state_size: int | None = None,
+    tags: tuple[tuple[str, str], ...] = (),
+    solver_role: str | None = None,
+    implementation_id: str | None = None,
+    execution: NumericalExecutionDescriptor | None = None,
+) -> NumericalRunRecord:
+    return NumericalRunRecord(
+        method=method,
+        start_time=float(start_time),
+        end_time=float(end_time),
+        steps=int(steps),
+        requested_steps=(None if requested_steps is None else int(requested_steps)),
+        state_size=state_size,
+        tags=tags,
+        solver_role=solver_role,
+        implementation_id=implementation_id,
+        execution_kind=(None if execution is None else execution.kind),
+        backend=(None if execution is None else execution.backend),
+        precision=(None if execution is None else execution.precision),
+    )
+
+
 def fixed_step_record(
     method: NumericalMethodDescriptor | NumericalPipelineDescriptor,
     *,
@@ -395,14 +454,21 @@ def fixed_step_record(
     steps: int,
     state_size: int | None = None,
     tags: tuple[tuple[str, str], ...] = (),
+    solver_role: str | None = None,
+    implementation_id: str | None = None,
+    execution: NumericalExecutionDescriptor | None = None,
 ) -> NumericalRunRecord:
-    return NumericalRunRecord(
-        method=method,
-        start_time=float(start_time),
-        end_time=float(end_time),
-        steps=int(steps),
+    return run_record(
+        method,
+        start_time=start_time,
+        end_time=end_time,
+        steps=steps,
+        requested_steps=steps,
         state_size=state_size,
         tags=tags,
+        solver_role=solver_role,
+        implementation_id=implementation_id,
+        execution=execution,
     )
 
 
@@ -419,4 +485,5 @@ __all__ = [
     "ProblemPredicate",
     "TrackedNumericalResult",
     "fixed_step_record",
+    "run_record",
 ]
