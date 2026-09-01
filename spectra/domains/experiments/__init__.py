@@ -8,6 +8,7 @@ from spectra.domains.experiments.domain import (
     ParameterCase,
     ParameterSweep,
     SolverComparisonResult,
+    TrackedExperimentResult,
 )
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "ParameterCase",
     "ParameterSweep",
     "SolverComparisonResult",
+    "TrackedExperimentResult",
 ]
