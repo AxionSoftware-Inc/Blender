@@ -1,3 +1,7 @@
+from spectra.domains.experiments.batching import (
+    BatchedExperimentResult,
+    BatchedExperimentsDomain,
+)
 from spectra.domains.experiments.domain import (
     ExperimentCaseResult,
     ExperimentResult,
@@ -12,6 +16,8 @@ from spectra.domains.experiments.domain import (
 )
 
 __all__ = [
+    "BatchedExperimentResult",
+    "BatchedExperimentsDomain",
     "ExperimentCaseResult",
     "ExperimentResult",
     "ExperimentsDomain",
