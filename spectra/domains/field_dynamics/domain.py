@@ -14,14 +14,6 @@ IntegralCurveMode = Literal["field", "normalized"]
 
 @dataclass(frozen=True, slots=True)
 class IntegralCurveProblem3D:
-    """Integral curve of a steady vector field.
-
-    In `field` mode the parameterization satisfies dx/ds = F(x). In
-    `normalized` mode only the field direction is used, which is useful for
-    field-line/streamline visualization when vector magnitude should not control
-    sampling density.
-    """
-
     field: VectorField3D
     initial_position: Vec3
     initial_parameter: float = 0.0
@@ -39,8 +31,6 @@ class IntegralCurveProblem3D:
 
 @dataclass(frozen=True, slots=True)
 class PathlineProblem3D:
-    """Trajectory through a time-dependent vector field: dx/dt = F(x,t)."""
-
     field: TimeDependentVectorField3D
     initial_position: Vec3
     initial_time: float = 0.0
@@ -75,22 +65,22 @@ class CurveSolution3D:
 
 
 class FieldDynamicsDomain:
-    """ODE-backed integral curves shared by fields, fluids, and other domains."""
+    """Integral curves shared by fields, fluids, and other domains."""
 
     name = "field_dynamics"
-    version = "1"
+    version = "2"
     dependencies = (
         DomainDependency("mathematics.vector_field3d"),
         DomainDependency("mathematics.time_vector_field3d"),
         DomainDependency("ode.first_order_system"),
-        DomainDependency("ode.solve_rk4"),
+        DomainDependency("ode.solve_first_order", min_version=2),
     )
 
     def register(self, registry: DomainRegistry) -> None:
         from spectra.domains.field_dynamics.visualization import compile_curve_solution_scene
 
         system_type = registry.require("ode.first_order_system")
-        solve_ode = registry.require("ode.solve_rk4")
+        solve_ode = registry.require("ode.solve_first_order", min_version=2)
 
         def solve_integral_curve(
             problem: IntegralCurveProblem3D,
@@ -175,6 +165,6 @@ class FieldDynamicsDomain:
         registry.register_semantic_type("field_dynamics.curve_solution3d", CurveSolution3D)
         registry.provide("field_dynamics.integral_curve_problem3d", IntegralCurveProblem3D)
         registry.provide("field_dynamics.pathline_problem3d", PathlineProblem3D)
-        registry.provide("field_dynamics.solve_integral_curve", solve_integral_curve)
-        registry.provide("field_dynamics.solve_pathline", solve_pathline)
+        registry.provide("field_dynamics.solve_integral_curve", solve_integral_curve, version=2)
+        registry.provide("field_dynamics.solve_pathline", solve_pathline, version=2)
         registry.register_visualization(CurveSolution3D, compile_curve_solution_scene)
