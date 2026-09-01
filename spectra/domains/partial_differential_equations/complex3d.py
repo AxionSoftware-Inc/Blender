@@ -89,20 +89,20 @@ def _decode_complex_state(values: tuple[float, ...], count: int) -> ComplexState
 
 
 class ComplexPDE3DDomain:
-    """Complex-valued 3D PDE dynamics lowered to the generic real ODE contract."""
+    """Complex-valued 3D PDE dynamics lowered to the selectable real ODE role."""
 
     name = "partial_differential_equations.complex3d"
-    version = "1"
+    version = "2"
     dependencies = (
         DomainDependency("pde.uniform_grid3d"),
         DomainDependency("pde.laplacian_3d"),
         DomainDependency("ode.first_order_system"),
-        DomainDependency("ode.solve_rk4"),
+        DomainDependency("ode.solve_first_order", min_version=2),
     )
 
     def register(self, registry: DomainRegistry) -> None:
         system_type = registry.require("ode.first_order_system")
-        solve_ode = registry.require("ode.solve_rk4")
+        solve_ode = registry.require("ode.solve_first_order", min_version=2)
         real_laplacian = registry.require("pde.laplacian_3d")
 
         def complex_laplacian_3d(
@@ -178,4 +178,5 @@ class ComplexPDE3DDomain:
         registry.provide(
             "pde.complex.solve_method_of_lines_3d",
             solve_complex_method_of_lines_3d,
+            version=2,
         )
