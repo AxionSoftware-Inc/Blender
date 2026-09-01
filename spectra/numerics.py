@@ -3,10 +3,11 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 import math
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, Literal, TypeVar
 
 
 T = TypeVar("T")
+ExecutionKind = Literal["python", "cpu", "gpu", "external"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,6 +86,50 @@ class TrackedNumericalResult(Generic[T]):
 
 
 @dataclass(frozen=True, slots=True)
+class NumericalExecutionDescriptor:
+    """Execution characteristics independent of a specific device API."""
+
+    kind: ExecutionKind = "python"
+    backend: str = "python"
+    precision: str = "float64"
+    device: str | None = None
+    supports_in_place: bool = False
+    batched: bool = False
+
+    def __post_init__(self) -> None:
+        if self.kind not in {"python", "cpu", "gpu", "external"}:
+            raise ValueError(f"unknown numerical execution kind: {self.kind}")
+        if not self.backend:
+            raise ValueError("numerical execution backend cannot be empty")
+        if not self.precision:
+            raise ValueError("numerical execution precision cannot be empty")
+        if self.device is not None and not self.device:
+            raise ValueError("numerical execution device cannot be empty")
+
+
+@dataclass(frozen=True, slots=True)
+class NumericalSolverRequirements:
+    """Hard constraints used to choose among interchangeable solver implementations."""
+
+    execution_kinds: tuple[ExecutionKind, ...] = ()
+    precisions: tuple[str, ...] = ()
+    minimum_order: int | None = None
+    adaptive: bool | None = None
+    allow_reference: bool = True
+    required_tags: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if self.minimum_order is not None and self.minimum_order < 1:
+            raise ValueError("solver minimum_order must be >= 1")
+        if any(kind not in {"python", "cpu", "gpu", "external"} for kind in self.execution_kinds):
+            raise ValueError("solver requirements contain unknown execution kind")
+        if any(not precision for precision in self.precisions):
+            raise ValueError("solver requirement precisions cannot be empty")
+        if any(not tag for tag in self.required_tags):
+            raise ValueError("solver required_tags cannot contain empty strings")
+
+
+@dataclass(frozen=True, slots=True)
 class NumericalSolverImplementation:
     """One interchangeable implementation of a stable numerical solver role."""
 
@@ -95,6 +140,7 @@ class NumericalSolverImplementation:
     provider_domain: str | None = None
     priority: int = 0
     tags: tuple[str, ...] = ()
+    execution: NumericalExecutionDescriptor = NumericalExecutionDescriptor()
 
     def __post_init__(self) -> None:
         if not self.role:
@@ -107,6 +153,39 @@ class NumericalSolverImplementation:
             raise ValueError("numerical solver provider_domain cannot be empty")
         if any(not tag for tag in self.tags):
             raise ValueError("numerical solver tags cannot contain empty strings")
+
+    @property
+    def effective_order(self) -> int | None:
+        if isinstance(self.method, NumericalMethodDescriptor):
+            return self.method.order
+        orders = tuple(stage.order for stage in self.method.stages if stage.order is not None)
+        return min(orders) if orders else None
+
+    @property
+    def adaptive(self) -> bool:
+        if isinstance(self.method, NumericalMethodDescriptor):
+            return self.method.adaptive
+        return any(stage.adaptive for stage in self.method.stages)
+
+    @property
+    def reference_implementation(self) -> bool:
+        return self.method.reference_implementation
+
+    def satisfies(self, requirements: NumericalSolverRequirements) -> bool:
+        if requirements.execution_kinds and self.execution.kind not in requirements.execution_kinds:
+            return False
+        if requirements.precisions and self.execution.precision not in requirements.precisions:
+            return False
+        if requirements.minimum_order is not None:
+            if self.effective_order is None or self.effective_order < requirements.minimum_order:
+                return False
+        if requirements.adaptive is not None and self.adaptive != requirements.adaptive:
+            return False
+        if not requirements.allow_reference and self.reference_implementation:
+            return False
+        if not set(requirements.required_tags).issubset(self.tags):
+            return False
+        return True
 
 
 class NumericalSolverRegistry:
@@ -191,6 +270,30 @@ class NumericalSolverRegistry:
                 f"{role}/{selected}"
             ) from exc
 
+    def select(
+        self,
+        role: str,
+        requirements: NumericalSolverRequirements,
+    ) -> NumericalSolverImplementation:
+        candidates = tuple(
+            implementation
+            for implementation in self.implementations(role)
+            if implementation.satisfies(requirements)
+        )
+        if not candidates:
+            raise LookupError(f"no numerical solver implementation satisfies requirements for role: {role}")
+        default_id = self._defaults.get(role)
+        return max(
+            candidates,
+            key=lambda implementation: (
+                implementation.priority,
+                implementation.implementation_id == default_id,
+                not implementation.reference_implementation,
+                implementation.effective_order or 0,
+                implementation.implementation_id,
+            ),
+        )
+
     def solver_for(self, role: str, implementation_id: str | None = None) -> Callable[..., Any]:
         return self.implementation(role, implementation_id).solver
 
@@ -222,11 +325,14 @@ def fixed_step_record(
 
 
 __all__ = [
+    "ExecutionKind",
+    "NumericalExecutionDescriptor",
     "NumericalMethodDescriptor",
     "NumericalPipelineDescriptor",
     "NumericalRunRecord",
     "NumericalSolverImplementation",
     "NumericalSolverRegistry",
+    "NumericalSolverRequirements",
     "TrackedNumericalResult",
     "fixed_step_record",
 ]
