@@ -113,8 +113,8 @@ def solve_rk4_tracked(
         result=solution,
         run=fixed_step_record(
             RK4_METHOD,
-            start_time=system.initial_time,
-            end_time=end_time,
+            start_time=solution.times[0],
+            end_time=solution.times[-1],
             steps=steps,
             state_size=len(system.initial_state),
             tags=(("system", system.name),),
@@ -130,7 +130,6 @@ def _tracked_result(
     system: FirstOrderSystem,
     solution: ODESolution,
     *,
-    end_time: float,
     requested_steps: int,
 ) -> TrackedNumericalResult[ODESolution]:
     accepted_steps = len(solution.times) - 1
@@ -140,8 +139,8 @@ def _tracked_result(
         result=solution,
         run=run_record(
             implementation.method,
-            start_time=system.initial_time,
-            end_time=end_time,
+            start_time=solution.times[0],
+            end_time=solution.times[-1],
             steps=accepted_steps,
             requested_steps=requested_steps,
             state_size=len(system.initial_state),
@@ -155,7 +154,7 @@ def _tracked_result(
 
 class DifferentialEquationsDomain:
     name = "differential_equations"
-    version = "7"
+    version = "8"
     dependencies = ()
 
     def register(self, registry: DomainRegistry) -> None:
@@ -186,7 +185,6 @@ class DifferentialEquationsDomain:
                 implementation,
                 system,
                 solution,
-                end_time=end_time,
                 requested_steps=steps,
             )
 
@@ -239,7 +237,6 @@ class DifferentialEquationsDomain:
                 implementation,
                 system,
                 solution,
-                end_time=end_time,
                 requested_steps=steps,
             )
 
