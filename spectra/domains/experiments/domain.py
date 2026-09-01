@@ -181,7 +181,7 @@ class ExperimentsDomain:
     """Generic deterministic parameter studies and numerical solver comparisons."""
 
     name = "experiments"
-    version = "2"
+    version = "3"
     dependencies = ()
 
     def register(self, registry: DomainRegistry) -> None:
@@ -325,8 +325,14 @@ class ExperimentsDomain:
         registry.register_semantic_type("experiments.tracked_result", TrackedExperimentResult)
         registry.register_semantic_type("experiments.solver_comparison", SolverComparisonResult)
         registry.provide("experiments.parameter_axis", ParameterAxis)
+        registry.provide("experiments.parameter_case", ParameterCase)
         registry.provide("experiments.parameter_sweep", ParameterSweep)
         registry.provide("experiments.metric_spec", MetricSpec)
+        registry.provide("experiments.metric_value", MetricValue)
+        registry.provide("experiments.case_result", ExperimentCaseResult)
+        registry.provide("experiments.result", ExperimentResult)
+        registry.provide("experiments.tracked_result", TrackedExperimentResult)
+        registry.provide("experiments.solver_comparison", SolverComparisonResult)
         registry.provide("experiments.environment_snapshot", lambda: capture_environment(registry))
         registry.provide("experiments.run_sweep", run_sweep)
         registry.provide("experiments.run_sweep_tracked", run_sweep_tracked)
