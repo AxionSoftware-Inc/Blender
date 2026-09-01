@@ -131,6 +131,21 @@ class NumericalSolverRequirements:
 
 
 @dataclass(frozen=True, slots=True)
+class NumericalSolverPolicy:
+    """Ordered solver preferences with an optional exact-default fallback."""
+
+    rules: tuple[NumericalSolverRequirements, ...] = ()
+    fallback_to_default: bool = True
+    name: str = "solver_policy"
+
+    def __post_init__(self) -> None:
+        if not self.name:
+            raise ValueError("numerical solver policy name cannot be empty")
+        if not self.rules and not self.fallback_to_default:
+            raise ValueError("numerical solver policy must have rules or default fallback")
+
+
+@dataclass(frozen=True, slots=True)
 class NumericalSolverImplementation:
     """One interchangeable implementation of a stable numerical solver role."""
 
@@ -203,6 +218,7 @@ class NumericalSolverRegistry:
     def __init__(self) -> None:
         self._implementations: dict[str, dict[str, NumericalSolverImplementation]] = {}
         self._defaults: dict[str, str] = {}
+        self._policies: dict[str, NumericalSolverPolicy] = {}
 
     def copy(self) -> "NumericalSolverRegistry":
         clone = NumericalSolverRegistry()
@@ -211,6 +227,7 @@ class NumericalSolverRegistry:
             for role, implementations in self._implementations.items()
         }
         clone._defaults = dict(self._defaults)
+        clone._policies = dict(self._policies)
         return clone
 
     def register(
@@ -252,6 +269,19 @@ class NumericalSolverRegistry:
                 f"{role}/{implementation_id}"
             )
         self._defaults[role] = implementation_id
+
+    def set_policy(self, role: str, policy: NumericalSolverPolicy) -> None:
+        if role not in self._implementations:
+            raise KeyError(f"unknown numerical solver role: {role}")
+        self._policies[role] = policy
+
+    def clear_policy(self, role: str) -> None:
+        self._policies.pop(role, None)
+
+    def policy_for(self, role: str) -> NumericalSolverPolicy | None:
+        if role not in self._implementations:
+            raise KeyError(f"unknown numerical solver role: {role}")
+        return self._policies.get(role)
 
     def implementation(
         self,
@@ -319,6 +349,33 @@ class NumericalSolverRegistry:
             ),
         )
 
+    def resolve(
+        self,
+        role: str,
+        *,
+        problem: Any | None = None,
+    ) -> NumericalSolverImplementation:
+        policy = self._policies.get(role)
+        if policy is not None:
+            for requirements in policy.rules:
+                try:
+                    if problem is None:
+                        return self.select(role, requirements)
+                    return self.select_for_problem(role, problem, requirements)
+                except LookupError:
+                    continue
+            if not policy.fallback_to_default:
+                raise LookupError(
+                    f"no numerical solver satisfies policy '{policy.name}' for role: {role}"
+                )
+        implementation = self.implementation(role)
+        if problem is not None and not implementation.accepts_problem(problem):
+            raise LookupError(
+                "default numerical solver does not support problem for role: "
+                f"{role}/{implementation.implementation_id}"
+            )
+        return implementation
+
     def solver_for(self, role: str, implementation_id: str | None = None) -> Callable[..., Any]:
         return self.implementation(role, implementation_id).solver
 
@@ -356,6 +413,7 @@ __all__ = [
     "NumericalPipelineDescriptor",
     "NumericalRunRecord",
     "NumericalSolverImplementation",
+    "NumericalSolverPolicy",
     "NumericalSolverRegistry",
     "NumericalSolverRequirements",
     "ProblemPredicate",
