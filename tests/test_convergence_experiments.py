@@ -53,3 +53,26 @@ def test_convergence_study_rejects_non_increasing_refinement() -> None:
             step_counts=(8, 8, 16),
             error=lambda solution, _problem: abs(solution.states[-1][0] - math.e),
         )
+
+
+def test_fixed_step_convergence_rejects_adaptive_solver_implementation() -> None:
+    registry = DomainRegistry()
+    catalog = builtin_domain_catalog()
+    catalog.load(registry, ["experiments.convergence"])
+    catalog.load_capabilities(registry, ["ode.first_order.rk45_reference"])
+    run = registry.require("experiments.run_solver_convergence")
+    problem = FirstOrderSystem(
+        derivative=lambda _time, state: state,
+        initial_time=0.0,
+        initial_state=(1.0,),
+    )
+
+    with pytest.raises(ValueError, match="fixed-step solver"):
+        run(
+            "ode.first_order",
+            problem,
+            end_time=1.0,
+            step_counts=(4, 8),
+            implementation_id="rk45.reference",
+            error=lambda solution, _problem: abs(solution.states[-1][0] - math.e),
+        )
