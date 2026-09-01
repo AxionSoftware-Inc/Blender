@@ -1,219 +1,546 @@
-# Spectra domain system
+# Spectra Science — Domain System
 
-This document records the modular scientific-domain architecture used by Spectra Science. Read it together with the repository `README.md` before extending the engine.
+This document records the modular scientific-domain architecture used by Spectra Science.
+
+Read it together with the repository `README.md`, `DOMAIN_CATALOG.md`, and `MODULE_SDK.md` before extending the engine.
 
 ## Core rule
 
-Spectra Core must remain small and renderer-independent. It owns generic infrastructure such as values, units, coordinate frames, scene primitives, timelines, expressions, scene serialization, and domain registration. It must not become a giant implementation of calculus, probability, statistics, linear algebra, mechanics, electromagnetism, quantum physics, or future scientific fields.
+Spectra Core must remain small, renderer-independent, and subject-neutral.
 
-Scientific knowledge lives in pluggable domains.
+Core owns abstractions that remain useful across unrelated scientific domains, such as:
+
+- numeric/vector/color types;
+- transforms and coordinate frames;
+- units, quantities, dimensions, typed constants;
+- expression infrastructure;
+- generic Scene primitives/resources;
+- Timeline/interpolation;
+- Scene composition/serialization;
+- domain/backend contracts.
+
+Core must not become a giant implementation of:
+
+```text
+calculus
+probability
+CFD
+quantum mechanics
+chemistry
+Maxwell equations
+relativity
+Blender
+CUDA
+WebGPU
+```
+
+Scientific knowledge lives in independently registered domains.
+
+## Current engine shape
 
 ```text
 Spectra Core
-  -> DomainRegistry / capability graph
-      -> mathematics
-      -> calculus
-      -> probability
-      -> statistics
-      -> linear_algebra
-      -> differential_equations
-      -> mechanics
-      -> electromagnetism
-      -> quantum
-      -> future domains
-  -> semantic visualization dispatch
-  -> generic Scene
-  -> versioned Scene document
-  -> renderer backend
+    ↓
+DomainCatalog
+    ↓ discover/provider planning
+DomainRegistry
+    ├─ semantic types
+    ├─ versioned capabilities
+    ├─ numerical solver roles/implementations
+    └─ visualization registry
+            ↓
+scientific solutions / fields / trajectories
+            ↓
+semantic visualization
+            ↓
+generic Scene + Timeline
+            ↓
+presentation policy
+            ↓
+renderer backend
 ```
+
+Blender is one backend. A scientific module must remain meaningful without Blender installed.
 
 ## Capabilities, not implementation coupling
 
 A domain publishes stable capabilities under names such as:
 
-- `mathematics.vector_field3d`
-- `probability.discrete_distribution`
-- `statistics.histogram`
-- `linear_algebra.normalize_complex`
-- `ode.solve_rk4`
-- `physics.mechanics.solve_particle`
+```text
+mathematics.vector_field3d
+pde.laplacian_3d
+pde.solve_method_of_lines_3d
+physics.mechanics.solve_particle
+physics.potential_field3d
+experiments.run_sweep
+```
 
-Another domain declares a `DomainDependency` on the capability it needs and resolves that capability through `DomainRegistry`. It should not copy the algorithm and should avoid importing another domain's private implementation details.
+Another domain declares `DomainDependency` on the capability it needs.
 
-The capability contract is the dependency boundary. The implementation behind it may later move from pure Python to NumPy, SciPy, Rust, C++, GPU compute, or another implementation without forcing dependent scientific domains to be rewritten.
+It should not:
+
+- copy the algorithm;
+- depend on another domain's private file layout;
+- import a renderer SDK;
+- hardcode one numerical implementation when a stable role exists.
+
+The capability contract is the dependency boundary.
+
+The implementation behind it may move from Python reference code to native CPU/GPU/external execution without requiring dependent scientific domains to be rewritten.
+
+## Domain discovery and catalog
+
+Built-in domains are no longer maintained through one giant hand-edited provider manifest.
+
+The current model is:
+
+```text
+strict ...Domain class discovery
+    ↓
+instantiate/probe-register domains
+    ↓
+observe actual registry.provide(...) ownership
+    ↓
+generate DomainDescriptor provider metadata
+    ↓
+compute dependency closure when loading
+```
+
+This prevents capability metadata from drifting away from runtime registration.
+
+A semantic type that downstream domains depend on must be published with `registry.provide(...)`; merely calling `register_semantic_type(...)` is not enough for capability-based dependency resolution.
+
+See `DOMAIN_CATALOG.md`.
+
+## Runtime registration
+
+`DomainRegistry` is the runtime authority.
+
+It owns:
+
+- loaded domain instances;
+- semantic type registrations;
+- capabilities and versions;
+- capability provider ownership;
+- visualization compilers;
+- numerical solver implementations/policies.
+
+Domain registration is transactional. If registration fails, partial registry/solver/visualization mutations must roll back.
+
+This allows large dependency closures to fail safely rather than leaving a half-registered scientific environment.
 
 ## Automatic dependency resolution
 
-`DomainRegistry.add_domains(...)` accepts modules in arbitrary order and resolves the dependency graph from published capabilities. This is required for scalability: a future product may load dozens or hundreds of domains and should not depend on a manually maintained initialization sequence.
+Domains may be supplied in arbitrary order. Registration resolves declared required capabilities rather than depending on manual initialization sequence.
 
-Missing providers or dependency cycles must fail with a diagnostic rather than silently degrading the scientific model.
+Bad architecture:
+
+```text
+always import math first
+then PDE
+then physics
+then chemistry
+```
+
+Desired architecture:
+
+```text
+requested domain/capability
+    ↓
+provider closure
+    ↓
+dependency-resolved atomic registration
+```
+
+Missing providers/version incompatibilities must produce clear errors rather than silent scientific degradation.
+
+## Scientific composition rule
+
+Before implementing a new algorithm inside a higher-level domain, prefer existing lower-level capabilities.
+
+Examples in the current architecture include:
+
+```text
+linear algebra + probability
+    -> finite-dimensional quantum
+
+complex fields + integration
+    -> spatial quantum semantics
+
+stable ODE role
+    -> method-of-lines PDE
+    -> diffusion / waves / Schrödinger / heat / chemistry / Maxwell
+
+Poisson + gradient
+    -> electrostatic potential
+    -> gravitational potential
+
+Poisson + divergence/gradient/advection
+    -> incompressible-flow pressure projection
+
+elasticity + vector second-order PDE
+    -> elastodynamics
+
+heat conduction + elasticity
+    -> thermoelasticity
+
+Maxwell fields + mechanics Lorentz force
+    -> charged-particle trajectories
+
+ReactionNetwork + coupled PDE
+    -> reaction-diffusion
+
+reaction enthalpy
+    -> thermal source
+
+J dot E
+    -> electrothermal heating
+```
+
+The point is not only code reuse. Shared capabilities create one scientific contract that can later receive a faster implementation once.
+
+## Numerical execution roles
+
+Scientific domains should generally depend on **what numerical job must be done**, not one concrete algorithm name.
+
+For first-order time integration:
+
+```text
+ode.first_order
+```
+
+is the stable role.
+
+High-level domains use role-dispatched capabilities such as:
+
+```text
+ode.solve_first_order
+```
+
+The runtime may then choose among loaded implementations such as:
+
+```text
+rk4.reference
+heun.reference
+rk45.reference
+future native_cpu/gpu/external providers
+```
+
+Selection may depend on execution/precision/order/adaptive requirements, problem compatibility, priority, or ordered policies.
+
+The legacy/direct `ode.solve_rk4` capability remains useful for reference testing/compatibility but should not be the dependency that every high-level domain hardcodes.
+
+See `SOLVERS_AND_EXPERIMENTS.md`.
+
+## Semantic types
+
+Scientific meaning should exist before visualization.
+
+Examples:
+
+```text
+PotentialField3D
+ParticleProblem
+ChemicalReaction
+ReactionNetwork
+ScalarPDEProblem3D
+MetricTensorField
+ExperimentResult
+```
+
+Semantic objects should not store:
+
+- Blender objects;
+- GPU pointers/handles;
+- UI widgets;
+- renderer material node names;
+- hidden render-unit conversions.
+
+Unit/coordinate/boundary meaning should be explicit when scientifically relevant.
 
 ## Semantic visualization dispatch
 
-Callers should not need a growing switch statement such as `if calculus ... elif probability ... elif mechanics ...` to decide how a scientific object becomes a scene.
-
-Domains register their default renderer-independent visualization compilers with the engine. `DomainRegistry.compile_scene(object)` dispatches by semantic type through `VisualizationRegistry`.
-
-Current examples include:
+Callers should not need an ever-growing switch statement such as:
 
 ```text
-Function1D            -> Polyline Scene
-Function2D            -> indexed Surface Scene
-DiscreteDistribution  -> stems/labels Scene
-Histogram             -> Region/label Scene
-Trajectory            -> Polyline/Point Scene
+if quantum ...
+elif CFD ...
+elif chemistry ...
 ```
 
-Some semantic objects do not have one canonical default visualization. For example a `VectorField3D` needs a sampling grid or another visualization policy. Those remain explicit visualization compositions rather than forcing arbitrary defaults into the semantic type.
+to compile a semantic object into a scene.
 
-## Current composition proofs
+Domains register type-directed default visualization compilers through `VisualizationRegistry` when a sensible canonical view exists.
 
-### Quantum physics
-
-`QuantumDomain` depends on linear algebra and probability capabilities.
+Examples:
 
 ```text
-linear_algebra.complex_vector
-linear_algebra.normalize_complex
-probability.discrete_distribution
-        -> physics.quantum
+Function1D -> Polyline
+Function2D -> Surface
+Trajectory -> Polyline + Point
+experiment response -> Polyline / PointCloud / labels
 ```
 
-Quantum state construction and measurement probabilities therefore reuse the mathematical domains instead of reimplementing vector normalization or probability distributions.
+## Explicit view semantics
 
-### Statistics
+Not every scientific object has one canonical visualization.
 
-`StatisticsDomain` owns dataset, summary, and histogram semantics while reusing probability for empirical distributions.
+For example:
 
 ```text
-Dataset1D
-   -> statistics summary / histogram
-   -> statistics.empirical_distribution
-   -> probability.discrete_distribution
+VectorField3D
+    -> arrows
+    -> integral curves
+    -> slices
+
+complex wavefunction
+    -> real
+    -> imaginary
+    -> magnitude
+    -> probability density
+    -> phase
 ```
 
-This is an example of a higher-level mathematical subject building on another domain instead of forcing both into Core.
+Such choices should be represented through explicit view semantics/policies rather than letting a renderer guess.
 
-### Electromagnetism
+A renderer must never invent the scientific interpretation of a field.
 
-`ElectromagnetismDomain` describes point charges and Coulomb electric fields, but uses the generic mathematical `VectorField3D` representation.
+## Generic Scene vocabulary
+
+Current generic primitives include:
+
+- `Point`;
+- `PointCloud`;
+- `Polyline`;
+- `Surface`;
+- `Region`;
+- `VectorGlyph`;
+- `VectorGlyphSet`;
+- `TextLabel`;
+- `Group`;
+- `Camera`;
+- `Light`.
+
+Dense data must remain batched.
+
+Examples:
 
 ```text
-mathematics.vector_field3d
-        -> electromagnetism law
-        -> VectorField3D
-        -> VectorGlyph Scene
-        -> Blender/WebGPU/etc.
+10,000 particles -> one PointCloud
+large vector sample -> one VectorGlyphSet
 ```
 
-A gravity field, fluid velocity field, magnetic field, or future custom field can reuse the same scene compiler.
+Do not expand data into thousands of Scene/backend objects merely because a renderer can create them.
 
-### Mechanics
+## Presentation layer
 
-Newtonian particle mechanics depends on the differential-equations domain rather than owning a solver.
+Scientific visualization and premium presentation are separate concerns.
+
+The current engine already contains renderer-neutral presentation helpers such as timeline composition/staggered reveal.
+
+The intended fuller layer is:
 
 ```text
-ode.first_order_system + ode.solve_rk4
-        -> mechanics particle problem
-        -> trajectory
-        -> Polyline/Point Scene
+semantic visualization
+    -> scientifically correct base Scene
+    -> PresentationIntent / preset / camera / colors / legends / annotations
+    -> presentation-enriched Scene
+    -> Blender/WebGPU/other backend
 ```
 
-The current RK4 implementation is a deterministic reference solver. A more advanced adaptive/native/GPU solver can replace it behind the capability contract later.
+A physics domain may know that quantum phase is cyclic or temperature has units. It must not know which Blender shader or compositor node implements the chosen appearance.
+
+See:
+
+- `PREMIUM_PRESENTATION_SYSTEM.md`
+- `BLENDER_PREMIUM_PRESENTATION.md`
+
+## Scientific time vs presentation time
+
+Spectra owns scientific time through `Scene + Timeline -> Scene.sample(t)`.
+
+Presentation may compose reveal/camera/annotation animation around scientific evolution, but it must not silently alter physical time semantics.
+
+Backends may use native playback transport, but renderer frame handlers must not become the source of scientific state.
 
 ## Units and coordinates
 
-Physical domains must not hide units in renderer coordinates. Spectra Core contains dimensional `Unit` / `Quantity` types and renderer-independent `CoordinateFrame3D`.
+Physical domains must not hide units in renderer coordinates.
 
-Scientific coordinates remain scientific data. A renderer backend is responsible for mapping them into Blender units, WebGPU world coordinates, Unreal coordinates, or another native representation.
+`Unit` / `Quantity` and coordinate-frame semantics exist independently from Blender/WebGPU world units.
 
-## Scene transport contract
+Hot numerical code may convert values into SI floats for computation, but unit conversion should occur explicitly at the scientific/numerical boundary.
 
-A generic `Scene` is not only an in-process Python object. Spectra provides a versioned `spectra.scene` JSON representation for primitives and timelines.
+A backend maps already-defined scientific coordinates into its native representation.
 
-That transport boundary allows the same compiled scene to be consumed by:
+## Scene transport
 
-- a Blender adapter;
-- a realtime/WebGPU renderer;
-- a CLI or render worker;
-- a remote render service;
-- saved lesson/project documents;
-- tests and inspection tooling.
+The generic `Scene` is both an in-process object and a renderer-independent transport model.
 
-Do not serialize renderer-native Blender/Unreal/WebGPU objects into the scientific document. The document describes Spectra primitives and engine time.
+The versioned `spectra.scene` document allows the compiled scene to be consumed by:
+
+- Blender;
+- realtime/WebGPU clients;
+- CLI/headless workers;
+- remote rendering;
+- saved projects/lessons;
+- inspection/tests.
+
+Do not serialize native Blender/Unreal/WebGPU objects into the scientific Scene document.
+
+## Experiment domains
+
+Experiments are first-class modules rather than UI-only scripts.
+
+The current post-baseline architecture contains generic concepts for:
+
+- parameter sweeps;
+- batched case evaluation;
+- solver comparison;
+- convergence;
+- sensitivity;
+- deterministic uncertainty propagation;
+- calibration;
+- ranking/Pareto analysis;
+- tracked numerical execution;
+- durable experiment artifacts;
+- renderer-neutral experiment views.
+
+This means a future UI can orchestrate experiments without becoming the owner of scientific logic.
+
+## External module/plugin direction
+
+Built-in domains are auto-discovered from the Spectra package.
+
+Third-party packages should eventually extend the catalog through explicit package metadata/entry points rather than editing Core or performing import-time global registration.
+
+See:
+
+- `MODULE_SDK.md`
+- `PLUGIN_PACKAGING.md`
+
+A plugin package may provide multiple domains, numerical implementations, views, or presentation resources.
 
 ## Where new subjects belong
 
 Examples:
 
-- calculus -> domain
-- probability theory -> domain
-- statistics -> domain
-- linear algebra -> domain
-- differential equations -> domain
-- graph theory -> domain
-- complex analysis -> domain
-- topology -> domain if/when useful visual semantics are defined
-- classical mechanics -> physics domain
-- electromagnetism -> physics domain
-- fluid dynamics -> physics domain, likely consuming fields + PDE/ODE capabilities
-- quantum mechanics -> physics domain consuming linear algebra + probability + complex-number capabilities
-- a newly invented mathematical model -> new domain/capability, without modifying core unless it reveals a truly universal missing abstraction
+```text
+calculus -> scientific domain
+probability -> scientific domain
+statistics -> scientific domain
+linear algebra -> scientific domain
+control systems -> scientific domain
+optics -> scientific/physics domain
+biology -> domain(s)
+CFD -> physics domains consuming PDE/field capabilities
+quantum -> physics domains consuming complex/linear-algebra/probability/PDE capabilities
+new renderer -> backend package
+new GPU solver -> numerical provider domain/plugin
+premium theme -> presentation extension
+```
 
 ## Rule for changing Core
 
 Adding a new subject is not sufficient reason to modify Core.
 
-Core should change only when several unrelated domains reveal the same missing universal abstraction. For example, units and coordinate frames belong in Core because many mathematical and physical domains need them independently. Coulomb's law does not belong in Core because it is specific to electromagnetism.
+Core should change only when several unrelated domains demonstrate the same missing universal abstraction.
 
-A useful test is:
+Useful test:
 
 > If this scientific subject disappeared tomorrow, would the abstraction still make sense for several unrelated domains?
 
-If no, keep it in a domain.
+If no, keep it in the domain.
 
-## Visualization rule
+Examples:
 
-Domain semantics do not create Blender objects. Domain visualization compilers lower semantic objects into generic Spectra primitives such as:
+- units belong in Core;
+- coordinate frames belong in Core;
+- Coulomb's law does not;
+- Navier–Stokes does not;
+- a Blender Geometry Nodes rig does not.
 
-- `Point`
-- `Polyline`
-- `Surface`
-- `Region`
-- `VectorGlyph`
-- `TextLabel`
-- `Group`
+## Renderer rule
 
-Later reusable primitives may include volumes, particles, instanced glyph sets, trails, cameras, and lights when multiple domains demonstrate the need.
+Domain semantics do not create native renderer objects.
 
-Backends consume the generic scene.
+The pipeline is:
+
+```text
+scientific semantics
+    -> generic Scene
+    -> optional generic presentation enrichment
+    -> backend
+```
+
+Blender backend code may be sophisticated. Physics code should remain unaware of it.
+
+## Numerical backend rule
+
+Likewise, scientific domains should not import device/runtime technology.
+
+Bad:
+
+```text
+physics.maxwell imports CUDA
+chemistry checks GPU brand
+PDE decides to allocate Blender buffers
+```
+
+Desired:
+
+```text
+scientific domain -> stable solver role
+solver registry -> selected native/GPU provider
+```
+
+See `NATIVE_NUMERICAL_BACKENDS.md`.
 
 ## Long-term scalability target
 
-The target is not merely to support a long feature list. The target is for the cost of adding the 100th scientific concept to remain controlled.
+The target is not merely a long feature list.
 
-Ideally a new module consists mostly of:
+The target is that the cost of adding the 100th, 500th, or organization-specific scientific module remains controlled.
 
-1. its scientific semantic types;
+A normal new module should mostly contain:
+
+1. scientific semantic types;
 2. declared capability dependencies;
-3. computation/relationships specific to that subject;
-4. compositions into existing visual primitives;
-5. optional semantic-to-Scene registrations;
-6. tests.
+3. subject-specific computation/relationships;
+4. optional compositions into existing numerical roles;
+5. generic visualization/view semantics;
+6. tests and limitations.
 
-It should not require rewriting the engine, renderer, animation system, unit model, scene transport, or every previously implemented subject.
+It should not require rewriting:
+
+- Core;
+- DomainCatalog initialization order;
+- renderer backend;
+- animation system;
+- units;
+- Scene transport;
+- all previous domains.
 
 ## Continuation checklist
 
-When another agent/session continues development:
+When another developer/agent continues development:
 
-1. Read `README.md` and this file.
-2. Keep `spectra.core` free of subject-specific knowledge and renderer SDKs.
-3. Prefer domain capabilities over cross-domain implementation imports.
-4. Use `DomainRegistry.add_domains(...)` for dependency-resolved module loading.
-5. Reuse existing mathematical semantics before creating new physics-specific equivalents.
-6. Register a default semantic visualization only when the object has a sensible canonical view.
-7. Compile semantics to generic `Scene` primitives before touching Blender/WebGPU.
-8. Keep Scene JSON renderer-independent and versioned.
-9. Add tests that demonstrate cross-domain reuse.
-10. Change Core only for abstractions proven universal across domains.
+1. Read root `README.md` and `docs/README.md`.
+2. Keep Core free of subject-specific and renderer/device-specific knowledge.
+3. Prefer capabilities over cross-domain private imports.
+4. Publish every dependency-visible semantic contract with `provide()`.
+5. Use role-dispatched numerical execution rather than hardcoding one solver in high-level domains.
+6. Reuse existing fields/PDE/tensor/linear-algebra/mechanics capabilities before creating duplicates.
+7. Use explicit view semantics when multiple visual interpretations are scientifically valid.
+8. Compile science to generic Scene primitives before backend code.
+9. Keep premium presentation separate from scientific computation.
+10. Keep Scene JSON renderer-independent and versioned.
+11. Add cross-domain reuse/analytical tests for new computation.
+12. Change Core only for abstractions proven universal.
+13. Do not claim design documents are implemented runtime features until code and validation exist.
+
+## Success criterion
+
+A new scientific idea should normally require new semantics/composition and tests, not another monolithic subsystem.
+
+Spectra succeeds when scientific meaning, numerical execution, presentation, and rendering can evolve independently behind stable contracts.
