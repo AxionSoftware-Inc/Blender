@@ -90,12 +90,12 @@ def _decode_complex_state(values: tuple[float, ...], count: int) -> ComplexState
 
 class ComplexPDE2DDomain:
     name = "partial_differential_equations.complex2d"
-    version = "1"
+    version = "2"
     dependencies = (
         DomainDependency("pde.uniform_grid2d"),
         DomainDependency("pde.laplacian_2d"),
         DomainDependency("ode.first_order_system"),
-        DomainDependency("ode.solve_rk4"),
+        DomainDependency("ode.solve_first_order", min_version=2),
     )
 
     def register(self, registry: DomainRegistry) -> None:
@@ -104,7 +104,7 @@ class ComplexPDE2DDomain:
         )
 
         system_type = registry.require("ode.first_order_system")
-        solve_ode = registry.require("ode.solve_rk4")
+        solve_ode = registry.require("ode.solve_first_order", min_version=2)
         real_laplacian = registry.require("pde.laplacian_2d")
 
         def complex_laplacian_2d(
@@ -184,5 +184,6 @@ class ComplexPDE2DDomain:
         registry.provide(
             "pde.complex.solve_method_of_lines_2d",
             solve_complex_method_of_lines_2d,
+            version=2,
         )
         registry.register_visualization(ComplexPDESolution2D, compile_solution)
