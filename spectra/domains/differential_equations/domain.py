@@ -125,10 +125,32 @@ def solve_rk4_tracked(
 
 class DifferentialEquationsDomain:
     name = "differential_equations"
-    version = "4"
+    version = "5"
     dependencies = ()
 
     def register(self, registry: DomainRegistry) -> None:
+        def solve_first_order(
+            system: FirstOrderSystem,
+            *,
+            end_time: float,
+            steps: int = 256,
+        ) -> ODESolution:
+            solver = registry.numerical_solver_for(ODE_FIRST_ORDER_SOLVER_ROLE)
+            return solver(system, end_time=end_time, steps=steps)
+
+        def solve_first_order_with(
+            system: FirstOrderSystem,
+            *,
+            implementation_id: str,
+            end_time: float,
+            steps: int = 256,
+        ) -> ODESolution:
+            solver = registry.numerical_solver_for(
+                ODE_FIRST_ORDER_SOLVER_ROLE,
+                implementation_id,
+            )
+            return solver(system, end_time=end_time, steps=steps)
+
         registry.register_semantic_type("ode.first_order_system", FirstOrderSystem)
         registry.register_semantic_type("ode.solution", ODESolution)
         registry.provide("ode.first_order_system", FirstOrderSystem)
@@ -137,6 +159,8 @@ class DifferentialEquationsDomain:
         registry.provide("ode.solve_rk4.execution", RK4_EXECUTION)
         registry.provide("ode.solve_rk4.tracked", solve_rk4_tracked)
         registry.provide("ode.solver_role.first_order", ODE_FIRST_ORDER_SOLVER_ROLE)
+        registry.provide("ode.solve_first_order", solve_first_order, version=2)
+        registry.provide("ode.solve_first_order_with", solve_first_order_with, version=2)
         registry.register_numerical_solver(
             ODE_FIRST_ORDER_SOLVER_ROLE,
             "rk4.reference",
