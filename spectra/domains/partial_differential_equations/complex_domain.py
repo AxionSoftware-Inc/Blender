@@ -111,8 +111,6 @@ def _decode_complex_state(values: tuple[float, ...], count: int) -> ComplexState
 def compile_complex_pde_solution_scene(
     solution: ComplexPDESolution1D,
 ) -> Scene:
-    """Generic complex PDE visualization: real, imaginary, and magnitude squared."""
-
     coordinates = solution.grid.coordinates
     names = (
         f"{solution.name}.real",
@@ -164,16 +162,16 @@ def compile_complex_pde_solution_scene(
 
 class ComplexPartialDifferentialEquationsDomain:
     name = "partial_differential_equations.complex"
-    version = "1"
+    version = "2"
     dependencies = (
         DomainDependency("pde.uniform_grid1d"),
         DomainDependency("ode.first_order_system"),
-        DomainDependency("ode.solve_rk4"),
+        DomainDependency("ode.solve_first_order", min_version=2),
     )
 
     def register(self, registry: DomainRegistry) -> None:
         system_type = registry.require("ode.first_order_system")
-        solve_ode = registry.require("ode.solve_rk4")
+        solve_ode = registry.require("ode.solve_first_order", min_version=2)
 
         def solve_complex_method_of_lines(
             problem: ComplexPDEProblem1D,
@@ -214,7 +212,7 @@ class ComplexPartialDifferentialEquationsDomain:
         registry.register_semantic_type("pde.complex.solution1d", ComplexPDESolution1D)
         registry.provide("pde.complex.problem1d", ComplexPDEProblem1D)
         registry.provide("pde.complex.second_derivative_1d", complex_second_derivative_1d)
-        registry.provide("pde.complex.solve_method_of_lines", solve_complex_method_of_lines)
+        registry.provide("pde.complex.solve_method_of_lines", solve_complex_method_of_lines, version=2)
         registry.register_visualization(
             ComplexPDESolution1D,
             compile_complex_pde_solution_scene,
