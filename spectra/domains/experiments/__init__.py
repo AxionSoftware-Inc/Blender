@@ -2,6 +2,12 @@ from spectra.domains.experiments.batching import (
     BatchedExperimentResult,
     BatchedExperimentsDomain,
 )
+from spectra.domains.experiments.convergence import (
+    ConvergenceEstimate,
+    ConvergenceExperimentsDomain,
+    ConvergenceSample,
+    SolverConvergenceResult,
+)
 from spectra.domains.experiments.domain import (
     ExperimentCaseResult,
     ExperimentResult,
@@ -18,6 +24,9 @@ from spectra.domains.experiments.domain import (
 __all__ = [
     "BatchedExperimentResult",
     "BatchedExperimentsDomain",
+    "ConvergenceEstimate",
+    "ConvergenceExperimentsDomain",
+    "ConvergenceSample",
     "ExperimentCaseResult",
     "ExperimentResult",
     "ExperimentsDomain",
@@ -27,5 +36,6 @@ __all__ = [
     "ParameterCase",
     "ParameterSweep",
     "SolverComparisonResult",
+    "SolverConvergenceResult",
     "TrackedExperimentResult",
 ]
