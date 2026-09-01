@@ -111,6 +111,57 @@ def test_execution_requirements_select_matching_solver_implementation() -> None:
         )
 
 
+def test_problem_compatibility_filters_execution_matches() -> None:
+    registry = DomainRegistry()
+    builtin_domain_catalog().load(registry, ["differential_equations"])
+    registry.register_numerical_solver(
+        "ode.first_order",
+        "small-state.gpu.test",
+        _solve_euler,
+        EULER_METHOD,
+        priority=20,
+        tags=("gpu",),
+        execution=NumericalExecutionDescriptor(
+            kind="gpu",
+            backend="small-state-gpu",
+            precision="float32",
+            device="test-device",
+        ),
+        supports_problem=lambda problem: (
+            isinstance(problem, FirstOrderSystem)
+            and len(problem.initial_state) <= 4
+        ),
+    )
+    requirements = NumericalSolverRequirements(
+        execution_kinds=("gpu",),
+        allow_reference=False,
+    )
+    small = FirstOrderSystem(
+        derivative=lambda _time, state: state,
+        initial_time=0.0,
+        initial_state=(1.0, 2.0),
+    )
+    large = FirstOrderSystem(
+        derivative=lambda _time, state: state,
+        initial_time=0.0,
+        initial_state=(1.0,) * 8,
+    )
+
+    selected = registry.select_numerical_solver_for_problem(
+        "ode.first_order",
+        small,
+        requirements,
+    )
+    assert selected.implementation_id == "small-state.gpu.test"
+
+    with pytest.raises(LookupError):
+        registry.select_numerical_solver_for_problem(
+            "ode.first_order",
+            large,
+            requirements,
+        )
+
+
 def test_pde_time_integration_follows_runtime_default_ode_solver() -> None:
     registry = DomainRegistry()
     builtin_domain_catalog().load(registry, ["partial_differential_equations.3d"])
