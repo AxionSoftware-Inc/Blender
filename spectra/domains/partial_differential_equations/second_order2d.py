@@ -76,14 +76,14 @@ class SecondOrderScalarPDESolution2D:
 
 
 class SecondOrderPDE2DDomain:
-    """Second-order temporal dynamics lowered to the generic first-order ODE contract."""
+    """Second-order temporal dynamics lowered to the selectable first-order ODE role."""
 
     name = "partial_differential_equations.second_order2d"
-    version = "1"
+    version = "2"
     dependencies = (
         DomainDependency("pde.uniform_grid2d"),
         DomainDependency("ode.first_order_system"),
-        DomainDependency("ode.solve_rk4"),
+        DomainDependency("ode.solve_first_order", min_version=2),
     )
 
     def register(self, registry: DomainRegistry) -> None:
@@ -92,7 +92,7 @@ class SecondOrderPDE2DDomain:
         )
 
         system_type = registry.require("ode.first_order_system")
-        solve_ode = registry.require("ode.solve_rk4")
+        solve_ode = registry.require("ode.solve_first_order", min_version=2)
 
         def solve_second_order(
             problem: SecondOrderScalarPDEProblem2D,
@@ -153,7 +153,7 @@ class SecondOrderPDE2DDomain:
             SecondOrderScalarPDESolution2D,
         )
         registry.provide("pde.second_order_problem2d", SecondOrderScalarPDEProblem2D)
-        registry.provide("pde.solve_second_order_2d", solve_second_order)
+        registry.provide("pde.solve_second_order_2d", solve_second_order, version=2)
         registry.register_visualization(
             SecondOrderScalarPDESolution2D,
             compile_solution,
