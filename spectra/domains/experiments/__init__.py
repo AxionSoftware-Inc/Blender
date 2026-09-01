@@ -8,6 +8,12 @@ from spectra.domains.experiments.batching import (
     BatchedExperimentResult,
     BatchedExperimentsDomain,
 )
+from spectra.domains.experiments.calibration import (
+    CalibrationExperimentsDomain,
+    CalibrationObservation,
+    CalibrationResidual,
+    CalibrationResult,
+)
 from spectra.domains.experiments.convergence import (
     ConvergenceEstimate,
     ConvergenceExperimentsDomain,
@@ -45,6 +51,10 @@ from spectra.domains.experiments.uncertainty import (
 __all__ = [
     "BatchedExperimentResult",
     "BatchedExperimentsDomain",
+    "CalibrationExperimentsDomain",
+    "CalibrationObservation",
+    "CalibrationResidual",
+    "CalibrationResult",
     "ConvergenceEstimate",
     "ConvergenceExperimentsDomain",
     "ConvergenceSample",
