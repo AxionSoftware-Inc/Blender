@@ -79,19 +79,19 @@ def _decode_vectors(values: tuple[float, ...], count: int) -> VectorState3D:
 
 
 class SecondOrderVectorPDE3DDomain:
-    """Generic vector-valued u_tt = F(t,u,u_t) lowered to the real ODE contract."""
+    """Generic vector-valued u_tt = F(t,u,u_t) lowered to the selectable ODE role."""
 
     name = "partial_differential_equations.second_order_vector3d"
-    version = "1"
+    version = "2"
     dependencies = (
         DomainDependency("pde.uniform_grid3d"),
         DomainDependency("ode.first_order_system"),
-        DomainDependency("ode.solve_rk4"),
+        DomainDependency("ode.solve_first_order", min_version=2),
     )
 
     def register(self, registry: DomainRegistry) -> None:
         system_type = registry.require("ode.first_order_system")
-        solve_ode = registry.require("ode.solve_rk4")
+        solve_ode = registry.require("ode.solve_first_order", min_version=2)
 
         def solve_second_order_vector(
             problem: SecondOrderVectorPDEProblem3D,
@@ -160,4 +160,5 @@ class SecondOrderVectorPDE3DDomain:
         registry.provide(
             "pde.solve_second_order_vector_3d",
             solve_second_order_vector,
+            version=2,
         )
