@@ -12,6 +12,7 @@ from spectra.numerics import (
     NumericalSolverImplementation,
     NumericalSolverRegistry,
     NumericalSolverRequirements,
+    ProblemPredicate,
 )
 from spectra.visualization import SceneCompiler, VisualizationRegistry
 
@@ -56,18 +57,7 @@ class _RegistrySnapshot:
 
 @dataclass
 class DomainRegistry:
-    """Registry shared by independently-developed scientific domains.
-
-    The registry intentionally knows nothing about calculus, probability,
-    statistics, physics, or any other particular field. Domains publish
-    semantics, compilers, reusable versioned capabilities, visualization
-    compilers, and interchangeable numerical solver implementations through
-    stable engine contracts.
-
-    Capability ownership metadata is recorded during domain registration. This
-    lets discovery/catalog layers derive provider manifests from the same source
-    of truth instead of manually duplicating capability-name lists.
-    """
+    """Registry shared by independently-developed scientific domains."""
 
     domains: dict[str, "DomainModule"] = field(default_factory=dict)
     semantic_types: dict[str, type[Any]] = field(default_factory=dict)
@@ -223,8 +213,6 @@ class DomainRegistry:
         return self.visualizations.compile(semantic_object)
 
     def provide(self, key: str, capability: Capability, *, version: int = 1) -> None:
-        """Publish reusable scientific/computation functionality."""
-
         if not key:
             raise ValueError("capability key cannot be empty")
         if version < 1:
@@ -246,6 +234,7 @@ class DomainRegistry:
         priority: int = 0,
         tags: tuple[str, ...] = (),
         execution: NumericalExecutionDescriptor | None = None,
+        supports_problem: ProblemPredicate | None = None,
     ) -> None:
         """Register one selectable implementation for a stable solver role."""
 
@@ -259,6 +248,7 @@ class DomainRegistry:
                 priority=priority,
                 tags=tags,
                 execution=execution or NumericalExecutionDescriptor(),
+                supports_problem=supports_problem,
             ),
             make_default=make_default,
         )
@@ -290,6 +280,14 @@ class DomainRegistry:
     ) -> NumericalSolverImplementation:
         return self.numerical_solvers.select(role, requirements)
 
+    def select_numerical_solver_for_problem(
+        self,
+        role: str,
+        problem: Any,
+        requirements: NumericalSolverRequirements,
+    ) -> NumericalSolverImplementation:
+        return self.numerical_solvers.select_for_problem(role, problem, requirements)
+
     def set_default_numerical_solver(self, role: str, implementation_id: str) -> None:
         self.numerical_solvers.set_default(role, implementation_id)
 
@@ -302,15 +300,11 @@ class DomainRegistry:
         return self.capability_versions.get(key, 1)
 
     def capability_provider(self, key: str) -> str | None:
-        """Return the registering domain name, or None for externally-provided capabilities."""
-
         if key not in self.capabilities:
             raise KeyError(f"capability is not registered: {key}")
         return self.capability_providers.get(key)
 
     def provided_capabilities(self, domain_name: str) -> tuple[str, ...]:
-        """Return capabilities published by one registered domain in stable key order."""
-
         if domain_name not in self.domains:
             raise KeyError(f"domain is not registered: {domain_name}")
         return tuple(
