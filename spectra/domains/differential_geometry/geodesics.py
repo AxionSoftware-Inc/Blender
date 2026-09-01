@@ -78,12 +78,7 @@ class GeodesicSolution:
 
 @dataclass(frozen=True, slots=True)
 class GeodesicView3D:
-    """Explicit projection of an N-dimensional geodesic into visual 3-space.
-
-    Each axis is either a source coordinate index or None, which maps that visual
-    axis to zero. Projection stays explicit so a renderer never guesses how to
-    display 4D spacetime or higher-dimensional geometry.
-    """
+    """Explicit projection of an N-dimensional geodesic into visual 3-space."""
 
     solution: GeodesicSolution
     axes: tuple[int | None, int | None, int | None] = (0, 1, None)
@@ -98,15 +93,15 @@ class GeodesicView3D:
 
 
 class GeodesicsDomain:
-    """Geodesic dynamics built from geometry connection + generic ODE solver."""
+    """Geodesic dynamics built from geometry connection + selectable ODE solver."""
 
     name = "differential_geometry.geodesics"
-    version = "2"
+    version = "3"
     dependencies = (
         DomainDependency("geometry.metric_tensor_field"),
         DomainDependency("geometry.christoffel_symbols"),
         DomainDependency("ode.first_order_system"),
-        DomainDependency("ode.solve_rk4"),
+        DomainDependency("ode.solve_first_order", min_version=2),
     )
 
     def register(self, registry: DomainRegistry) -> None:
@@ -116,7 +111,7 @@ class GeodesicsDomain:
 
         christoffel = registry.require("geometry.christoffel_symbols")
         system_type = registry.require("ode.first_order_system")
-        solve_ode = registry.require("ode.solve_rk4")
+        solve_ode = registry.require("ode.solve_first_order", min_version=2)
 
         def solve_geodesic(
             problem: GeodesicProblem,
@@ -180,5 +175,5 @@ class GeodesicsDomain:
         registry.register_semantic_type("geometry.geodesic_view3d", GeodesicView3D)
         registry.provide("geometry.geodesic_problem", GeodesicProblem)
         registry.provide("geometry.geodesic_view3d", GeodesicView3D, version=2)
-        registry.provide("geometry.solve_geodesic", solve_geodesic)
+        registry.provide("geometry.solve_geodesic", solve_geodesic, version=2)
         registry.register_visualization(GeodesicView3D, compile_geodesic_view_scene)
