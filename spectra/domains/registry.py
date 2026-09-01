@@ -10,6 +10,7 @@ from spectra.numerics import (
     NumericalMethodDescriptor,
     NumericalPipelineDescriptor,
     NumericalSolverImplementation,
+    NumericalSolverPolicy,
     NumericalSolverRegistry,
     NumericalSolverRequirements,
     ProblemPredicate,
@@ -260,6 +261,16 @@ class DomainRegistry:
     ) -> Callable[..., Any]:
         return self.numerical_solvers.solver_for(role, implementation_id)
 
+    def numerical_solver_for_problem(self, role: str, problem: Any) -> Callable[..., Any]:
+        return self.numerical_solvers.resolve(role, problem=problem).solver
+
+    def numerical_solver_implementation_for_problem(
+        self,
+        role: str,
+        problem: Any,
+    ) -> NumericalSolverImplementation:
+        return self.numerical_solvers.resolve(role, problem=problem)
+
     def numerical_solver_method(
         self,
         role: str,
@@ -290,6 +301,15 @@ class DomainRegistry:
 
     def set_default_numerical_solver(self, role: str, implementation_id: str) -> None:
         self.numerical_solvers.set_default(role, implementation_id)
+
+    def set_numerical_solver_policy(self, role: str, policy: NumericalSolverPolicy) -> None:
+        self.numerical_solvers.set_policy(role, policy)
+
+    def clear_numerical_solver_policy(self, role: str) -> None:
+        self.numerical_solvers.clear_policy(role)
+
+    def numerical_solver_policy(self, role: str) -> NumericalSolverPolicy | None:
+        return self.numerical_solvers.policy_for(role)
 
     def has_capability(self, key: str, *, min_version: int = 1) -> bool:
         return key in self.capabilities and self.capability_versions.get(key, 1) >= min_version
