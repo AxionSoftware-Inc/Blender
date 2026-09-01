@@ -8,6 +8,7 @@ from typing import Any, Generic, Literal, TypeVar
 
 T = TypeVar("T")
 ExecutionKind = Literal["python", "cpu", "gpu", "external"]
+ProblemPredicate = Callable[[Any], bool]
 
 
 @dataclass(frozen=True, slots=True)
@@ -141,6 +142,7 @@ class NumericalSolverImplementation:
     priority: int = 0
     tags: tuple[str, ...] = ()
     execution: NumericalExecutionDescriptor = NumericalExecutionDescriptor()
+    supports_problem: ProblemPredicate | None = None
 
     def __post_init__(self) -> None:
         if not self.role:
@@ -153,6 +155,8 @@ class NumericalSolverImplementation:
             raise ValueError("numerical solver provider_domain cannot be empty")
         if any(not tag for tag in self.tags):
             raise ValueError("numerical solver tags cannot contain empty strings")
+        if self.supports_problem is not None and not callable(self.supports_problem):
+            raise TypeError("numerical solver supports_problem must be callable")
 
     @property
     def effective_order(self) -> int | None:
@@ -170,6 +174,11 @@ class NumericalSolverImplementation:
     @property
     def reference_implementation(self) -> bool:
         return self.method.reference_implementation
+
+    def accepts_problem(self, problem: Any) -> bool:
+        if self.supports_problem is None:
+            return True
+        return bool(self.supports_problem(problem))
 
     def satisfies(self, requirements: NumericalSolverRequirements) -> bool:
         if requirements.execution_kinds and self.execution.kind not in requirements.execution_kinds:
@@ -189,13 +198,7 @@ class NumericalSolverImplementation:
 
 
 class NumericalSolverRegistry:
-    """Registry for multiple implementations of the same numerical solver role.
-
-    Domain capabilities remain the dependency-discovery mechanism. This registry
-    handles runtime implementation choice once the relevant solver domains are
-    loaded, allowing reference Python, native CPU, GPU, or external implementations
-    to coexist without competing for one capability key.
-    """
+    """Registry for multiple implementations of the same numerical solver role."""
 
     def __init__(self) -> None:
         self._implementations: dict[str, dict[str, NumericalSolverImplementation]] = {}
@@ -233,10 +236,7 @@ class NumericalSolverRegistry:
         implementations = self._implementations.get(role)
         if implementations is None:
             raise KeyError(f"unknown numerical solver role: {role}")
-        return tuple(
-            implementations[key]
-            for key in sorted(implementations)
-        )
+        return tuple(implementations[key] for key in sorted(implementations))
 
     def default_implementation_id(self, role: str) -> str:
         try:
@@ -270,16 +270,11 @@ class NumericalSolverRegistry:
                 f"{role}/{selected}"
             ) from exc
 
-    def select(
+    def _rank(
         self,
         role: str,
-        requirements: NumericalSolverRequirements,
+        candidates: tuple[NumericalSolverImplementation, ...],
     ) -> NumericalSolverImplementation:
-        candidates = tuple(
-            implementation
-            for implementation in self.implementations(role)
-            if implementation.satisfies(requirements)
-        )
         if not candidates:
             raise LookupError(f"no numerical solver implementation satisfies requirements for role: {role}")
         default_id = self._defaults.get(role)
@@ -291,6 +286,36 @@ class NumericalSolverRegistry:
                 not implementation.reference_implementation,
                 implementation.effective_order or 0,
                 implementation.implementation_id,
+            ),
+        )
+
+    def select(
+        self,
+        role: str,
+        requirements: NumericalSolverRequirements,
+    ) -> NumericalSolverImplementation:
+        return self._rank(
+            role,
+            tuple(
+                implementation
+                for implementation in self.implementations(role)
+                if implementation.satisfies(requirements)
+            ),
+        )
+
+    def select_for_problem(
+        self,
+        role: str,
+        problem: Any,
+        requirements: NumericalSolverRequirements,
+    ) -> NumericalSolverImplementation:
+        return self._rank(
+            role,
+            tuple(
+                implementation
+                for implementation in self.implementations(role)
+                if implementation.satisfies(requirements)
+                and implementation.accepts_problem(problem)
             ),
         )
 
@@ -333,6 +358,7 @@ __all__ = [
     "NumericalSolverImplementation",
     "NumericalSolverRegistry",
     "NumericalSolverRequirements",
+    "ProblemPredicate",
     "TrackedNumericalResult",
     "fixed_step_record",
 ]
