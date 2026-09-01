@@ -1,5 +1,3 @@
-import pytest
-
 from spectra.domains import DomainRegistry, builtin_domain_catalog
 from spectra.domains.differential_equations import FirstOrderSystem
 from spectra.domains.experiments import (
@@ -61,23 +59,22 @@ def test_traced_experiment_artifact_preserves_numerical_run_summary() -> None:
     solve_tracked = registry.require("ode.solve_first_order.tracked")
     run_sweep_traced = registry.require("experiments.run_sweep_traced")
 
+    def evaluator(parameters):
+        tracked = solve_tracked(
+            FirstOrderSystem(
+                derivative=lambda _time, state: (-state[0],),
+                initial_time=0.0,
+                initial_state=(parameters["initial"],),
+                name="decay",
+            ),
+            end_time=0.5,
+            steps=4,
+        )
+        return traced_output(tracked.result, tracked)
+
     traced = run_sweep_traced(
         ParameterSweep((ParameterAxis("initial", (1.0,)),), name="artifact_trace"),
-        lambda parameters: traced_output(
-            (
-                tracked := solve_tracked(
-                    FirstOrderSystem(
-                        derivative=lambda _time, state: (-state[0],),
-                        initial_time=0.0,
-                        initial_state=(parameters["initial"],),
-                        name="decay",
-                    ),
-                    end_time=0.5,
-                    steps=4,
-                )
-            ).result,
-            tracked,
-        ),
+        evaluator,
         metrics=(MetricSpec("final", lambda solution, _parameters: solution.states[-1][0]),),
     )
     artifact = registry.require("experiments.artifact_from_traced")(traced)
