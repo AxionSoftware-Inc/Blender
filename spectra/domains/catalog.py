@@ -156,6 +156,30 @@ class DomainCatalog:
             visit(requested)
         return tuple(planned.values())
 
+    def plan_capabilities(
+        self,
+        registry: DomainRegistry,
+        requested_capabilities: Iterable[str],
+    ) -> tuple["DomainModule", ...]:
+        """Compute provider/dependency closure for capabilities not yet loaded."""
+
+        provider_names: list[str] = []
+        seen: set[str] = set()
+        for capability in requested_capabilities:
+            if not capability:
+                raise ValueError("requested capability cannot be empty")
+            if registry.has_capability(capability):
+                continue
+            provider_name = self.providers.get(capability)
+            if provider_name is None:
+                raise DomainResolutionError(
+                    f"domain catalog has no provider for requested capability: {capability}"
+                )
+            if provider_name not in seen:
+                provider_names.append(provider_name)
+                seen.add(provider_name)
+        return self.plan(registry, provider_names)
+
     def load(
         self,
         registry: DomainRegistry,
@@ -164,6 +188,19 @@ class DomainCatalog:
         """Resolve providers and atomically load all missing required domains."""
 
         plan = self.plan(registry, requested_domains)
+        if not plan:
+            return ()
+        registry.add_domains(plan)
+        return tuple(domain.name for domain in plan)
+
+    def load_capabilities(
+        self,
+        registry: DomainRegistry,
+        requested_capabilities: Iterable[str],
+    ) -> tuple[str, ...]:
+        """Resolve and atomically load provider domains for requested capabilities."""
+
+        plan = self.plan_capabilities(registry, requested_capabilities)
         if not plan:
             return ()
         registry.add_domains(plan)
