@@ -5,6 +5,12 @@ from dataclasses import dataclass, field
 from typing import Any, TYPE_CHECKING
 
 from spectra.core.scene import Scene
+from spectra.numerics import (
+    NumericalMethodDescriptor,
+    NumericalPipelineDescriptor,
+    NumericalSolverImplementation,
+    NumericalSolverRegistry,
+)
 from spectra.visualization import SceneCompiler, VisualizationRegistry
 
 if TYPE_CHECKING:
@@ -42,6 +48,7 @@ class _RegistrySnapshot:
     capabilities: dict[str, Capability]
     capability_versions: dict[str, int]
     capability_providers: dict[str, str | None]
+    numerical_solvers: NumericalSolverRegistry
     visualizations: VisualizationRegistry
 
 
@@ -51,8 +58,9 @@ class DomainRegistry:
 
     The registry intentionally knows nothing about calculus, probability,
     statistics, physics, or any other particular field. Domains publish
-    semantics, compilers, reusable versioned capabilities, and visualization
-    compilers through stable engine contracts.
+    semantics, compilers, reusable versioned capabilities, visualization
+    compilers, and interchangeable numerical solver implementations through
+    stable engine contracts.
 
     Capability ownership metadata is recorded during domain registration. This
     lets discovery/catalog layers derive provider manifests from the same source
@@ -65,6 +73,7 @@ class DomainRegistry:
     capabilities: dict[str, Capability] = field(default_factory=dict)
     capability_versions: dict[str, int] = field(default_factory=dict)
     capability_providers: dict[str, str | None] = field(default_factory=dict)
+    numerical_solvers: NumericalSolverRegistry = field(default_factory=NumericalSolverRegistry)
     visualizations: VisualizationRegistry = field(default_factory=VisualizationRegistry)
     _active_domain_name: str | None = field(default=None, init=False, repr=False)
 
@@ -76,6 +85,7 @@ class DomainRegistry:
             capabilities=dict(self.capabilities),
             capability_versions=dict(self.capability_versions),
             capability_providers=dict(self.capability_providers),
+            numerical_solvers=self.numerical_solvers.copy(),
             visualizations=self.visualizations.copy(),
         )
 
@@ -92,6 +102,7 @@ class DomainRegistry:
         self.capability_versions.update(snapshot.capability_versions)
         self.capability_providers.clear()
         self.capability_providers.update(snapshot.capability_providers)
+        self.numerical_solvers = snapshot.numerical_solvers
         self.visualizations = snapshot.visualizations
 
     def add_domain(self, domain: "DomainModule") -> None:
@@ -221,6 +232,55 @@ class DomainRegistry:
         self.capabilities[key] = capability
         self.capability_versions[key] = version
         self.capability_providers[key] = self._active_domain_name
+
+    def register_numerical_solver(
+        self,
+        role: str,
+        implementation_id: str,
+        solver: Callable[..., Any],
+        method: NumericalMethodDescriptor | NumericalPipelineDescriptor,
+        *,
+        make_default: bool = False,
+        priority: int = 0,
+        tags: tuple[str, ...] = (),
+    ) -> None:
+        """Register one selectable implementation for a stable solver role."""
+
+        self.numerical_solvers.register(
+            NumericalSolverImplementation(
+                role=role,
+                implementation_id=implementation_id,
+                solver=solver,
+                method=method,
+                provider_domain=self._active_domain_name,
+                priority=priority,
+                tags=tags,
+            ),
+            make_default=make_default,
+        )
+
+    def numerical_solver_for(
+        self,
+        role: str,
+        implementation_id: str | None = None,
+    ) -> Callable[..., Any]:
+        return self.numerical_solvers.solver_for(role, implementation_id)
+
+    def numerical_solver_method(
+        self,
+        role: str,
+        implementation_id: str | None = None,
+    ) -> NumericalMethodDescriptor | NumericalPipelineDescriptor:
+        return self.numerical_solvers.method_for(role, implementation_id)
+
+    def numerical_solver_implementations(
+        self,
+        role: str,
+    ) -> tuple[NumericalSolverImplementation, ...]:
+        return self.numerical_solvers.implementations(role)
+
+    def set_default_numerical_solver(self, role: str, implementation_id: str) -> None:
+        self.numerical_solvers.set_default(role, implementation_id)
 
     def has_capability(self, key: str, *, min_version: int = 1) -> bool:
         return key in self.capabilities and self.capability_versions.get(key, 1) >= min_version
