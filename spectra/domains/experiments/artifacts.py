@@ -8,7 +8,9 @@ from typing import Any
 
 from spectra.core.units import Dimension, Quantity, Unit
 from spectra.domains.experiments.domain import MetricValue, TrackedExperimentResult
+from spectra.domains.experiments.tracing import TracedExperimentResult
 from spectra.domains.registry import DomainDependency, DomainRegistry
+from spectra.numerics import NumericalMethodDescriptor, NumericalPipelineDescriptor, NumericalRunRecord
 from spectra.reproducibility import ScientificEnvironmentSnapshot
 
 
@@ -107,6 +109,100 @@ def _decode_value(value: Any) -> Any:
     return {str(key): _decode_value(item) for key, item in value.items()}
 
 
+def _method_id(method: NumericalMethodDescriptor | NumericalPipelineDescriptor) -> str:
+    if isinstance(method, NumericalMethodDescriptor):
+        return method.method_id
+    return method.pipeline_id
+
+
+@dataclass(frozen=True, slots=True)
+class NumericalRunArtifact:
+    method_id: str
+    adaptive: bool
+    start_time: float
+    end_time: float
+    steps: int
+    requested_steps: int | None = None
+    state_size: int | None = None
+    solver_role: str | None = None
+    implementation_id: str | None = None
+    execution_kind: str | None = None
+    backend: str | None = None
+    precision: str | None = None
+    tags: tuple[tuple[str, str], ...] = ()
+
+    def __post_init__(self) -> None:
+        if not self.method_id:
+            raise ValueError("numerical run artifact method_id cannot be empty")
+        if not math.isfinite(self.start_time) or not math.isfinite(self.end_time):
+            raise ValueError("numerical run artifact times must be finite")
+        if self.end_time <= self.start_time or self.steps < 1:
+            raise ValueError("numerical run artifact interval/steps are invalid")
+        if self.requested_steps is not None and self.requested_steps < 1:
+            raise ValueError("numerical run artifact requested_steps must be >= 1")
+        if (self.solver_role is None) != (self.implementation_id is None):
+            raise ValueError("numerical run artifact solver identifiers must be set together")
+
+    @classmethod
+    def from_run(cls, run: NumericalRunRecord) -> "NumericalRunArtifact":
+        return cls(
+            method_id=_method_id(run.method),
+            adaptive=run.adaptive,
+            start_time=run.start_time,
+            end_time=run.end_time,
+            steps=run.steps,
+            requested_steps=run.requested_steps,
+            state_size=run.state_size,
+            solver_role=run.solver_role,
+            implementation_id=run.implementation_id,
+            execution_kind=run.execution_kind,
+            backend=run.backend,
+            precision=run.precision,
+            tags=run.tags,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "method_id": self.method_id,
+            "adaptive": self.adaptive,
+            "start_time": self.start_time,
+            "end_time": self.end_time,
+            "steps": self.steps,
+            "requested_steps": self.requested_steps,
+            "state_size": self.state_size,
+            "solver_role": self.solver_role,
+            "implementation_id": self.implementation_id,
+            "execution_kind": self.execution_kind,
+            "backend": self.backend,
+            "precision": self.precision,
+            "tags": [[key, value] for key, value in self.tags],
+        }
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "NumericalRunArtifact":
+        return cls(
+            method_id=str(payload["method_id"]),
+            adaptive=bool(payload.get("adaptive", False)),
+            start_time=float(payload["start_time"]),
+            end_time=float(payload["end_time"]),
+            steps=int(payload["steps"]),
+            requested_steps=(
+                None if payload.get("requested_steps") is None else int(payload["requested_steps"])
+            ),
+            state_size=(None if payload.get("state_size") is None else int(payload["state_size"])),
+            solver_role=(None if payload.get("solver_role") is None else str(payload["solver_role"])),
+            implementation_id=(
+                None if payload.get("implementation_id") is None else str(payload["implementation_id"])
+            ),
+            execution_kind=(
+                None if payload.get("execution_kind") is None else str(payload["execution_kind"])
+            ),
+            backend=(None if payload.get("backend") is None else str(payload["backend"])),
+            precision=(None if payload.get("precision") is None else str(payload["precision"])),
+            tags=tuple((str(pair[0]), str(pair[1])) for pair in payload.get("tags", ())),
+        )
+
+
 @dataclass(frozen=True, slots=True)
 class ExperimentAxisArtifact:
     name: str
@@ -135,6 +231,7 @@ class ExperimentCaseArtifact:
     parameters: tuple[tuple[str, Any], ...]
     metrics: tuple[MetricValue, ...]
     error: str | None = None
+    runs: tuple[NumericalRunArtifact, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.case_id:
@@ -205,6 +302,7 @@ class ExperimentArtifact:
                         for metric in case.metrics
                     ],
                     "error": case.error,
+                    "runs": [run.to_dict() for run in case.runs],
                 }
                 for case in self.cases
             ],
@@ -252,6 +350,9 @@ class ExperimentArtifact:
         for item in cases_raw:
             parameters_raw = item.get("parameters", [])
             metrics_values_raw = item.get("metrics", [])
+            runs_raw = item.get("runs", [])
+            if not isinstance(runs_raw, list):
+                raise ValueError("experiment artifact case runs must be a list")
             cases.append(
                 ExperimentCaseArtifact(
                     case_id=str(item["case_id"]),
@@ -272,6 +373,7 @@ class ExperimentArtifact:
                         for metric in metrics_values_raw
                     ),
                     error=(None if item.get("error") is None else str(item["error"])),
+                    runs=tuple(NumericalRunArtifact.from_dict(run) for run in runs_raw),
                 )
             )
         environment = ScientificEnvironmentSnapshot.from_dict(environment_raw)
@@ -293,30 +395,28 @@ class ExperimentArtifact:
         return hashlib.sha256(encoded).hexdigest()
 
 
+def _metric_definitions(experiment) -> tuple[ExperimentMetricArtifact, ...]:
+    by_name: dict[str, ExperimentMetricArtifact] = {}
+    for case in experiment.cases:
+        for metric in case.metrics:
+            existing = by_name.get(metric.name)
+            definition = ExperimentMetricArtifact(metric.name, metric.unit)
+            if existing is not None and existing != definition:
+                raise ValueError(f"experiment metric unit changed across cases: {metric.name}")
+            by_name[metric.name] = definition
+    return tuple(by_name[name] for name in sorted(by_name))
+
+
 def artifact_from_tracked_experiment(
     tracked: TrackedExperimentResult,
     *,
     metadata: tuple[tuple[str, str], ...] = (),
 ) -> ExperimentArtifact:
     experiment = tracked.experiment
-    metric_definitions_by_name: dict[str, ExperimentMetricArtifact] = {}
-    for case in experiment.cases:
-        for metric in case.metrics:
-            existing = metric_definitions_by_name.get(metric.name)
-            definition = ExperimentMetricArtifact(metric.name, metric.unit)
-            if existing is not None and existing != definition:
-                raise ValueError(f"experiment metric unit changed across cases: {metric.name}")
-            metric_definitions_by_name[metric.name] = definition
     return ExperimentArtifact(
         name=experiment.name,
-        axes=tuple(
-            ExperimentAxisArtifact(axis.name, axis.values)
-            for axis in experiment.sweep.axes
-        ),
-        metric_definitions=tuple(
-            metric_definitions_by_name[name]
-            for name in sorted(metric_definitions_by_name)
-        ),
+        axes=tuple(ExperimentAxisArtifact(axis.name, axis.values) for axis in experiment.sweep.axes),
+        metric_definitions=_metric_definitions(experiment),
         cases=tuple(
             ExperimentCaseArtifact(
                 case_id=case.case.case_id,
@@ -327,6 +427,35 @@ def artifact_from_tracked_experiment(
             for case in experiment.cases
         ),
         environment=tracked.environment,
+        metadata=metadata,
+    )
+
+
+def artifact_from_traced_experiment(
+    traced: TracedExperimentResult,
+    *,
+    metadata: tuple[tuple[str, str], ...] = (),
+) -> ExperimentArtifact:
+    experiment = traced.experiment
+    trace_by_id = {trace.case_id: trace for trace in traced.traces}
+    return ExperimentArtifact(
+        name=experiment.name,
+        axes=tuple(ExperimentAxisArtifact(axis.name, axis.values) for axis in experiment.sweep.axes),
+        metric_definitions=_metric_definitions(experiment),
+        cases=tuple(
+            ExperimentCaseArtifact(
+                case_id=case.case.case_id,
+                parameters=case.case.parameters,
+                metrics=case.metrics,
+                error=case.error,
+                runs=tuple(
+                    NumericalRunArtifact.from_run(run)
+                    for run in trace_by_id[case.case.case_id].runs
+                ),
+            )
+            for case in experiment.cases
+        ),
+        environment=traced.environment,
         metadata=metadata,
     )
 
@@ -348,18 +477,22 @@ def artifact_from_json(payload: str) -> ExperimentArtifact:
 
 
 class ExperimentArtifactsDomain:
-    """Durable metric/parameter summaries for tracked experiments."""
+    """Durable parameter/metric/execution summaries for tracked experiments."""
 
     name = "experiments.artifacts"
-    version = "1"
+    version = "2"
     dependencies = (
         DomainDependency("experiments.run_sweep_tracked"),
+        DomainDependency("experiments.traced_result"),
     )
 
     def register(self, registry: DomainRegistry) -> None:
+        registry.register_semantic_type("experiments.numerical_run_artifact", NumericalRunArtifact)
         registry.register_semantic_type("experiments.artifact", ExperimentArtifact)
+        registry.provide("experiments.numerical_run_artifact", NumericalRunArtifact)
         registry.provide("experiments.artifact", ExperimentArtifact)
         registry.provide("experiments.artifact_from_tracked", artifact_from_tracked_experiment)
+        registry.provide("experiments.artifact_from_traced", artifact_from_traced_experiment)
         registry.provide("experiments.artifact_to_json", artifact_to_json)
         registry.provide("experiments.artifact_from_json", artifact_from_json)
 
@@ -372,7 +505,9 @@ __all__ = [
     "ExperimentAxisArtifact",
     "ExperimentCaseArtifact",
     "ExperimentMetricArtifact",
+    "NumericalRunArtifact",
     "artifact_from_json",
+    "artifact_from_traced_experiment",
     "artifact_from_tracked_experiment",
     "artifact_to_json",
 ]
