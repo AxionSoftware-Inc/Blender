@@ -37,6 +37,14 @@ Shared maturity and verification vocabulary distinguishing design, prototype, re
 
 Structured validation/capability/numerical/plugin/presentation/backend diagnostics, severity, solver-selection rejection reasons, failure preservation, and user-vs-developer detail rules.
 
+### `TEST_STRATEGY_AND_CHECKPOINTS.md`
+
+Layered validation strategy from compile/import and analytical tests through catalog, solver/provider, experiments, Scene/presentation, native Blender/GPU, stress, schema, plugin, project, CLI, and security checks; also records checkpoint discipline.
+
+### `RELEASE_QUALIFICATION.md`
+
+Release/subsystem qualification gates covering scientific scope, compatibility, numerical correctness, Blender/presentation, project/plugin/native/GPU/remote/data/CLI/export/security/performance, and release-report requirements.
+
 ## Engine and domain architecture
 
 ### `DOMAIN_SYSTEM.md`
@@ -46,6 +54,10 @@ Core-vs-domain boundary, capability composition, solver-role architecture, rende
 ### `DOMAIN_CATALOG.md`
 
 Automatic built-in domain discovery, probe registration, capability ownership, dependency closure, and catalog/runtime separation.
+
+### `SEMANTIC_METADATA_AND_INTROSPECTION.md`
+
+Future semantic/capability/domain/view/solver metadata contracts enabling generic UI, AI authoring, docs, plugin inspection, units/constraints, and large-module introspection without hardcoded switch statements.
 
 ### `MODULE_SDK.md`
 
@@ -93,6 +105,14 @@ Recommended product organization around Project, Model, Solve, Results, View, Pr
 
 Conceptual project lifecycle, dirty/invalidation states, model/result/view/presentation/renderer separation, caching, stale-result handling, local/remote execution, and product-level state transitions.
 
+### `COMMAND_AND_UNDO_MODEL.md`
+
+Semantic command/transaction model for UI, Python, AI, undo/redo, preview edits, solve attempts, project invalidation, renderer synchronization, and future collaboration.
+
+### `COLLABORATION_MODEL.md`
+
+Future semantic revision/collaboration model, merge/conflict classes, shared-vs-local state, result history, presentation variants, resource/plugin compatibility, permissions, and remote job integration.
+
 ### `PROJECT_DOCUMENT_MODEL.md`
 
 Future renderer-independent persistent project/study envelope for scientific models, solver policies, experiment artifacts, presentation variants, Scene caches, and external data resources.
@@ -112,6 +132,10 @@ Scientific data, Scene, renderer-native, image/video, report, experiment, projec
 ### `REMOTE_EXECUTION_AND_WORKERS.md`
 
 Remote/HPC worker contract, execution requests, capability negotiation, job lifecycle, resource staging, stale-result protection, distributed experiments, and local/remote semantic symmetry.
+
+### `AI_AUTHORING_AND_COMPILATION.md`
+
+AI authoring boundary: natural-language intent compiles into explicit semantic/project commands, units/capabilities/views are introspected, diagnostics remain authoritative, and AI never replaces deterministic numerical execution.
 
 ### `POST_VALIDATION_IMPLEMENTATION_PLAN.md`
 
@@ -205,7 +229,7 @@ Some documents describe code already present on `main` but not yet included in t
 
 ### Design contract / future direction
 
-Files such as native/GPU buffer design, premium presentation runtime phases, external plugin entry-point discovery, public SDK facade, visual design system, project document model, project state model, remote worker contract, and UI/headless/export architecture may describe architecture intentionally specified before implementation.
+Files such as native/GPU buffer design, premium presentation runtime phases, external plugin entry-point discovery, public SDK facade, semantic metadata, project/document/collaboration models, remote worker contract, AI authoring, and UI/headless/export architecture may describe architecture intentionally specified before implementation.
 
 Do not report a design contract as implemented runtime functionality.
 
