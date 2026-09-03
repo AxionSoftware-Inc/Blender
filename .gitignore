@@ -6,6 +6,10 @@ venv/
 dist/
 build/
 *.egg-info/
+*.so
+*.pyd
+*.dylib
+*.dll
 *.zip
 *.blend1
 .DS_Store
