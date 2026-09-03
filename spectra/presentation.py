@@ -68,9 +68,19 @@ def staggered_reveal(
         reveal_index += 1
 
         candidate = (
-            draw_track(primitive.id, start_time=item_start, end_time=item_end)
+            draw_track(
+                primitive.id,
+                start_time=item_start,
+                end_time=item_end,
+                owner="presentation",
+            )
             if isinstance(primitive, Polyline)
-            else fade_track(primitive.id, start_time=item_start, end_time=item_end)
+            else fade_track(
+                primitive.id,
+                start_time=item_start,
+                end_time=item_end,
+                owner="presentation",
+            )
         )
         key = (candidate.target_id, candidate.property_path)
         if key in occupied:
@@ -83,6 +93,17 @@ def staggered_reveal(
         return scene
     reveal_timeline = Timeline(duration=end_time, tracks=tuple(tracks))
     return replace(scene, timeline=merge_timelines(scene.timeline, reveal_timeline))
+
+
+def _scientific_timeline(scene: Scene) -> Timeline:
+    """Drop presentation-owned tracks while retaining scientific duration."""
+    tracks = tuple(
+        track
+        for track in scene.timeline.tracks
+        if track.owner != "presentation"
+        and not track.target_id.startswith("presentation.")
+    )
+    return Timeline(duration=scene.timeline.duration, tracks=tracks)
 
 
 def compose_presentation(
@@ -104,6 +125,7 @@ def compose_presentation(
     scientific_scene = replace(
         scene,
         primitives=scientific,
+        timeline=_scientific_timeline(scene),
         active_camera_id=(
             scene.active_camera_id
             if scene.active_camera_id in scientific_ids
@@ -124,7 +146,12 @@ def compose_presentation(
 
     if resolved.camera.mode.value == "fit_primary" and context.primary_primitive_id:
         target = scientific_scene.get(context.primary_primitive_id)
-        camera_scene = replace(scientific_scene, primitives=(target,))
+        camera_scene = replace(
+            scientific_scene,
+            primitives=(target,),
+            timeline=Timeline(),
+            active_camera_id=None,
+        )
     else:
         camera_scene = scientific_scene
 
@@ -184,7 +211,7 @@ def compose_presentation(
                 position=camera.transform.translation,
             )
         )
-    if resolved.annotations.show_time and scene.timeline.duration > 0:
+    if resolved.annotations.show_time and scientific_scene.timeline.duration > 0:
         additions.append(
             TextLabel(
                 id="presentation.annotation.time",
@@ -194,7 +221,7 @@ def compose_presentation(
         )
 
     output = replace(
-        scene,
+        scientific_scene,
         primitives=(*scientific, *additions),
         active_camera_id=camera.id,
     )
