@@ -2,45 +2,67 @@
 
 Status: **design draft, not implemented runtime**.
 
-This document turns `PLUGIN_PACKAGING.md`, `MODULE_SDK.md`, and `PUBLIC_SDK_FACADE.md` into a concrete first in-process plugin API that can be implemented after the current runtime batch is validated.
+This document defines a conservative first in-process plugin API using the current `DomainCatalog` / `DomainRegistry` implementation rather than inventing a second scientific registration model.
 
-## Scope of the first plugin runtime
+## Source-of-truth result
 
-The first implementation should be deliberately conservative:
-
-- explicit plugin descriptors supplied by application code;
-- no arbitrary recursive environment scanning;
-- no automatic native-library loading;
-- deterministic compatibility checks;
-- plugin enable/disable;
-- domain factory contribution;
-- optional solver-provider contribution through normal domain registration;
-- transactional integration with `DomainCatalog` / `DomainRegistry`.
-
-Python package entry-point discovery should be a later adapter over this in-process model.
-
-## Public concepts
+Current runtime already provides:
 
 ```text
-PluginId
-PluginVersion
-PluginRequirement
-PluginDescriptor
-PluginStatus
-PluginRegistry
-PluginLoadPlan
-PluginDiagnostic
+DomainCatalog.from_factories(...)
+DomainCatalog.register(...)
+DomainCatalog.register_many(...)
+DomainCatalog.provider_for(...)
+DomainCatalog.plan(...)
+DomainCatalog.plan_capabilities(...)
+DomainCatalog.load(...)
+DomainCatalog.load_capabilities(...)
+
+DomainRegistry.add_domains(...)
+transactional rollback
 ```
+
+Built-in catalog creation already uses:
+
+```text
+discover_domain_factories()
+  -> BUILTIN_DOMAIN_FACTORIES
+  -> DomainCatalog.from_factories(...)
+```
+
+`DomainCatalog.from_factories()` probe-loads all supplied domains in a private `DomainRegistry`, derives actual capability ownership from `registry.provide()`, and rejects duplicate domain/provider conflicts.
+
+Therefore the safest plugin integration is to build a **fresh active catalog from the union of enabled factories**, not incrementally mutate the built-in catalog in place.
+
+## First plugin runtime scope
+
+The first implementation should support:
+
+- explicit plugin descriptors supplied by application code;
+- deterministic enable/disable state;
+- plugin dependency/compatibility validation;
+- contribution of ordinary `DomainFactory` values;
+- rebuilding an active `DomainCatalog` from built-ins + enabled plugin factories;
+- capability-driven domain loading through existing `load_capabilities()`;
+- transactional scientific registration through existing `DomainRegistry`;
+- structured plugin diagnostics.
+
+Explicitly defer:
+
+- arbitrary environment scanning;
+- Python entry-point discovery;
+- automatic installation;
+- automatic native library loading;
+- process sandboxing;
+- hot-unloading domains from an already-mutated live `DomainRegistry`.
 
 ## PluginDescriptor
 
-Suggested immutable shape:
-
 ```python
 from dataclasses import dataclass
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 
-DomainFactory = Callable[[], object]
+DomainFactory = Callable[[], DomainModule]
 
 @dataclass(frozen=True)
 class PluginRequirement:
@@ -62,12 +84,12 @@ class PluginDescriptor:
 
 Rules:
 
-- `plugin_id` is stable and globally unique within one environment;
-- display name is not an identity key;
-- descriptor construction must be side-effect free;
-- `domain_factories` return normal zero-argument domain modules;
-- plugins do not receive direct mutation access to Core globals;
-- native executable hooks are outside first implementation scope.
+- `plugin_id` stable/unique;
+- display name not identity;
+- descriptor construction side-effect free;
+- domain factories are ordinary zero-argument DomainModule factories;
+- no Core-global mutation during import/descriptor construction;
+- executable native hooks outside first implementation.
 
 ## Plugin state
 
@@ -81,11 +103,13 @@ class PluginState(str, Enum):
     FAILED = "failed"
 ```
 
-State should be inspectable by UI/CLI without loading scientific domains unnecessarily.
+Clarification for first implementation:
+
+`ACTIVE` means the plugin contributes to the currently constructed active catalog/environment definition. It does not imply domains have all been eagerly loaded into `DomainRegistry`; capability/domain loading may remain lazy through the catalog.
 
 ## PluginRegistry
 
-Conceptual API:
+Conceptual product/package registry:
 
 ```python
 class PluginRegistry:
@@ -95,55 +119,192 @@ class PluginRegistry:
     def disable(self, plugin_id: str) -> None: ...
     def descriptor(self, plugin_id: str) -> PluginDescriptor: ...
     def list_plugins(self) -> tuple[PluginStatus, ...]: ...
+    def enabled_descriptors(self) -> tuple[PluginDescriptor, ...]: ...
     def plan_activation(self) -> PluginLoadPlan: ...
 ```
 
-The registry is product/package state. Scientific runtime capabilities remain owned by `DomainRegistry`.
+`PluginRegistry` owns installed/discovered/enabled package state.
 
-## Activation model
+`DomainRegistry` remains the only scientific runtime authority.
 
-```text
-PluginDescriptor(s)
-       ↓
-compatibility + dependency plan
-       ↓
-domain factory set
-       ↓
-DomainCatalog.from_factories(...)
-       ↓
-capability provider closure
-       ↓
-DomainRegistry.add_domains(...)
-```
+## Active catalog composition
 
-Do not invent a second scientific registration mechanism for plugins.
+Recommended first implementation should use the current built-in factory source directly.
 
-## Built-in + plugin catalog composition
-
-Suggested helper:
+Conceptually:
 
 ```python
-def catalog_with_plugins(
-    builtin: DomainCatalog,
-    plugin_registry: PluginRegistry,
+from spectra.domains.builtin_catalog import (
+    BUILTIN_DOMAIN_FACTORIES,
+    BUILTIN_DOMAIN_TAGS,
+)
+from spectra.domains.catalog import DomainCatalog
+
+
+def active_domain_catalog(
+    plugins: PluginRegistry,
 ) -> DomainCatalog:
-    ...
+    enabled = plugins.enabled_descriptors()
+    plugin_factories = tuple(
+        factory
+        for descriptor in enabled
+        for factory in descriptor.domain_factories
+    )
+
+    factories = (
+        *BUILTIN_DOMAIN_FACTORIES,
+        *plugin_factories,
+    )
+
+    return DomainCatalog.from_factories(
+        factories,
+        tags=BUILTIN_DOMAIN_TAGS,
+    )
 ```
 
-The exact implementation may reconstruct a catalog from the union of factory classes rather than mutating an existing immutable catalog.
+The exact helper location/name may differ.
 
-Requirements:
+### Why rebuild rather than mutate
 
-- deterministic ordering by plugin/domain identity;
-- duplicate domain names fail clearly;
-- duplicate capability provider ambiguity follows existing catalog rules;
-- disabled plugins contribute nothing;
-- incompatible plugins contribute nothing and expose diagnostics;
-- activation planning must not leave partially registered domains.
+Current `DomainCatalog.register_many()` performs sequential registration; if descriptor N conflicts after earlier descriptors were registered, the catalog object itself does not provide a transaction rollback layer.
 
-## Compatibility diagnostics
+`DomainCatalog.from_factories()` instead builds a new catalog from scratch and probe-validates the entire factory set before that new catalog is used.
 
-Plugin activation should produce structured reasons such as:
+Therefore plugin activation should prefer:
+
+```text
+old active catalog remains untouched
+        ↓
+build candidate factory union
+        ↓
+probe new DomainCatalog
+        ↓
+if success: replace active catalog reference
+if failure: keep old active catalog
+```
+
+This gives product-level atomic activation without changing `DomainCatalog` internals in the first plugin phase.
+
+## Plugin dependencies before domain probe
+
+Plugin-level dependencies are package/environment concerns and should be resolved before building the candidate domain catalog.
+
+Flow:
+
+```text
+PluginRegistry descriptors
+   ↓
+validate plugin IDs/versions/dependency graph
+   ↓
+determine enabled descriptor order/set
+   ↓
+unify domain factories
+   ↓
+DomainCatalog.from_factories(...)
+```
+
+Domain-level capability dependencies are then handled by the existing scientific catalog/registry.
+
+Do not translate plugin dependency ordering into manual domain initialization ordering.
+
+## Capability-driven use
+
+Once the active catalog exists, plugin science uses the exact existing runtime:
+
+```python
+catalog.load_capabilities(
+    registry,
+    ["physics.optics.trace_ray"],
+)
+```
+
+The catalog resolves:
+
+```text
+requested capability
+ -> provider domain
+ -> required capability providers
+ -> dependency closure
+ -> DomainRegistry.add_domains(...)
+```
+
+No plugin-specific scientific loader is needed.
+
+## Built-in discovery vs external plugin discovery
+
+Current `discover_domain_factories()` scans the built-in `spectra.domains` package using the strict built-in convention.
+
+External plugin domains should **not** be made visible by widening that recursive built-in scanner over arbitrary installed packages.
+
+External packages contribute explicit factory tuples through `PluginDescriptor`.
+
+This keeps discovery:
+
+- deterministic;
+- user/application controlled;
+- inspectable;
+- safe to disable.
+
+## Conflict behavior from current DomainCatalog
+
+Current `DomainCatalog` already detects:
+
+### Duplicate domain names
+
+`from_factories()` instantiates supplied factories and rejects duplicate `domain.name` values.
+
+### Ambiguous capability providers
+
+`register()` rejects a capability supplied by more than one descriptor/provider.
+
+Therefore plugin diagnostics should map these existing failures into structured product errors such as:
+
+```text
+duplicate_domain_name
+capability_provider_conflict
+```
+
+Do not catch and hide the underlying provider names/capability key.
+
+## Domain transaction behavior
+
+Once catalog planning succeeds, `DomainRegistry.add_domains(...)` is already atomic.
+
+A plugin domain registration failure therefore rolls scientific runtime back to the prior registry snapshot.
+
+Plugin layer should preserve that guarantee and add context:
+
+```text
+plugin ID
+domain name
+underlying registration diagnostic
+```
+
+## Enable/disable semantics
+
+First implementation should avoid risky hot-unload semantics.
+
+Recommended model:
+
+```text
+PluginRegistry state changes
+   ↓
+new active catalog/environment for a fresh ProjectRuntime/engine session
+```
+
+If a plugin has already loaded domains/capabilities into a live `DomainRegistry`, disabling the plugin should not attempt to surgically remove those capabilities from that registry unless a future explicit unload transaction is designed.
+
+Instead:
+
+- mark plugin disabled for subsequent environment construction;
+- create/restart a fresh runtime environment when strict removal is required;
+- surface this clearly in UI/CLI.
+
+This is safer for domains that may have interdependent loaded capabilities.
+
+## Plugin compatibility diagnostics
+
+Structured categories:
 
 ```text
 plugin_version_incompatible
@@ -152,62 +313,68 @@ plugin_dependency_cycle
 duplicate_plugin_id
 duplicate_domain_name
 capability_provider_conflict
+domain_probe_failed
 domain_registration_failed
 ```
 
-Do not collapse everything into `ImportError` strings.
+The diagnostic should include plugin/domain/capability identity where relevant.
 
-## Entry-point adapter later
+## Python entry-point adapter later
 
-Future Python packaging adapter:
+Future packaging:
 
 ```toml
 [project.entry-points."spectra.plugins"]
 optics = "spectra_optics.plugin:descriptor"
 ```
 
-Conceptual adapter:
+Adapter:
 
 ```python
 def discover_python_entrypoint_plugins() -> tuple[PluginDescriptor, ...]:
     ...
 ```
 
-This function should only discover descriptors. Normal validation and activation still go through `PluginRegistry`.
+This adapter only discovers descriptors.
+
+Normal validation/enable/catalog composition remains in `PluginRegistry` + active catalog builder.
 
 ## Trust boundary
 
-A Python plugin is executable code and should be treated as trusted only if the user/application chooses to install/enable it.
+Python plugins are executable code.
 
-Project files must never silently enable missing plugins or install code.
+Project files may declare required plugin IDs/versions but must never:
 
-A project may declare:
+- import arbitrary code on parse;
+- install missing packages automatically;
+- enable a disabled plugin silently.
 
-```text
-required plugin IDs + version constraints
+Application/user policy decides installation/trust/enable state.
+
+## Native provider plugins
+
+A plugin may contribute a normal domain that registers a numerical implementation through the existing:
+
+```python
+DomainRegistry.register_numerical_solver(...)
 ```
 
-but application policy decides how to satisfy them.
-
-## Native providers
-
-Native CPU/GPU providers may eventually ship inside plugins, but first plugin runtime must not define a separate ABI.
-
-A plugin may expose a normal domain factory whose registration adds a numerical solver implementation through the existing numerical registry.
-
-Conceptual:
+Example:
 
 ```text
 spectra-native-cpu plugin
-    -> NativeCpuOdeDomain
-    -> register role ode.first_order / rk4.native_cpu
+ -> NativeCpuOdeDomain factory
+ -> active catalog
+ -> capability requested
+ -> domain registered
+ -> ode.first_order / rk4.native_cpu available
 ```
 
-Native library loading, signing, platform compatibility, and crash isolation remain governed by `TRUST_AND_SECURITY_MODEL.md` and `NATIVE_NUMERICAL_BACKENDS.md`.
+No plugin-specific native solver registry/ABI.
 
 ## Project interaction
 
-A project may record environment requirements:
+Project stores declarative plugin requirements only:
 
 ```python
 @dataclass(frozen=True)
@@ -219,36 +386,63 @@ class ProjectPluginRequirement:
 On open:
 
 ```text
-read project requirements
-   ↓
-compare active plugin environment
-   ↓
-ready / degraded-view-only / missing-plugin diagnostic
+project requirement
+ -> compare PluginRegistry
+ -> ready / missing / incompatible diagnostic
 ```
 
-Never deserialize arbitrary plugin Python objects from a project document.
+Project does not deserialize plugin objects.
 
-## First acceptance test package
+## First acceptance proof
 
-Use the documented geometric-optics sample as the first external-plugin proof.
+Use the geometric-optics sample extension.
 
-Expected flow:
+Flow:
 
 ```text
-create PluginDescriptor
-→ enable descriptor
-→ compose catalog
-→ request optics capability
-→ dependencies load automatically
-→ construct ray problem
-→ compile explicit ray view
-→ disable plugin in fresh environment
-→ built-in engine still works
+built-in factory set
++ enabled optics PluginDescriptor factories
+ -> build candidate DomainCatalog.from_factories(...)
+ -> request optics capability with load_capabilities(...)
+ -> dependencies load automatically
+ -> construct ray problem/view
+ -> fresh environment with plugin disabled
+ -> optics provider absent
+ -> built-in engine unaffected
 ```
 
-## Public API draft
+## Tests after implementation gate
 
-Potential future imports:
+### Plugin state
+
+- duplicate plugin IDs rejected;
+- enable/disable deterministic;
+- required plugin dependency validated;
+- optional dependency does not block;
+- plugin dependency cycle diagnosed.
+
+### Catalog integration
+
+- built-ins + plugin factory union probes successfully;
+- duplicate domain name rejected before replacing active catalog;
+- provider conflict rejected before replacing active catalog;
+- failed candidate catalog leaves previous active catalog usable;
+- plugin capability loads via existing `load_capabilities()`;
+- plugin domain registration failure rolls back `DomainRegistry`.
+
+### Disable behavior
+
+- fresh environment with plugin disabled cannot resolve plugin capability;
+- disabling does not corrupt already-loaded registry;
+- strict removal requires fresh runtime/session in first implementation.
+
+### Security/project
+
+- project requirement inspection never auto-installs/enables code.
+
+## Public API direction
+
+Later curated facade may expose:
 
 ```python
 from spectra.sdk import (
@@ -259,21 +453,8 @@ from spectra.sdk import (
 )
 ```
 
-Do not expose catalog internals or plugin-manager mutable dictionaries as public API.
-
-## Tests after validation gate
-
-- duplicate plugin IDs rejected;
-- enable/disable deterministic;
-- missing required plugin diagnosed;
-- optional plugin requirement does not block activation;
-- dependency cycle diagnosed;
-- plugin factory domain auto-discovered into provider graph;
-- failed plugin domain registration rolls back;
-- disabled plugin cannot satisfy capability lookup;
-- plugin removal from a fresh environment restores base catalog behavior;
-- project requirement inspection never auto-installs/enables code.
+Do not expose mutable DomainCatalog internal dictionaries as plugin API.
 
 ## Success criterion
 
-A third-party scientific package should be able to contribute normal Spectra domains without editing the Spectra repository, while the central engine retains one domain/capability runtime model and one transaction/diagnostic model.
+A third-party package contributes ordinary DomainModule factories. The active environment is constructed from built-ins plus explicitly enabled plugin factories, probe-validated by the existing `DomainCatalog`, and executed through the same transactional `DomainRegistry` used by built-in science.
