@@ -1,267 +1,206 @@
 # Spectra Science — Current Status
 
-This document is a concise status checkpoint separating **verified runtime behavior**, **implemented-but-awaiting-validation runtime work**, and **design/documentation work**.
+This document is the concise verified-status checkpoint for the current semantic engine.
 
-It exists to prevent later agents/developers from inheriting stale green claims or mistaking design documents for implemented runtime features.
-
-## Last fully reported verified runtime milestone
+## Current fully verified baseline
 
 Commit:
 
 ```text
-acb9e056326177fac49cc57b202ca80cca5090a7
+b9ca6b017cac83f45cc3864a88e219c848c12fc8
 ```
 
-Reported validation:
+Reported local validation:
 
 ```text
 compileall spectra: PASS
-pytest: 224 passed
+pytest: 276 passed
 initial failures: 0
 DomainCatalog / auto-discovery: PASS
-106 unique deterministic domains
-403 providers
-Blender 5.2 LTS targeted native smoke: PASS
-repo clean / synced at that milestone
+119 domains
+467 providers
+numerical provenance / solver registry: PASS
+presentation / Scene v5 / VisualAttribute: PASS
+SDK / plugin / project layers: PASS
+native CPU RK4 provider: PASS
+Blender 5.2 targeted smoke: PASS
+repo clean and synchronized with origin/main
 ```
 
-Native Blender validation at/through the recorded milestones included:
+This supersedes the earlier `acb9e056...` / 224-test baseline and the intermediate `00b5403...` validation-pending checkpoint.
 
-- static curve/surface/material/light/camera creation;
-- animated wave geometry updates;
-- E/B VectorGlyphSet animation;
-- stable Blender object/datablock identity;
-- topology fallback;
-- cleanup/orphan behavior;
-- 10k PointCloud batching;
-- 10k VectorGlyphSet batching;
-- repeated-frame leak checks.
+## Verified runtime architecture at `b9ca6b0...`
 
-This is the current **verified baseline**, not a claim about every later runtime commit.
+### Scientific/domain platform
 
-## Implemented runtime batch after the verified baseline
+- renderer-independent semantic engine;
+- automatic `...Domain` discovery and capability-provider graph;
+- 119 discovered domains and 467 providers in the reported validation;
+- capability-driven loading and transactional registration;
+- generic mathematics, field, PDE, mechanics, fluid, solid, thermal, electromagnetism, quantum, relativity, chemistry, experiment, and multiphysics foundations.
 
-After `acb9e056...`, a large numerical/experiment/runtime refactor was implemented.
+### Numerical execution
 
-Major implemented areas include:
+Verified runtime includes:
 
-- `NumericalSolverRegistry` interoperability;
-- stable `ode.first_order` role;
-- role-dispatched high-level ODE/PDE/physics consumers;
-- RK4 reference provider;
-- Heun/RK2 reference provider;
-- adaptive Dormand-Prince/RK45 provider;
-- solver execution metadata and policies;
-- problem compatibility predicates;
-- ordered policy fallback;
+- stable numerical roles such as `ode.first_order`;
+- `NumericalSolverRegistry` implementation interchangeability;
+- RK4 reference solver;
+- Heun/RK2 reference solver;
+- adaptive Dormand–Prince/RK45 reference solver;
+- execution descriptors and problem-aware solver selection;
+- ordered solver policies/fallback;
 - fixed/adaptive numerical provenance;
-- requested vs accepted steps;
-- dynamic 3D method-of-lines provenance;
-- deterministic parameter sweeps;
-- batched experiments;
-- solver comparisons;
-- convergence studies;
-- sensitivity;
-- deterministic uncertainty propagation;
-- calibration;
-- ranking/Pareto analysis;
+- requested vs accepted step accounting;
+- tracked method-of-lines composition;
+- deterministic parameter sweeps and batching;
+- convergence, sensitivity, uncertainty, calibration, ranking, and Pareto analysis;
 - reproducibility/environment fingerprints;
-- experiment JSON artifacts;
-- per-case numerical execution tracing.
+- schema-versioned experiment artifacts and per-case traces.
 
-The last runtime-code checkpoint before the documentation-only architecture block is:
+### Native CPU provider
 
-```text
-00b5403a9ffb005b7eb011833174e013158ee1f4
-```
-
-This runtime batch still requires the next full local validation before receiving a new green test-count/qualification claim.
-
-## Runtime freeze after `00b5403...`
-
-Repository comparison from:
+The first native-provider role proof is now implemented and validated:
 
 ```text
-base: 00b5403a9ffb005b7eb011833174e013158ee1f4
-head: current main at the time this status was written
+ode.first_order / rk4.native_cpu
 ```
 
-showed only:
+It participates in the existing solver registry rather than introducing a parallel numerical runtime.
+
+The current provider is an architectural/native-CPU provider proof, not a claim that all numerical workloads are already native or faster than the Python reference path.
+
+### Presentation runtime
+
+The renderer-neutral presentation layer is now runtime functionality rather than design-only documentation.
+
+Verified areas include:
+
+- presentation value/policy contracts;
+- preset resolution;
+- deterministic presentation resource identities;
+- presentation composition over generic `Scene`;
+- Scene-local camera framing;
+- scientific/presentation timeline ownership rules;
+- presentation resources without moving scientific semantics into Blender.
+
+### Scene v5 / VisualAttribute
+
+Current Scene schema is:
 
 ```text
-README.md
-docs/*
+spectra.scene v5
 ```
 
-changes.
+Visual attributes are generic renderer-neutral visualization data and can carry named scalar/vector/color channels with explicit association semantics.
 
-No `spectra/` runtime source file changed in that documentation block.
+Scene serialization/deserialization retains older-version compatibility according to the schema contract.
 
-Therefore the next local runtime validation should primarily qualify the executable delta:
+### SDK / plugin / project platform
+
+Verified runtime now includes the first implementation of:
+
+- curated SDK facade;
+- plugin descriptor/registry/catalog composition;
+- renderer-independent project document/runtime layer;
+- reuse of existing reproducibility and experiment provenance instead of duplicate provenance formats.
+
+These are foundation/runtime layers, not yet a complete marketplace, collaboration service, or polished standalone application.
+
+## Blender 5.2 validation
+
+Targeted Blender 5.2 smoke passed for:
+
+- static scene mapping;
+- animated wave geometry;
+- animated electromagnetic fields;
+- 10k `PointCloud` batching;
+- 10k `VectorGlyphSet` batching;
+- stable object/datablock identity;
+- 100-frame leak test;
+- cleanup/orphan behavior.
+
+Dense batches remained one native representation each; they did not expand into 10,000 Blender objects.
+
+Reported reference measurement from this validation run:
 
 ```text
-acb9e056... -> 00b5403...
+create:          ~170.49 ms
+combined update: ~89.95 ms
 ```
 
-while the later documentation commits can be reviewed for correctness without adding runtime behavior.
+These numbers are commit/machine/run-specific Blender backend measurements. They are not GPU numerical-solver benchmarks and should not be generalized to every scene/workload.
 
-## Documentation/design block after runtime freeze
+## What is now verified vs still future
 
-The docs-only block specifies future architecture for:
+### Verified foundation/runtime
 
-### Premium presentation
+- semantic/capability engine;
+- current numerical solver-role and experiment platform;
+- Scene v5 visual attributes;
+- first premium-presentation foundation;
+- first curated SDK/plugin/project runtime layers;
+- first native CPU RK4 provider;
+- Blender 5.2 generic/incremental targeted behavior.
 
-- renderer-neutral presentation intents/presets;
-- visual design system;
-- color scales/legends/axes/camera/lighting;
-- deterministic presentation IDs/ownership;
-- Blender premium mapping/acceptance;
-- showcase scenarios.
-
-### Product/project platform
-
-- project lifecycle/invalidation;
-- project document model;
-- commands/undo;
-- collaboration/revisions;
-- templates;
-- caches/artifact storage;
-- UI information architecture;
-- headless/CLI;
-- export/reporting;
-- data ingestion/resources.
-
-### SDK/plugin ecosystem
-
-- Module SDK;
-- sample third-party extension blueprint;
-- public `spectra.sdk` facade design;
-- plugin packaging/discovery;
-- API stability/deprecation;
-- schema versioning;
-- naming conventions;
-- semantic metadata/introspection.
-
-### Performance/execution future
-
-- native/GPU provider contract;
-- numerical buffer/data-layout design;
-- validation/reference cases;
-- performance budgets;
-- observability/profiling;
-- remote/HPC worker contract;
-- high-performance roadmap.
-
-### Governance/quality
-
-- maturity/verification model;
-- diagnostics/errors;
-- trust/security;
-- test strategy/checkpoints;
-- release qualification;
-- product milestones;
-- AI authoring contract.
-
-These documents are **design contracts**, not claims that the described runtime layers are already implemented.
-
-## Current status categories
-
-### Verified
-
-- semantic engine foundation through recorded `acb9e056...` milestone;
-- 224-test reported baseline;
-- DomainCatalog/provider graph at that milestone;
-- Blender 5.2 native reference/incremental smoke behavior at that milestone.
-
-### Implemented, awaiting next full local validation
-
-- post-`acb9...` numerical solver-role/interchangeability/adaptive/provenance/experiment runtime batch through `00b5403...`.
-
-### Designed/documented, not yet implemented runtime
+### Still future or materially incomplete
 
 Examples:
 
-- full premium presentation semantics/composer;
-- quantitative presentation color/legend runtime;
-- Blender premium adapter;
-- `spectra.sdk` public facade;
-- external plugin entry-point runtime;
-- Spectra project runtime/schema;
-- semantic metadata/introspection runtime;
-- command/collaboration runtime;
-- native CPU/GPU solver providers;
-- remote/HPC worker runtime;
-- standalone/WebGPU product surface.
+- production-grade CFD/RANS/LES/AMR;
+- full industrial FEM/contact/plasticity/fracture/shells/beams;
+- production RF/FDTD/PML/dispersive electromagnetics;
+- quantum chemistry/DFT/many-body stack;
+- real GPU numerical provider and device-resident PDE pipeline;
+- advanced Blender Geometry Nodes visual-attribute pipeline where needed;
+- full screen-space legend/layout/volume presentation system;
+- mature external plugin entry-point ecosystem/marketplace;
+- collaborative project server;
+- remote/HPC worker implementation at product scale;
+- standalone/WebGPU product surface and polished end-user UI.
 
-## Next validation gate
+## Next engineering direction
 
-When local resources/agent are available, run against latest `main` but interpret failures in the executable runtime delta.
+The old pending-validation gate is closed.
 
-Minimum:
+Further work should branch from `b9ca6b0...` as the verified baseline and proceed in bounded checkpoints rather than another unvalidated mega-batch.
 
-```text
-python -m compileall spectra
-pytest -q
-DomainCatalog / auto-discovery probe
-solver role/policy/adaptive/provenance targeted tests
-experiments/reproducibility/artifact/tracing targeted tests
-```
-
-Blender full native benchmark is not required solely because docs changed. Backend runtime did not change in the docs-only block.
-
-If the runtime batch is green, record:
+High-value next tracks are:
 
 ```text
-new final SHA
-new pytest count
-domain/provider count
-root fixes if any
-new verified baseline
+Presentation depth
+  -> richer quantitative legends/layout
+  -> Blender visual-attribute/material realization
+  -> canonical premium showcase scenes
+  -> dense/Geometry Nodes optimization where evidence requires it
+
+Performance
+  -> real native CPU execution beyond provider proof
+  -> typed numerical buffers/batching
+  -> GPU solver/provider
+  -> device-resident grid/PDE paths
+
+Product
+  -> strengthen SDK/plugin/project APIs
+  -> headless/CLI/export workflows
+  -> standalone/WebGPU surface
+  -> later remote/HPC/collaboration
 ```
 
-Then begin runtime implementation from `POST_VALIDATION_IMPLEMENTATION_PLAN.md`.
+Do not mix all tracks into one foundational refactor unless a shared boundary genuinely requires it.
 
-## Recommended first runtime work after green validation
+## Repository policy
 
-Highest-value product sequence:
+GitHub Actions remains intentionally absent. Do not recreate it unless explicitly requested.
 
-```text
-Presentation semantic types
-    -> Presentation composer
-    -> quantitative color scales + legends
-    -> five canonical premium Scenes
-    -> Blender premium presentation adapter
-```
-
-A parallel performance track may begin with:
-
-```text
-native CPU first-order solver provider
-    -> prove provider/buffer boundary
-    -> later GPU providers
-```
-
-Do not start both with incompatible foundational refactors before establishing clean checkpoints.
-
-## Source-of-truth navigation
-
-Start with:
-
-```text
-README.md
-docs/README.md
-docs/SYSTEM_ARCHITECTURE_MAP.md
-docs/POST_VALIDATION_IMPLEMENTATION_PLAN.md
-```
-
-Use `CAPABILITY_MATURITY_MODEL.md` to distinguish verified/reference/design status.
+Generated caches, native build outputs, renders, releases, and local artifacts do not belong in source control.
 
 ## Success criterion
 
-At any moment the repository should make it possible to answer three separate questions precisely:
+The repository should continue to make three things explicit:
 
-1. What runtime behavior has actually been verified?
-2. What executable runtime work exists but still needs validation?
-3. What architecture has only been designed/documented for future implementation?
+1. what is scientifically/architecturally implemented;
+2. what has actually been validated at a concrete commit;
+3. what remains reference/foundation work versus production-grade capability.
 
-This file records that separation for the current milestone.
+For the current milestone, the verified baseline is `b9ca6b017cac83f45cc3864a88e219c848c12fc8`.
