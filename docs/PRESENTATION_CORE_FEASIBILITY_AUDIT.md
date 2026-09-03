@@ -2,11 +2,11 @@
 
 Status: **source review against current runtime; no runtime code changed**.
 
-This audit checks whether the planned first premium-presentation implementation can be built on current Core contracts without prematurely changing Scene schema or renderer backends.
+This audit checks whether Premium Presentation Phase 1 can be built on current Core contracts without prematurely changing Scene schema or renderer backends.
 
-## Reviewed runtime contracts
+## Current generic foundation
 
-Current source confirms the following generic primitives/resources already exist:
+Source confirms these renderer-neutral contracts already exist:
 
 ```text
 Camera
@@ -15,63 +15,96 @@ TextLabel
 Material
 Scene.active_camera_id
 Scene.timeline
-Bounds3D / scene_bounds
-Transform3D.look_at
+Bounds3D
+scene_local_bounds(...)
+scene_bounds(...)
+Transform3D.look_at(...)
 ```
 
-This is sufficient for a meaningful Phase 1 presentation composer.
+This is sufficient for a meaningful Phase 1 composer.
 
-## Camera support — sufficient for Phase 1
+## Critical coordinate-frame invariant
+
+`Scene.frame` maps Scene-local scientific coordinates into the parent/renderer world.
+
+Blender currently applies that frame as the Spectra root object's world matrix. Primitive transforms—including `Camera.transform`—are then applied **under that root**, so they are Scene-local.
+
+Therefore a presentation-owned camera that frames Scene primitives must normally use:
+
+```python
+scene_local_bounds(scene)
+```
+
+not:
+
+```python
+scene_bounds(scene)
+```
+
+when constructing the Camera primitive's local transform.
+
+Using parent/world-mapped bounds to construct a local camera could apply a non-default coordinate frame twice after the backend applies `Scene.frame` again.
+
+Use `scene_bounds()` only when a consumer explicitly needs parent/world-mapped bounds outside the Scene-local primitive coordinate system.
+
+This invariant should receive a regression test with a non-identity `CoordinateFrame3D` when presentation runtime is implemented.
+
+## Camera support — sufficient
 
 Current `Camera` supports:
 
 ```text
-projection = perspective | orthographic
+perspective | orthographic
 fov_y_radians
 orthographic_scale
-near_clip
-far_clip
+near/far clip
 Transform3D
 ```
 
-Current `Transform3D.look_at(eye, target, up=...)` creates a renderer-neutral camera-style transform with local `-Z` looking at the target.
+`Transform3D.look_at(eye, target, up)` creates a camera-style transform whose local `-Z` looks at the target.
 
-Current bounds infrastructure provides:
-
-```text
-primitive_local_bounds(...)
-scene_local_bounds(...)
-primitive_bounds(...)
-scene_bounds(...)
-Bounds3D.center
-Bounds3D.size
-Bounds3D.diagonal
-Bounds3D.bounding_sphere_radius
-```
-
-Therefore `fit_all`, simple perspective context framing, and orthographic analysis framing can be implemented without changing Core primitives.
-
-### Recommended generic camera-fit helper
-
-A presentation-private helper can compute:
+`Bounds3D` provides:
 
 ```text
-bounds = scene_bounds(scene)
-center = bounds.center
-radius = max(bounds.bounding_sphere_radius, epsilon)
+center
+size
+diagonal
+bounding_sphere_radius
 ```
 
-Perspective distance can be derived from FOV and padded radius.
+Therefore the first presentation implementation can build deterministic:
 
-Orthographic scale can derive from max projected extent plus padding.
+```text
+fit_all
+perspective_context
+orthographic_analysis
+```
 
-The first implementation should use a deterministic default viewing direction, with explicit overrides later.
+without Core changes.
 
-Do not add Blender focal-length logic to generic camera fitting.
+### Recommended helper
 
-## Text labels — sufficient for basic presentation annotations
+```python
+def make_fit_camera(
+    scene: Scene,
+    *,
+    camera_id: str,
+    projection: str,
+    padding: float,
+    view_direction: Vec3,
+    up: Vec3,
+) -> Camera:
+    bounds = scene_local_bounds(scene)
+    ...
+```
 
-Current `TextLabel` has:
+Perspective distance can derive from padded bounding radius and vertical FOV. Orthographic scale can derive from the relevant local extent plus padding.
+
+Do not add Blender focal-length concepts to generic presentation code.
+
+## Text labels — sufficient for basic annotations
+
+Current `TextLabel` provides:
 
 ```text
 text
@@ -81,26 +114,24 @@ color
 transform
 ```
 
-This is enough for:
+Enough for:
 
 - title;
 - subtitle;
 - time indicator;
-- simple world-space quantity labels.
+- simple world-space labels.
 
-Limitation:
+Current limitation:
 
 ```text
-no generic screen-space anchoring/layout contract yet
+no generic screen-space anchoring/layout
 ```
 
-Therefore Phase 1 labels should be simple renderer-neutral/world-space labels or use a deterministic scene-relative placement convention.
+Phase 1 should therefore use deterministic Scene-local/world-space placement. Do not invent screen-pixel coordinates in Core.
 
-Do not invent screen-pixel positioning in Core for the first presentation patch.
+## Lighting — sufficient for first presentation rigs
 
-## Lighting — sufficient for generic intent
-
-Current `Light` supports:
+Current generic `Light` supports:
 
 ```text
 ambient
@@ -114,285 +145,166 @@ spot angle
 transform
 ```
 
-This is sufficient for a generic `scientific_studio` light arrangement using deterministic key/fill/rim resources.
+This is enough for deterministic presentation-owned key/fill/rim or flat-analysis rigs.
 
-Important limitation:
+`Light.intensity` is intentionally renderer-neutral, not a calibrated photometric unit.
 
-`Light.intensity` is intentionally backend-neutral and not a physical photometric unit.
-
-Therefore presentation presets may define relative visual lighting intent, but should not describe it as physically calibrated illumination.
-
-## Materials — sufficient for basic style, not quantitative field attributes
+## Materials — useful but not a quantitative attribute system
 
 Current `Material` supports:
 
 ```text
 base_color
-unlit | lit
+lit | unlit
 metallic
 roughness
-emission_color
-emission_strength
-double_sided
+emission
+alpha
+double-sided
 ```
 
-This is sufficient for:
+This is enough for basic presentation style and reusable visual materials.
 
-- generic analysis/cinematic material styling;
-- luminous accents;
-- unlit quantitative flat color where one color per primitive is enough;
-- shared presentation-owned materials.
+It does not solve dense quantitative scalar coloring by itself.
 
-It is not yet a full quantitative scientific material system.
+## Existing dense color support
 
-## PointCloud and VectorGlyphSet color support
-
-Current batched primitives already support per-instance colors:
+Current:
 
 ```text
 PointCloud.colors
 VectorGlyphSet.colors
 ```
 
-This means quantitative/categorical per-instance color experiments can potentially be implemented for these primitives without changing the primitive schema.
+already allow per-instance resolved colors in generic Scene semantics.
 
-Backend support still needs capability/validation checks.
+Backend capability remains separate: current Blender realizes these through a bounded material-slot path rather than a scalable float-attribute shader path.
 
-The current Blender mapping must not be assumed to realize arbitrary high-cardinality per-instance color faithfully until that path is implemented and validated.
+## Surface limitation
 
-## Surface color limitation
-
-Current `Surface` has only one primitive-level:
+Current `Surface` has:
 
 ```text
-color: Color
+vertices
+triangles
+one uniform color
 ```
 
-It does not currently carry:
+It does not carry:
 
 ```text
 per-vertex colors
-scalar attribute arrays
-named generic vertex attributes
-UV/scalar presentation channels
+scalar attributes
+named vertex attributes
 ```
 
-This is the most important presentation limitation discovered by the audit.
+Therefore a physically meaningful continuous temperature/potential/stress/probability colormap over one Surface cannot currently be represented generically.
 
-### Consequence
+Do not work around this by creating thousands of tiny Surface objects or letting Blender reconstruct scalar science independently.
 
-A real temperature/potential/stress colormap over one continuous `Surface` cannot be represented faithfully by current generic `Surface` semantics merely by presentation policy.
+See `VISUAL_ATTRIBUTE_MODEL.md` for the later dedicated work package.
 
-Do not hide this by:
+## Scene immutability — ideal for composition
 
-- creating thousands of tiny separate Surface objects;
-- letting Blender independently recover scientific scalar values;
-- using a decorative material gradient unrelated to data.
+Current `Scene` is frozen and validates:
 
-### Recommended next step
-
-Keep quantitative Surface color out of Phase 1.
-
-When W3 quantitative-color work begins, evaluate a small generic attribute contract, for example conceptually:
-
-```text
-Surface vertex scalar values + named channel
-or
-Surface per-vertex colors
-or
-reusable generic AttributeBuffer resource
-```
-
-Choose only after examining multiple domains:
-
-```text
-temperature
-potential
-stress
-probability density
-CFD scalar slices
-```
-
-A generic attribute abstraction is preferable if several primitive types need the same mechanism.
-
-Any Scene schema change should be deliberate/versioned, not smuggled into presentation code.
-
-## Scene immutability — well suited to presentation composition
-
-Current `Scene` is frozen/immutable and validates:
-
-- unique primitive IDs;
+- unique primitive/material IDs;
 - material references;
-- group references/cycles;
+- groups/cycles;
 - active camera;
-- timeline target/property compatibility.
+- timeline target/property paths.
 
-This is a good fit for:
+Existing `staggered_reveal()` already uses `dataclasses.replace` to create a new Scene rather than mutating input state.
 
-```text
-base Scene
-  -> dataclass replacement/composition
-  -> enriched Scene
-```
+Phase 1 should preserve that pattern.
 
-The existing `spectra.presentation.staggered_reveal()` already follows this pattern through `dataclasses.replace`.
+## Timeline support — sufficient
 
-Phase 1 should preserve it.
-
-## Timeline composition — current foundation is sufficient
-
-Existing presentation helpers provide:
+Existing:
 
 ```text
 merge_timelines(...)
 staggered_reveal(...)
 ```
 
-Current Scene validation checks that animation tracks reference real primitive IDs and valid property paths.
+can compose presentation tracks with scientific tracks.
 
-Therefore presentation reveal tracks can be composed with scientific tracks safely without making renderer time authoritative.
+Presentation must not rescale or replace scientific time silently.
 
 ## Active camera — directly supported
 
-`Scene.active_camera_id` already references a `Camera` primitive and is validated.
+`Scene.active_camera_id` already validates that the referenced primitive is a Camera.
 
-Therefore the presentation composer can:
+The composer can therefore add/replace a deterministic presentation camera and activate it without Scene schema changes.
 
-1. preserve an existing active camera when policy says so;
-2. replace/add a deterministic presentation-owned camera;
-3. set `active_camera_id` to that camera;
-4. keep scientific geometry unchanged.
+## Theme/background limitation
 
-No Scene schema change is necessary.
-
-## Background/theme limitation
-
-Current generic Scene does not have a first-class:
+Current generic Scene has no first-class:
 
 ```text
-background color
-world/environment resource
+world/background resource
 post-processing profile
 ```
 
-Therefore `theme="dark_lab"` cannot yet be fully expressed as generic Scene data without additional design.
+Therefore Phase 1 `dark_lab`/theme intent can influence currently expressible presentation resources such as labels/materials/lights, but a real renderer world/background contract is deferred.
 
-### Phase 1 recommendation
+Do not add `Scene.background` casually just to implement dark mode.
 
-Treat theme as presentation policy metadata that affects currently expressible resources such as:
+## Axes and legends
 
-- label colors;
-- scientific/presentation material defaults;
-- generic lights;
+No dedicated Axes or Legend primitive exists.
 
-but defer actual renderer background/world interpretation to later backend capability work.
-
-Do not add a `Scene.background` field casually just to make dark mode work.
-
-If background intent proves useful across Blender/WebGPU/headless export, introduce a generic environment/presentation resource in its own checkpoint.
-
-## Axes limitation
-
-No dedicated `Axes` primitive currently exists.
-
-However basic axes can be composed from existing generic primitives:
+Basic versions can be composed from:
 
 ```text
 Polyline
-TextLabel
-Group
-```
-
-This is acceptable for an initial reusable axes composer.
-
-Do not add a subject-specific axes implementation to scientific domains.
-
-Advanced tick/grid/layout semantics should be a later presentation utility.
-
-## Legend limitation
-
-No dedicated Legend primitive exists.
-
-A simple legend can initially be composed from:
-
-```text
 TextLabel
 Region
-Polyline
 Group
 ```
 
-But quantitative gradient legends may require richer color-ramp/attribute presentation semantics.
+This is adequate for early analysis/presentation utilities.
 
-Therefore Phase 1 can support basic text/vector-scale legends, while W3 owns true quantitative colorbar behavior.
+Advanced tick layout and quantitative gradient colorbars belong to later presentation/color packages.
 
 ## Group semantics
 
-Current `Group` is organizational by child IDs; generic transform inheritance is not a universal contract.
+`Group` currently owns organizational child references, not universal transform inheritance.
 
-Presentation must not assume moving/scaling a Group automatically transforms children.
-
-Camera framing and layout should operate on actual child primitive bounds rather than imagined group transforms.
+Presentation layout/camera framing must inspect actual child primitive geometry rather than assume group transforms affect children.
 
 ## Phase 1 feasibility result
 
 ### Can implement without Core schema changes
 
 ```text
-PresentationIntent value types
+PresentationIntent/policies
 preset resolution
-camera fit/orientation
-active camera selection
+Scene-local camera fit/orientation
+active camera
 basic lights
 simple title/subtitle/time labels
-staggered reveal/timeline composition
-presentation deterministic IDs
+staggered reveal/timeline merge
+deterministic presentation IDs
 basic material styling
-basic axes from existing primitives
+basic axes made from existing primitives
 ```
 
-### Should defer
+### Defer
 
 ```text
-true renderer background/world resource
-quantitative continuous Surface colormaps
-screen-space UI labels
+renderer world/background resource
+continuous Surface scalar colormaps
+screen-space labels
 advanced colorbars
 volumetrics
 post processing
 Geometry Nodes/renderer instancing policy
 ```
 
-## Suggested first camera implementation
+## First light rig
 
-Use a presentation-private helper rather than changing Core:
-
-```python
-def make_fit_camera(
-    scene: Scene,
-    *,
-    camera_id: str,
-    projection: str,
-    padding: float,
-    view_direction: Vec3,
-    up: Vec3,
-) -> Camera:
-    ...
-```
-
-It can reuse:
-
-```text
-scene_bounds
-Transform3D.look_at
-Camera
-```
-
-If several non-presentation systems later need identical camera fitting, promote only then to a generic Core utility.
-
-## Suggested first light rig
-
-Presentation-private deterministic IDs:
+Presentation-owned deterministic IDs:
 
 ```text
 presentation.light.key
@@ -400,18 +312,24 @@ presentation.light.fill
 presentation.light.rim
 ```
 
-Using current generic lights:
+Exact relative intensities belong to preset defaults, not Blender node names.
+
+## Required frame regression when implemented
+
+Create the same local scientific Scene under:
 
 ```text
-directional/point/ambient
+WORLD_FRAME
+and
+a translated/rotated non-identity CoordinateFrame3D
 ```
 
-Exact relative intensities belong to preset defaults, not Blender nodes.
+Compose a fit camera in each case.
+
+Assert the Camera primitive remains correctly Scene-local and the backend/frame transform moves camera and science together without double-transforming the camera target.
 
 ## Architectural conclusion
 
-The current semantic/Scene engine already contains enough renderer-neutral geometry, camera, lighting, text, bounds, materials, immutability, and timeline infrastructure for a real Premium Presentation Phase 1.
+Current Core already has enough generic geometry, camera, lighting, text, bounds, materials, immutability, coordinate frames, and timeline semantics for Premium Presentation Phase 1.
 
-The main missing generic capability for later quantitative premium science is not another renderer abstraction—it is a clean data-attribute path for continuous scalar/color fields on surfaces and potentially other dense primitives.
-
-That should be treated as a separate, evidence-driven generic visualization contract rather than being prematurely embedded into Blender-specific materials.
+The main later generic gap is a dense scalar/color attribute path—not another renderer-specific scientific subsystem.
