@@ -22,7 +22,7 @@ DomainCatalog / auto-discovery: PASS
 numerical provenance / solver registry: PASS
 presentation / Scene v5 / VisualAttribute: PASS
 SDK / plugin / project layers: PASS
-native CPU RK4 provider: PASS
+native-CPU-labelled RK4 provider boundary: PASS
 Blender 5.2 targeted smoke: PASS
 repo clean and synchronized with origin/main
 ```
@@ -58,9 +58,9 @@ Verified runtime includes:
 - reproducibility/environment fingerprints;
 - schema-versioned experiment artifacts and per-case traces.
 
-### Native CPU provider
+### Native CPU provider boundary
 
-The first native-provider role proof is now implemented and validated:
+The first provider-role proof is implemented and validated under:
 
 ```text
 ode.first_order / rk4.native_cpu
@@ -68,7 +68,9 @@ ode.first_order / rk4.native_cpu
 
 It participates in the existing solver registry rather than introducing a parallel numerical runtime.
 
-The current provider is an architectural/native-CPU provider proof, not a claim that all numerical workloads are already native or faster than the Python reference path.
+**Important:** at `b9ca6b0...`, `solve_native_rk4()` delegates to the existing Python `solve_rk4()` implementation. Therefore this milestone validates provider selection, capability wiring, execution metadata flow, and provenance plumbing; it does **not** yet validate a real C/C++/SIMD native RK4 kernel. Until that kernel exists, this implementation must not be presented as native performance acceleration.
+
+The next performance checkpoint should either implement a real native kernel or change the execution metadata/name so provenance cannot imply native execution that did not occur.
 
 ### Presentation runtime
 
@@ -140,13 +142,14 @@ These numbers are commit/machine/run-specific Blender backend measurements. They
 - Scene v5 visual attributes;
 - first premium-presentation foundation;
 - first curated SDK/plugin/project runtime layers;
-- first native CPU RK4 provider;
+- native-provider selection/provenance boundary proof for RK4;
 - Blender 5.2 generic/incremental targeted behavior.
 
 ### Still future or materially incomplete
 
 Examples:
 
+- real native C/C++/SIMD RK4 execution behind the `rk4.native_cpu` role;
 - production-grade CFD/RANS/LES/AMR;
 - full industrial FEM/contact/plasticity/fracture/shells/beams;
 - production RF/FDTD/PML/dispersive electromagnetics;
@@ -163,7 +166,7 @@ Examples:
 
 The old pending-validation gate is closed.
 
-Further work should branch from `b9ca6b0...` as the verified baseline and proceed in bounded checkpoints rather than another unvalidated mega-batch.
+Further work should branch from `b9ca6b0...` as the verified runtime baseline and proceed in bounded checkpoints rather than another unvalidated mega-batch.
 
 High-value next tracks are:
 
@@ -175,7 +178,7 @@ Presentation depth
   -> dense/Geometry Nodes optimization where evidence requires it
 
 Performance
-  -> real native CPU execution beyond provider proof
+  -> replace the current Python RK4 wrapper with real native CPU execution
   -> typed numerical buffers/batching
   -> GPU solver/provider
   -> device-resident grid/PDE paths
@@ -203,4 +206,4 @@ The repository should continue to make three things explicit:
 2. what has actually been validated at a concrete commit;
 3. what remains reference/foundation work versus production-grade capability.
 
-For the current milestone, the verified baseline is `b9ca6b017cac83f45cc3864a88e219c848c12fc8`.
+For the current runtime milestone, the verified baseline is `b9ca6b017cac83f45cc3864a88e219c848c12fc8`.
