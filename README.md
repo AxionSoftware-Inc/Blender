@@ -12,8 +12,9 @@ legacy/pre-semantic-core-2026-08-30
 
 ## Read first
 
-Start with the documentation index:
+Start with:
 
+- `docs/CURRENT_STATUS.md`
 - `docs/README.md`
 - `docs/SYSTEM_ARCHITECTURE_MAP.md`
 - `docs/DOMAIN_SYSTEM.md`
@@ -21,9 +22,8 @@ Start with the documentation index:
 - `docs/SOLVERS_AND_EXPERIMENTS.md`
 - `docs/PREMIUM_PRESENTATION_SYSTEM.md`
 - `docs/PRODUCT_WORKFLOWS.md`
-- `docs/POST_VALIDATION_IMPLEMENTATION_PLAN.md`
 
-Subsystem-specific documents for numerical providers, Blender, plugins, projects, security, performance, and scientific/multiphysics foundations are indexed in `docs/README.md`.
+Subsystem-specific documents for numerical providers, Blender, plugins, projects, security, performance, presentation, SDK, and scientific/multiphysics foundations are indexed in `docs/README.md`.
 
 ## Product thesis
 
@@ -54,7 +54,7 @@ Core owns reusable cross-domain/cross-renderer abstractions such as:
 - vectors/colors/transforms/coordinates/bounds;
 - units, quantities, dimensions, typed constants;
 - restricted expression infrastructure;
-- generic Scene primitives/resources;
+- generic Scene primitives/resources and visual attributes;
 - Timeline/interpolation;
 - Scene composition and serialization;
 - domain/backend contracts.
@@ -67,7 +67,14 @@ A new scientific subject is not sufficient reason to modify Core.
 
 Domains consume stable versioned capabilities rather than importing another subject's private algorithms.
 
-The architecture now spans more than one hundred auto-discovered scientific/numerical domains and several hundred capability providers. Examples include:
+At the current verified baseline the catalog reports:
+
+```text
+119 domains
+467 capability providers
+```
+
+Examples span:
 
 ```text
 mathematics
@@ -92,15 +99,16 @@ special/general relativity
 chemistry / reaction kinetics / reaction-diffusion
 multiphysics coupling
 experiments / convergence / sensitivity / uncertainty / calibration
+presentation / project / plugin / SDK-supporting domains
 ```
 
-The exact provider graph is generated from runtime registration rather than duplicated in a central capability manifest.
+The provider graph is generated from runtime registration rather than duplicated in a central capability manifest.
 
 ## Composition rule
 
 High-level science should reuse lower-level capabilities.
 
-Examples already represented in the architecture:
+Examples represented in the architecture:
 
 ```text
 linear algebra + probability
@@ -149,9 +157,7 @@ New domains should normally compose existing capabilities before introducing new
 
 ## Numerical execution architecture
 
-Scientific domains no longer need to name a concrete time integrator such as RK4.
-
-They consume stable numerical roles:
+Scientific domains consume stable numerical roles rather than naming one concrete integrator.
 
 ```text
 scientific problem
@@ -160,10 +166,10 @@ ode.solve_first_order
       ↓
 NumericalSolverRegistry
       ↓
-reference / native CPU / GPU / external implementation
+reference / native CPU / future GPU / external implementation
 ```
 
-Reference implementations currently include fixed-step RK4 and Heun/RK2, plus an adaptive Dormand-Prince/RK45 provider in the current post-baseline development batch.
+Verified reference implementations include fixed-step RK4 and Heun/RK2 plus adaptive Dormand–Prince/RK45.
 
 Solver selection can use:
 
@@ -176,13 +182,13 @@ Solver selection can use:
 - semantic problem compatibility;
 - ordered fallback policies.
 
-The goal is that native/GPU providers can replace execution without rewriting physics, chemistry, PDE, mechanics, or visualization code.
+The first `rk4.native_cpu` provider-role proof is also present and validated through the same registry/provenance path. This establishes provider interchangeability; it is not yet a claim that all numerical execution is native or faster than reference Python.
 
 See `docs/SOLVERS_AND_EXPERIMENTS.md`, `docs/NATIVE_NUMERICAL_BACKENDS.md`, and `docs/PERFORMANCE_BUDGETS.md`.
 
 ## Experiments and reproducibility
 
-The current post-baseline numerical platform adds generic support for:
+The verified numerical platform includes generic support for:
 
 - deterministic Cartesian parameter sweeps;
 - batched experiment execution;
@@ -272,13 +278,13 @@ Renderer-neutral primitives include:
 - `TextLabel`, `Group`;
 - `Camera`, `Light`.
 
-A Scene also owns materials, coordinate frame, active camera, and Timeline.
+A Scene also owns materials, coordinate frame, active camera, Timeline, and generic `VisualAttribute` data attached to compatible primitives.
 
 Dense scientific data must remain batched. Many particles should normally be one `PointCloud`; large vector fields should normally be one `VectorGlyphSet`.
 
-## Presentation architecture
+## Presentation runtime
 
-Scientific visualization and premium presentation are separate layers.
+Scientific visualization and presentation remain separate layers:
 
 ```text
 semantic result
@@ -286,14 +292,16 @@ semantic result
     -> base Scene + scientific Timeline
     -> PresentationIntent
     -> enriched Scene/presentation resources
-    -> Blender / WebGPU / future renderer
+    -> Blender / future WebGPU / other renderer
 ```
 
-The presentation layer owns communication choices such as camera, color scales, legends, axes, annotations, lighting intent, reveal order, and quality/display sampling. It must not alter numerical data or solver resolution.
+The presentation layer owns communication choices such as camera, color policy, annotations, lighting intent, reveal order, and display quality. It must not alter numerical data or solver resolution.
 
-The premium presentation runtime itself is currently a design target for the post-validation phases; do not report the design documents as already implemented functionality.
+The first renderer-neutral presentation runtime is now implemented and validated, including policy/preset resolution, deterministic presentation resources, Scene-local camera fitting, and scientific/presentation animation ownership rules.
 
-See `docs/PREMIUM_PRESENTATION_SYSTEM.md`, `docs/VISUAL_DESIGN_SYSTEM.md`, and `docs/BLENDER_PREMIUM_ACCEPTANCE.md`.
+More advanced presentation depth—continuous quantitative legends, richer screen-space layout, volume presentation, and renderer-specific premium effects—remains future work.
+
+See `docs/PREMIUM_PRESENTATION_SYSTEM.md`, `docs/PRESENTATION_COMPOSER_PIPELINE.md`, and `docs/BLENDER_PREMIUM_ACCEPTANCE.md`.
 
 ## Animation and composition
 
@@ -310,35 +318,31 @@ Backends do not own scientific timing.
 
 Dynamic arrays such as particle positions, polyline points, surface vertices, and vector-field arrays can be animated while preserving stable topology/IDs for incremental backends.
 
-Presentation time/reveal/camera motion is intended to compose over scientific time without changing physical interpretation.
+Presentation tracks compose with scientific time under explicit conflict rules; presentation does not silently override a scientific track for the same target/property.
 
-## Projects, plugins, and product surfaces
+## Projects, plugins, SDK, and product surfaces
 
-The architecture now has design contracts for:
+The first runtime foundations now exist for:
 
-- renderer-independent project/study state;
-- model/result/view/presentation invalidation;
-- external resource/data ingestion;
-- a curated future `spectra.sdk`;
-- third-party plugin packaging/discovery;
-- API/schema compatibility;
-- structured diagnostics;
-- remote/HPC execution;
-- trust/security boundaries.
+- renderer-independent project documents/state;
+- curated `spectra.sdk` facade;
+- plugin descriptors/registry/catalog composition;
+- API/schema compatibility foundations;
+- reuse of existing numerical/reproducibility artifacts.
 
-These are design contracts until their runtime milestones are implemented and verified.
+These are verified foundation layers, not yet a complete plugin marketplace, collaboration server, remote/HPC product, or polished standalone application.
 
-A `.blend` file may be a useful derived renderer artifact, but the long-term scientific source of truth should be a Spectra project/semantic model independent from Blender.
+A `.blend` file remains a derived renderer artifact rather than the long-term scientific source of truth.
 
 ## Scene documents
 
 Current Scene schema:
 
 ```text
-spectra.scene v4
+spectra.scene v5
 ```
 
-Readers retain compatibility with versions 1–3. Schema changes must remain deliberate and backward compatibility must not be silently broken.
+Scene v5 adds generic visual attributes. Readers retain compatibility with earlier supported Scene versions according to the serialization contract. Schema changes must remain deliberate and backward compatibility must not be silently broken.
 
 ## Backends
 
@@ -363,54 +367,66 @@ VectorGlyphSet -> one Blender Curve representation
 
 `BlenderTimelineController` maps Blender transport frames to Spectra engine time while Spectra remains the source of timeline semantics.
 
-## Verified baseline
+## Current verified baseline
 
-The last completed local/native validation milestone is commit:
+The current fully reported local/native validation milestone is:
 
 ```text
-acb9e056326177fac49cc57b202ca80cca5090a7
+b9ca6b017cac83f45cc3864a88e219c848c12fc8
 ```
 
 Results:
 
 ```text
 compileall spectra: PASS
-pytest:             224 passed
-DomainCatalog:      PASS
-Blender 5.2 LTS:    native smoke PASS
+pytest:             276 passed
+initial failures:   0
+DomainCatalog:      PASS — 119 domains / 467 providers
+numerical/provenance/solver registry: PASS
+presentation / Scene v5 / VisualAttribute: PASS
+SDK / plugin / project layers: PASS
+native CPU RK4 provider: PASS
+Blender 5.2 LTS targeted smoke: PASS
+repo: clean and synchronized
 ```
 
-Native Blender validation included:
+Targeted Blender validation included:
 
-- static curve/surface/material/light/camera creation;
-- animated wave geometry updates;
+- static scene mapping;
+- animated wave geometry;
 - animated E/B `VectorGlyphSet` updates;
 - stable Blender object/datablock identity;
-- topology fallback;
-- cleanup/orphan checks;
-- 10k batched PointCloud/VectorGlyphSet behavior;
-- 121-frame leak test.
+- 10k batched `PointCloud` and `VectorGlyphSet` behavior;
+- one native representation per dense batch rather than 10k Blender objects;
+- 100-frame leak test;
+- cleanup/orphan checks.
 
-Example native PointCloud reference measurements from that machine:
+Reported reference measurement from that validation run:
 
 ```text
-10k create: ~199 ms
-10k update: ~96–97 ms
+create:          ~170.49 ms
+combined update: ~89.95 ms
 ```
 
-These are Blender/Python-backend reference numbers, not GPU-solver benchmarks.
-
-## Current post-baseline batch
-
-`main` has moved substantially beyond the verified 224-test baseline with solver interchangeability, policies, adaptive RK45, experiments, reproducibility, artifacts, tracing, and related refactors.
-
-**Do not claim the current `main` head is green until the next full local validation is run.**
-
-GPU/native numerical-provider implementation has not yet been validated or promoted.
-
-Documentation/specification work after the runtime batch does not itself require Blender/GPU validation and should be interpreted according to `docs/CAPABILITY_MATURITY_MODEL.md`.
+These are commit/machine/run-specific Blender backend reference numbers, not GPU numerical benchmarks.
 
 GitHub Actions remains intentionally absent. Do not recreate it unless explicitly requested.
+
+## Still not production-grade
+
+The verified architecture should not be confused with industrial completeness.
+
+Examples still outside current production scope include:
+
+- industrial CFD/RANS/LES/AMR and very large production meshes;
+- full FEM/contact/plasticity/fracture/shell/beam workflows;
+- production RF/FDTD/PML/dispersive-material workflows;
+- quantum chemistry/DFT/many-body solvers;
+- real GPU numerical provider/device-resident PDE execution;
+- complete premium volume/screen-space scientific presentation;
+- mature external plugin marketplace/distribution;
+- collaborative project server and remote/HPC product runtime;
+- standalone/WebGPU production UI.
 
 ## Forbidden regressions
 
@@ -439,29 +455,35 @@ Do not:
 
 ## Near-term roadmap
 
-After the current post-baseline numerical/experiment batch is validated, the highest-value product sequence is:
+Further work should branch from the `b9ca6b0...` verified baseline in bounded checkpoints.
+
+High-value presentation/render track:
 
 ```text
-1. renderer-neutral presentation semantics
-2. presentation composer
-3. quantitative color scales + legends
-4. five canonical premium scientific scenes
-5. Blender premium presentation adapter
-6. dense/Geometry Nodes presentation optimizations
-7. curated public SDK
-8. external plugin discovery
-9. renderer-independent project format
+1. richer quantitative color/legend runtime
+2. Blender visual-attribute/material realization
+3. canonical premium scientific showcase scenes
+4. dense/Geometry Nodes optimization where measured evidence requires it
+5. richer layout/annotation/volume presentation
 ```
 
-A parallel numerical-performance track can then proceed through:
+Numerical-performance track:
 
 ```text
-1. native CPU first-order provider
-2. typed numerical buffers
-3. batched native execution
-4. GPU batched ODE/grid operators
-5. increasingly device-resident PDE pipelines
-6. remote/HPC execution for larger workloads
+1. move beyond the native-provider proof to real native execution where useful
+2. typed numerical buffers and batching
+3. GPU provider and batched ODE/grid operators
+4. increasingly device-resident PDE pipelines
+5. remote/HPC execution for larger workloads
+```
+
+Product track:
+
+```text
+1. strengthen SDK/plugin/project contracts from real usage
+2. headless/CLI/export workflows
+3. standalone/WebGPU product surface
+4. later collaboration/remote worker integration
 ```
 
 Performance work follows numerical parity first, speed second. Product milestones and exit criteria are detailed in `docs/PRODUCT_MILESTONES.md`.
@@ -473,7 +495,7 @@ A new scientific idea should usually require:
 - new semantics or composition of existing semantics;
 - reuse of existing computation capabilities;
 - an existing or interchangeable numerical execution role;
-- compilation into generic visual primitives;
+- compilation into generic visual primitives/attributes;
 - optional reusable presentation policy;
 - tests;
 
