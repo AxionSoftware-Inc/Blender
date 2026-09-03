@@ -9,13 +9,33 @@ This directory records architectural contracts, validated backend behavior, curr
 For a new contributor/agent, read in this order:
 
 1. `../README.md`
-2. `DOMAIN_SYSTEM.md`
-3. `DOMAIN_CATALOG.md`
-4. `SOLVERS_AND_EXPERIMENTS.md`
-5. `PREMIUM_PRESENTATION_SYSTEM.md`
-6. `PRODUCT_WORKFLOWS.md`
-7. `POST_VALIDATION_IMPLEMENTATION_PLAN.md`
-8. the subsystem-specific documents relevant to the task.
+2. `SYSTEM_ARCHITECTURE_MAP.md`
+3. `DOMAIN_SYSTEM.md`
+4. `DOMAIN_CATALOG.md`
+5. `SOLVERS_AND_EXPERIMENTS.md`
+6. `PREMIUM_PRESENTATION_SYSTEM.md`
+7. `PRODUCT_WORKFLOWS.md`
+8. `PRODUCT_MILESTONES.md`
+9. `POST_VALIDATION_IMPLEMENTATION_PLAN.md`
+10. the subsystem-specific documents relevant to the task.
+
+## Platform map and policy
+
+### `SYSTEM_ARCHITECTURE_MAP.md`
+
+Compact map of authoring, project state, domain/capability graph, numerical execution, scientific results, visualization, presentation, renderer backends, product/export surfaces, and cross-cutting systems.
+
+### `PRODUCT_MILESTONES.md`
+
+Product-level milestones and exit criteria from semantic-engine foundation through numerical platform, premium presentation, SDK/plugins/project format, native/GPU/remote execution, and standalone/WebGPU product.
+
+### `CAPABILITY_MATURITY_MODEL.md`
+
+Shared maturity and verification vocabulary distinguishing design, prototype, reference, experimental, beta, production, targeted/full/native/stress validation, and scientific-model scope.
+
+### `DIAGNOSTICS_AND_ERRORS.md`
+
+Structured validation/capability/numerical/plugin/presentation/backend diagnostics, severity, solver-selection rejection reasons, failure preservation, and user-vs-developer detail rules.
 
 ## Engine and domain architecture
 
@@ -55,19 +75,19 @@ Public/internal API classes, capability/domain/solver identity stability, deprec
 
 Persistent schema identifiers, backward-read/migration rules, units/coordinates/IDs, project/Scene/experiment compatibility, plugin payloads, caches, and historical fixtures.
 
-### `CAPABILITY_MATURITY_MODEL.md`
+### `TRUST_AND_SECURITY_MODEL.md`
 
-Shared maturity and verification vocabulary distinguishing design, prototype, reference, experimental, beta, production, targeted/full/native/stress validation, and scientific-model scope.
-
-### `DIAGNOSTICS_AND_ERRORS.md`
-
-Structured validation/capability/numerical/plugin/presentation/backend diagnostics, severity, solver-selection rejection reasons, failure preservation, and user-vs-developer detail rules.
+Trust zones for built-ins, third-party plugins, native providers, project/data files, remote resources/workers, Blender integration, expressions, secrets, and AI-generated code.
 
 ## Product and project model
 
 ### `PRODUCT_WORKFLOWS.md`
 
 How Blender UI, standalone clients, CLI/headless workers, WebGPU, Python, and AI authoring should orchestrate the same semantic/numerical/project/presentation engine.
+
+### `UI_INFORMATION_ARCHITECTURE.md`
+
+Recommended product organization around Project, Model, Solve, Results, View, Presentation, Experiments, Resources, Diagnostics, and Export—without making UI/native renderer state authoritative.
 
 ### `PROJECT_STATE_MODEL.md`
 
@@ -76,6 +96,22 @@ Conceptual project lifecycle, dirty/invalidation states, model/result/view/prese
 ### `PROJECT_DOCUMENT_MODEL.md`
 
 Future renderer-independent persistent project/study envelope for scientific models, solver policies, experiment artifacts, presentation variants, Scene caches, and external data resources.
+
+### `DATA_INGESTION_AND_RESOURCES.md`
+
+External scientific data/resource pipeline, format adapters, units, coordinates, structured/unstructured grids, point clouds, time series, lazy/remote resources, caching, provenance, and import security.
+
+### `HEADLESS_API_AND_CLI.md`
+
+Headless Python/CLI orchestration for validate/solve/experiment/view/present/export/inspect/plugin/doctor workflows without requiring Blender.
+
+### `EXPORT_AND_REPORTING.md`
+
+Scientific data, Scene, renderer-native, image/video, report, experiment, project-archive, sidecar metadata, and provenance-aware export architecture.
+
+### `REMOTE_EXECUTION_AND_WORKERS.md`
+
+Remote/HPC worker contract, execution requests, capability negotiation, job lifecycle, resource staging, stale-result protection, distributed experiments, and local/remote semantic symmetry.
 
 ### `POST_VALIDATION_IMPLEMENTATION_PLAN.md`
 
@@ -106,6 +142,10 @@ Parity, convergence, performance, transfer, memory, and promotion criteria for h
 ### `CANONICAL_REFERENCE_CASES.md`
 
 Shared analytical/numerical/visual/performance reference cases for ODE/PDE/math/physics, experiments, native/GPU parity, Blender/WebGPU validation, and performance reporting.
+
+### `PERFORMANCE_BUDGETS.md`
+
+Performance workload classes, latency/throughput separation, numerical/render/project/remote budgets, memory/history/caching considerations, and benchmark reporting boundaries.
 
 ### `HIGH_PERFORMANCE_ROADMAP.md`
 
@@ -165,7 +205,7 @@ Some documents describe code already present on `main` but not yet included in t
 
 ### Design contract / future direction
 
-Files such as native/GPU buffer design, premium presentation runtime phases, external plugin entry-point discovery, public SDK facade, visual design system, project document model, and project state model may describe architecture that is intentionally specified before implementation.
+Files such as native/GPU buffer design, premium presentation runtime phases, external plugin entry-point discovery, public SDK facade, visual design system, project document model, project state model, remote worker contract, and UI/headless/export architecture may describe architecture intentionally specified before implementation.
 
 Do not report a design contract as implemented runtime functionality.
 
