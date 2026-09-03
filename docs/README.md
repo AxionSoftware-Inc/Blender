@@ -117,6 +117,14 @@ Future semantic revision/collaboration model, merge/conflict classes, shared-vs-
 
 Future renderer-independent persistent project/study envelope for scientific models, solver policies, experiment artifacts, presentation variants, Scene caches, and external data resources.
 
+### `TEMPLATE_SYSTEM.md`
+
+Versioned scientific/project/experiment/presentation/workflow templates with explicit assumptions, parameters, solver policies, views, presets, plugin integration, and AI/template-selection rules.
+
+### `CACHE_AND_ARTIFACT_STORAGE.md`
+
+Durable project/result/experiment artifacts versus derived scientific, Scene, presentation, renderer, resource, and execution caches; fingerprints, invalidation, chunking, large-array storage, quotas, and remote artifact publication.
+
 ### `DATA_INGESTION_AND_RESOURCES.md`
 
 External scientific data/resource pipeline, format adapters, units, coordinates, structured/unstructured grids, point clouds, time series, lazy/remote resources, caching, provenance, and import security.
@@ -170,6 +178,10 @@ Shared analytical/numerical/visual/performance reference cases for ODE/PDE/math/
 ### `PERFORMANCE_BUDGETS.md`
 
 Performance workload classes, latency/throughput separation, numerical/render/project/remote budgets, memory/history/caching considerations, and benchmark reporting boundaries.
+
+### `OBSERVABILITY_AND_PROFILING.md`
+
+Layered timing/resource/cache/copy/renderer/remote observability, profiling modes, correlation IDs, structured traces, performance inspector concepts, and benchmark integration.
 
 ### `HIGH_PERFORMANCE_ROADMAP.md`
 
@@ -229,7 +241,7 @@ Some documents describe code already present on `main` but not yet included in t
 
 ### Design contract / future direction
 
-Files such as native/GPU buffer design, premium presentation runtime phases, external plugin entry-point discovery, public SDK facade, semantic metadata, project/document/collaboration models, remote worker contract, AI authoring, and UI/headless/export architecture may describe architecture intentionally specified before implementation.
+Files such as native/GPU buffer design, premium presentation runtime phases, external plugin entry-point discovery, public SDK facade, semantic metadata, project/template/cache/collaboration models, remote worker contract, AI authoring, and UI/headless/export architecture may describe architecture intentionally specified before implementation.
 
 Do not report a design contract as implemented runtime functionality.
 
