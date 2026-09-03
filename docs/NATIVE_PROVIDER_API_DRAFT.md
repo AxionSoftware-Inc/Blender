@@ -2,134 +2,271 @@
 
 Status: **design draft, not implemented runtime**.
 
-This document converts the native/GPU execution architecture into a concrete Python-facing provider API shape. It is intentionally designed around the existing numerical-role model so scientific domains remain unchanged.
+This document converts the native/GPU execution architecture into a concrete provider shape using the **existing** numerical runtime.
+
+## Source-of-truth result
+
+Current runtime already provides the important abstractions:
+
+```text
+NumericalMethodDescriptor
+NumericalPipelineDescriptor
+NumericalExecutionDescriptor
+NumericalSolverRequirements
+NumericalSolverPolicy
+NumericalSolverImplementation
+NumericalSolverRegistry
+DomainRegistry.register_numerical_solver(...)
+problem compatibility predicate
+policy/select/resolve
+transactional DomainRegistry rollback
+tracked NumericalRunRecord
+```
+
+Therefore a native provider does **not** need:
+
+```text
+another solver registry
+another solver-selection system
+another provenance system
+another provider transaction model
+```
+
+It should plug into the existing role runtime.
 
 ## Goal
-
-A native CPU/GPU provider should register another implementation of an existing numerical role:
 
 ```text
 scientific domain
    -> ode.solve_first_order
    -> NumericalSolverRegistry
    -> rk4.reference / heun.reference / rk45.reference
-   -> future rk4.native_cpu / rk45.native_cpu / cuda.*
+   -> rk4.native_cpu / future gpu implementations
 ```
 
-The provider must change execution technology, not scientific meaning.
+Execution technology changes; scientific APIs do not.
 
 ## First provider target
 
-The recommended first implementation after the numerical-runtime validation is:
+Recommended first implementation after the pending runtime validation:
 
 ```text
 role: ode.first_order
-implementation: rk4.native_cpu
+implementation_id: rk4.native_cpu
+execution kind: cpu
+precision: float64
+adaptive: false
+order: 4
+reference implementation: false
 ```
 
-Do not start with GPU, CFD, or a multiphysics solver.
+Do not start with GPU/CFD/multiphysics.
 
-Why:
+## Exact current registration path
 
-- simple reference parity target;
-- formal order is known;
-- many higher-level domains already consume the role;
-- proves ABI/buffer/provider/provenance path;
-- does not require GPU availability.
-
-## Provider descriptor
-
-Suggested immutable metadata:
-
-```python
-@dataclass(frozen=True)
-class NativeProviderDescriptor:
-    provider_id: str
-    version: str
-    execution_kind: str       # cpu | gpu | external
-    device_api: str | None    # native | cuda | metal | vulkan | webgpu | remote
-    precision: tuple[str, ...]
-    roles: tuple[str, ...]
-    tags: tuple[str, ...] = ()
-    reference_compatible: bool = True
-```
-
-This describes the provider package/library, not one solver method.
-
-## Solver implementation registration
-
-Use the existing numerical registry model.
-
-Conceptual adapter:
-
-```python
-@dataclass(frozen=True)
-class NativeSolverBinding:
-    role: str
-    implementation_id: str
-    method: NumericalMethodDescriptor
-    execution: NumericalExecutionDescriptor
-    solver: Callable[..., object]
-    supports_problem: Callable[[object], bool] | None = None
-    priority: int = 0
-    tags: tuple[str, ...] = ()
-```
-
-Registration remains conceptually:
+Use current `DomainRegistry.register_numerical_solver(...)` directly:
 
 ```python
 registry.register_numerical_solver(
-    role=binding.role,
-    implementation_id=binding.implementation_id,
-    solver=binding.solver,
-    method=binding.method,
-    execution=binding.execution,
-    supports_problem=binding.supports_problem,
-    priority=binding.priority,
-    tags=binding.tags,
+    role="ode.first_order",
+    implementation_id="rk4.native_cpu",
+    solver=solve_native_rk4,
+    method=NumericalMethodDescriptor(
+        method_id="rk4.fixed.native_cpu",
+        family="runge_kutta",
+        implementation="native_cpu",
+        order=4,
+        adaptive=False,
+        reference_implementation=False,
+    ),
+    execution=NumericalExecutionDescriptor(
+        kind="cpu",
+        backend="native_cpu",
+        precision="float64",
+        supports_in_place=False,
+        batched=False,
+    ),
+    supports_problem=supports_native_problem,
+    priority=..., 
+    tags=("native", "cpu"),
 )
 ```
 
-Do not create a separate `NativeSolverRegistry`.
+Current `DomainRegistry` automatically records the active provider domain into `NumericalSolverImplementation.provider_domain`.
+
+Therefore do not duplicate provider-domain metadata in another binding structure.
 
 ## Provider domain
 
-A native provider should normally be exposed through an ordinary domain/plugin module:
+Expose the implementation through an ordinary domain:
 
 ```python
 class NativeCpuOdeDomain:
     name = "numerics.native_cpu.ode"
     version = "1"
-    dependencies = (...)
+    dependencies = (
+        DomainDependency("ode.first_order_system"),
+    )
 
     def register(self, registry: DomainRegistry) -> None:
-        ... register numerical implementation ...
-        registry.provide("ode.first_order.rk4_native_cpu", marker_or_descriptor, version=1)
+        registry.register_numerical_solver(...)
+        registry.provide(
+            "ode.first_order.rk4_native_cpu",
+            registry.numerical_solvers.implementation(
+                "ode.first_order",
+                "rk4.native_cpu",
+            ),
+            version=1,
+        )
 ```
 
-This allows capability-driven loading and plugin packaging to reuse the same domain/catalog architecture.
+Exact marker capability may be adjusted, but capability-driven provider loading should reuse normal DomainCatalog behavior.
+
+## Existing solver selection already supports native providers
+
+Current runtime can already filter/select by:
+
+```text
+execution kind: python/cpu/gpu/external
+precision
+minimum order
+adaptive/fixed
+reference allowed/disallowed
+tags
+priority
+problem predicate
+ordered policy rules
+fallback to default
+```
+
+A native provider only needs correct metadata and compatibility rules.
+
+## Problem compatibility
+
+Current `NumericalSolverImplementation.accepts_problem(...)` already invokes an optional predicate.
+
+Use it to express native limitations explicitly.
+
+Example:
+
+```python
+def supports_native_problem(problem: FirstOrderODEProblem) -> bool:
+    return (
+        problem.state_size <= MAX_STATE_SIZE
+        and problem.supports_plain_real_state
+    )
+```
+
+Do not make a high-priority provider appear universally compatible if it is not.
+
+## Precision
+
+Current `NumericalExecutionDescriptor.precision` and `NumericalSolverRequirements.precisions` already support explicit selection.
+
+Therefore:
+
+```text
+float64 requested
++ provider only float32
+```
+
+must result in provider rejection/fallback, not silent downcast.
+
+## Execution metadata
+
+Current `NumericalExecutionDescriptor` already contains:
+
+```text
+kind
+backend
+precision
+device
+supports_in_place
+batched
+```
+
+Use these fields before introducing another provider execution descriptor.
+
+Example later GPU implementation:
+
+```python
+NumericalExecutionDescriptor(
+    kind="gpu",
+    backend="cuda",
+    precision="float32",
+    device="cuda:0",
+    supports_in_place=True,
+    batched=True,
+)
+```
+
+Device identity may need more durable provenance conventions later; do not serialize process pointers/handles.
+
+## Provenance
+
+Current `NumericalRunRecord` already supports:
+
+```text
+method/pipeline
+start/end time
+accepted/current steps
+requested_steps
+state_size
+solver_role
+implementation_id
+execution_kind
+backend
+precision
+```
+
+Native tracked solve should populate these same fields.
+
+Provider package/library version may be added as a run tag or environment snapshot metadata initially rather than redesigning `NumericalRunRecord` immediately.
 
 ## ABI boundary
 
-Python semantic objects should not be the long-term native ABI.
+The remaining real design problem is not solver selection. It is the Python↔native execution boundary.
 
-For the first provider, keep the bridge narrow:
+First provider bridge:
 
 ```text
 FirstOrderODEProblem
     ↓ validate/pack
-contiguous state buffer + time interval + parameters
-    ↓ native call
+contiguous y0 + time interval + steps
+    ↓ native RK4 call
 contiguous times/states
     ↓ materialize
 ODESolution
 ```
 
-The native library should not know about Blender, Scene, DomainRegistry, project files, or presentation.
+Native library should know nothing about:
 
-## Draft low-level call shape
+```text
+DomainRegistry
+Scene
+Blender
+PresentationIntent
+ProjectDocument
+```
 
-For a C ABI, a simple first shape could be conceptually:
+## Callback warning
+
+A generic first-order ODE problem currently carries Python-callable RHS semantics.
+
+If native RK4 calls back into Python for every RHS evaluation, native loop speedup may be small or negative.
+
+Therefore P1 should measure two things separately:
+
+```text
+native loop overhead with Python callback
+pure native compiled/simple RHS proof
+```
+
+Do not claim native acceleration based only on kernel timing that ignores callback/marshaling cost.
+
+## Draft low-level C ABI
+
+Illustrative only:
 
 ```c
 int spectra_ode_rk4_f64(
@@ -145,49 +282,45 @@ int spectra_ode_rk4_f64(
 );
 ```
 
-This is illustrative, not a frozen ABI.
+Before freezing ABI, prove:
 
-The first implementation should prove:
-
-- ownership rules;
-- error propagation;
-- callback cost;
-- parity;
-- packaging.
-
-If Python callback overhead dominates, later native problem compilation/batched RHS contracts can evolve without changing the scientific role.
+- ownership;
+- callback behavior;
+- error mapping;
+- GIL behavior;
+- state layout;
+- batching needs.
 
 ## Memory ownership
 
 Rules:
 
-- Python owns semantic input objects;
-- bridge owns temporary packed host buffers unless an explicit zero-copy contract applies;
-- native solver must not retain pointers after return unless lifecycle explicitly supports it;
-- returned native memory must have one clear owner/release function;
-- exceptions must not cross C ABI boundaries;
-- GPU device pointers must never be serialized into project/result artifacts.
+- semantic Python object owned by engine/caller;
+- temporary packed host buffer owned by bridge;
+- native call cannot retain borrowed pointer after return unless lifecycle says so;
+- output memory has one explicit owner;
+- C ABI exceptions never cross language boundary;
+- GPU pointers never become persistent project artifact fields.
 
-## Buffer descriptor direction
+## Buffer abstraction
 
-A later generic buffer runtime may use:
+Do not introduce a general `NumericalBuffer` runtime before P1 proves what is actually required.
 
-```python
-@dataclass(frozen=True)
-class NumericalBufferView:
-    dtype: str
-    shape: tuple[int, ...]
-    strides: tuple[int, ...] | None
-    memory_space: str      # host | pinned_host | device
-    device: str | None
-    readonly: bool
+After P1/P2, promote evidence-backed concepts from `NUMERICAL_BUFFERS.md`, likely:
+
+```text
+dtype
+shape
+memory space
+ownership
+host/device identity
 ```
 
-Do not force this abstraction into all Python reference solvers before the first native provider demonstrates the actual need.
+Python reference solvers do not need to be rewritten through that buffer API immediately.
 
-## Error contract
+## Native errors
 
-Native provider errors should map to structured classes/categories:
+Map native failures into distinguishable categories:
 
 ```text
 provider_unavailable
@@ -195,184 +328,107 @@ unsupported_problem
 invalid_buffer
 precision_unavailable
 native_execution_failed
-device_lost
 out_of_memory
 non_finite_result
 cancelled
 ```
 
-A provider crash must not be misreported as a scientific validation failure.
+Do not misreport an ABI/device/provider failure as invalid physics.
 
-For in-process native libraries, hard crashes cannot be fully isolated; that risk belongs to plugin/provider trust policy.
+## GIL/threading
 
-## Problem compatibility
+If the native loop does not call Python RHS callbacks, a CPython extension may release the GIL during computation.
 
-Native implementations may support only subsets.
+If it does call Python, callback synchronization cost must be measured.
 
-Example:
+Benchmark reports should include thread count and backend/device metadata where relevant.
 
-```python
-def supports_problem(problem: FirstOrderODEProblem) -> bool:
-    return (
-        problem.state_size <= MAX_STATE
-        and problem.is_real
-        and not problem.requires_python_side_effects
-    )
-```
+## Determinism/parity
 
-Solver selection already needs to respect this predicate.
+Required claim is numerical parity within tolerance, not cross-platform bitwise identity unless explicitly promised.
 
-Do not select a GPU/native solver solely because its priority is high.
-
-## Precision
-
-A provider must declare supported precision explicitly.
-
-Examples:
+Separate:
 
 ```text
-float64
-float32
-complex128
-complex64
+method semantics
+floating-point tolerance
+bitwise reproducibility
 ```
 
-Never silently execute a float64 request as float32.
+## Validation matrix for `rk4.native_cpu`
 
-If precision is unavailable, selection should reject the implementation and continue fallback policy where allowed.
-
-## Provenance
-
-Tracked execution must record at least:
-
-```text
-solver role
-implementation ID
-method ID
-provider ID/version
-execution kind
-device API/device identity where appropriate
-precision
-requested steps/tolerance
-accepted steps where meaningful
-```
-
-Project/experiment artifacts should store durable identifiers and metadata, not process pointers.
-
-## Cancellation
-
-First native CPU provider may omit cooperative cancellation if the call is short, but API design should not preclude it.
-
-Long-running native/GPU/remote providers should eventually accept a cancellation token or callback.
-
-Cancellation must return a distinct status, not a corrupted partial success.
-
-## Threading
-
-Do not assume the Python GIL must remain held during pure native computation.
-
-A CPython extension/provider may release the GIL while executing native loops if callbacks into Python are not occurring.
-
-Record thread count/environment in benchmark reports where it affects results.
-
-## Determinism
-
-Reference parity should distinguish:
-
-- deterministic method semantics;
-- floating-point reproducibility;
-- cross-device bitwise identity.
-
-Native/GPU providers need numerical tolerance parity, not necessarily bit-for-bit equality across architectures unless explicitly claimed.
-
-## First provider package layout
-
-Possible built-in development layout:
-
-```text
-native/
-  ode_cpu/
-    CMakeLists.txt
-    include/
-    src/
-
-spectra/providers/
-  native_cpu/
-    __init__.py
-    ode.py
-    domain.py
-```
-
-Exact layout is not yet frozen.
-
-If externalized, use the plugin model instead of hardwiring vendor/provider code into Core.
-
-## Validation matrix for rk4.native_cpu
-
-Must pass before becoming preferred:
+Before preferred/default eligibility:
 
 1. scalar exponential ODE parity;
 2. harmonic oscillator parity;
 3. multi-state linear system parity;
-4. RK4 observed convergence order ~4;
-5. non-finite RHS handling;
-6. invalid state length handling;
-7. deterministic repeated run within tolerance;
-8. tracked provenance correctness;
-9. solver policy explicit selection;
-10. high-level mechanics or PDE uses native provider without domain code changes.
+4. observed RK4 convergence order ~4;
+5. invalid state/RHS handling;
+6. non-finite output handling;
+7. repeated-run tolerance consistency;
+8. `NumericalExecutionDescriptor` correct;
+9. tracked `NumericalRunRecord` correct;
+10. explicit requirement selects native CPU;
+11. fallback selects reference when native problem predicate rejects;
+12. high-level mechanics uses native solver without mechanics source changes;
+13. one PDE method-of-lines case routes through native role without PDE source changes.
 
 ## Performance reporting
 
 Report separately:
 
 ```text
-pack/validation time
-native solve time
-materialization time
-total API time
+semantic validation/pack
+Python->native transition
+native compute
+native->Python materialization
+total solve API
 ```
 
-Otherwise a fast kernel with expensive Python↔native marshaling can look misleading.
-
-For batch workloads report:
+For batch providers later:
 
 ```text
 cases/sec
 state elements/sec
-latency per batch
+batch latency
+transfer bytes/time
 ```
 
 ## GPU evolution
 
-Once native CPU provider proves the contract:
+After native CPU proves the role boundary:
 
 ```text
-native CPU ODE
-  -> typed contiguous buffers
-  -> batched ODE API
-  -> GPU batch provider
-  -> GPU grid operators
-  -> device-resident PDE pipeline
+rk4.native_cpu
+   ↓
+batched native CPU or adaptive native
+   ↓
+evidence-backed buffer contract
+   ↓
+GPU batched ODE
+   ↓
+GPU grid operators
+   ↓
+device-resident PDE pipelines
 ```
 
-GPU provider should reuse the same role/selection/provenance interfaces.
+GPU implementations register through the exact same `NumericalSolverRegistry` model.
 
-## Scientific-domain invariance test
+## Strong architectural regression
 
-The strongest architectural regression is:
+This is the most important test:
 
 ```text
-load high-level PDE/mechanics domain
-solve using reference default
-register/select native provider
-solve same semantic problem
-assert domain source/API unchanged
-compare result within tolerance
+same semantic mechanics/PDE problem
+    -> solve with reference provider
+    -> register/select native provider
+    -> solve again
+    -> no domain source/API change
+    -> compare results within tolerance
 ```
 
-If enabling native execution requires editing Maxwell/heat/chemistry/mechanics implementations, the provider boundary has failed.
+If native execution requires editing heat/Maxwell/chemistry/mechanics formulas, the role boundary failed.
 
 ## Success criterion
 
-The first native CPU provider should be removable from the environment with no change to scientific domain APIs; the engine should simply fall back to reference implementations through the same solver role.
+The native provider can be installed, selected, benchmarked, and removed while the scientific domain graph remains unchanged. Removing it simply lets existing solver policy/defaults fall back to reference implementations.
