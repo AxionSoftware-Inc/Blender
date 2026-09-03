@@ -179,7 +179,7 @@ class ResolvedPresentation:
     lighting: LightingPolicy
     animation: AnimationPolicy
     quality: QualityPolicy
-    color_scale: ColorScalePolicy
+    color_scale: ColorScalePolicy = ColorScalePolicy()
 
 
 _PRESETS = {"analysis", "publication", "presentation", "cinematic", "dark_lab"}
