@@ -6,6 +6,7 @@ setup(
         Extension(
             "spectra._native_cpu",
             sources=["native/spectra_native_cpu.c"],
+            optional=True,
         )
     ]
 )
