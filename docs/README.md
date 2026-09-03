@@ -31,6 +31,10 @@ Automatic built-in domain discovery, probe registration, capability ownership, d
 
 How built-in and third-party scientific modules should define semantics, dependencies, capabilities, views, numerical providers, and tests.
 
+### `SAMPLE_EXTENSION_PACKAGE.md`
+
+Concrete third-party package blueprint using geometric optics to demonstrate package layout, domain capabilities, units, explicit views, presentation hints, diagnostics, experiment reuse, plugin lifecycle, and testing expectations.
+
 ### `NAMING_CONVENTIONS.md`
 
 Naming rules for domains, capabilities, solver roles/implementations, method IDs, views, presentation resources, metrics, plugins, and backend identifiers.
@@ -48,6 +52,10 @@ Future external package/entry-point discovery model, plugin compatibility, enabl
 ### `PRODUCT_WORKFLOWS.md`
 
 How Blender UI, standalone clients, CLI/headless workers, WebGPU, Python, and AI authoring should orchestrate the same semantic/numerical/project/presentation engine.
+
+### `PROJECT_STATE_MODEL.md`
+
+Conceptual project lifecycle, dirty/invalidation states, model/result/view/presentation/renderer separation, caching, stale-result handling, local/remote execution, and product-level state transitions.
 
 ### `PROJECT_DOCUMENT_MODEL.md`
 
@@ -79,6 +87,10 @@ Typed execution-buffer and data-layout design for native/GPU implementations.
 
 Parity, convergence, performance, transfer, memory, and promotion criteria for high-performance numerical providers.
 
+### `CANONICAL_REFERENCE_CASES.md`
+
+Shared analytical/numerical/visual/performance reference cases for ODE/PDE/math/physics, experiments, native/GPU parity, Blender/WebGPU validation, and performance reporting.
+
 ### `HIGH_PERFORMANCE_ROADMAP.md`
 
 Incremental path from Python reference solvers to native CPU, batched execution, GPU grid operators, and device-resident pipelines.
@@ -89,9 +101,21 @@ Incremental path from Python reference solvers to native CPU, batched execution,
 
 Renderer-neutral presentation intent: presets, camera, color scales, legends, axes, annotations, lighting, animation grammar, accessibility, quality policy, data decimation, and backend capability negotiation.
 
+### `VISUAL_DESIGN_SYSTEM.md`
+
+Shared product visual language for scientific hierarchy, typography roles, spacing, color semantics, geometry/material/lighting language, camera composition, multi-panel comparison, animation character, preset consistency, and accessibility.
+
+### `PRESENTATION_RESOURCE_NAMESPACE.md`
+
+Deterministic IDs, namespaces, ownership metadata, incremental update rules, preset switching, and cleanup behavior for cameras, lights, legends, axes, annotations, materials, and presentation tracks.
+
 ### `BLENDER_PREMIUM_PRESENTATION.md`
 
 How Blender may realize premium presentation intent through native materials, lights, camera, attributes, Geometry Nodes, compositor, ownership, and incremental updates.
+
+### `BLENDER_PREMIUM_ACCEPTANCE.md`
+
+Acceptance gates for premium Blender presentation: architecture boundaries, ownership/cleanup, incremental identity, color integrity, framing, lighting, dense batching, animation, canonical scenes, preset switching, save/reload, performance, and visual review.
 
 ### `BLENDER_BACKEND.md`
 
@@ -125,7 +149,7 @@ Some documents describe code already present on `main` but not yet included in t
 
 ### Design contract / future direction
 
-Files such as native/GPU buffer design, premium presentation runtime phases, external plugin entry-point discovery, public SDK facade, and project document model may describe architecture that is intentionally specified before implementation.
+Files such as native/GPU buffer design, premium presentation runtime phases, external plugin entry-point discovery, public SDK facade, visual design system, project document model, and project state model may describe architecture that is intentionally specified before implementation.
 
 Do not report a design contract as implemented runtime functionality.
 
