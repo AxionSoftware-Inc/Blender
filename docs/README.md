@@ -47,6 +47,22 @@ Design for a curated future `spectra.sdk` import surface so external extensions 
 
 Future external package/entry-point discovery model, plugin compatibility, enable/disable, provider conflicts, native plugin lifecycle, and trust boundary.
 
+### `API_STABILITY_POLICY.md`
+
+Public/internal API classes, capability/domain/solver identity stability, deprecation lifecycle, plugin compatibility, source-vs-data compatibility, and native ABI evolution rules.
+
+### `SCHEMA_VERSIONING_POLICY.md`
+
+Persistent schema identifiers, backward-read/migration rules, units/coordinates/IDs, project/Scene/experiment compatibility, plugin payloads, caches, and historical fixtures.
+
+### `CAPABILITY_MATURITY_MODEL.md`
+
+Shared maturity and verification vocabulary distinguishing design, prototype, reference, experimental, beta, production, targeted/full/native/stress validation, and scientific-model scope.
+
+### `DIAGNOSTICS_AND_ERRORS.md`
+
+Structured validation/capability/numerical/plugin/presentation/backend diagnostics, severity, solver-selection rejection reasons, failure preservation, and user-vs-developer detail rules.
+
 ## Product and project model
 
 ### `PRODUCT_WORKFLOWS.md`
