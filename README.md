@@ -12,18 +12,18 @@ legacy/pre-semantic-core-2026-08-30
 
 ## Read first
 
-Architecture and extension documents:
+Start with the documentation index:
 
+- `docs/README.md`
+- `docs/SYSTEM_ARCHITECTURE_MAP.md`
 - `docs/DOMAIN_SYSTEM.md`
 - `docs/DOMAIN_CATALOG.md`
-- `docs/GEOMETRY_RELATIVITY_PDE.md`
-- `docs/MULTIPHYSICS_3D.md`
-- `docs/BLENDER_BACKEND.md`
 - `docs/SOLVERS_AND_EXPERIMENTS.md`
-- `docs/NUMERICAL_PROVENANCE.md`
-- `docs/NATIVE_NUMERICAL_BACKENDS.md`
-- `docs/NUMERICAL_BUFFERS.md`
-- `docs/NUMERICAL_BACKEND_VALIDATION.md`
+- `docs/PREMIUM_PRESENTATION_SYSTEM.md`
+- `docs/PRODUCT_WORKFLOWS.md`
+- `docs/POST_VALIDATION_IMPLEMENTATION_PLAN.md`
+
+Subsystem-specific documents for numerical providers, Blender, plugins, projects, security, performance, and scientific/multiphysics foundations are indexed in `docs/README.md`.
 
 ## Product thesis
 
@@ -37,17 +37,17 @@ scientific intent
     -> semantic fields / trajectories / solutions
     -> visualization compiler
     -> generic Scene + Timeline
-    -> Scene.sample(t)
+    -> presentation policy
     -> renderer backend
 ```
 
-Possible authoring surfaces include formulas, Python APIs, declarative documents, simulation/data inputs, lesson templates, and later AI compilation. Possible outputs include Blender, realtime clients, saved Scene documents, images/video, interactive lessons, and remote/headless rendering.
+Possible authoring surfaces include formulas, Python APIs, declarative documents, simulation/data inputs, project files, Blender UI, standalone clients, and later AI compilation. Possible outputs include Blender, realtime/WebGPU clients, saved Scene/project documents, images/video, interactive lessons, reports, and remote/headless rendering.
 
 The engine must remain useful if Blender disappears tomorrow.
 
 ## Core rule
 
-**Core is not calculus, quantum physics, relativity, CFD, chemistry, Blender, CUDA, or WebGPU.**
+**Core is not calculus, quantum physics, relativity, CFD, chemistry, Blender, CUDA, WebGPU, UI state, or a plugin marketplace.**
 
 Core owns reusable cross-domain/cross-renderer abstractions such as:
 
@@ -178,7 +178,7 @@ Solver selection can use:
 
 The goal is that native/GPU providers can replace execution without rewriting physics, chemistry, PDE, mechanics, or visualization code.
 
-See `docs/SOLVERS_AND_EXPERIMENTS.md` and `docs/NATIVE_NUMERICAL_BACKENDS.md`.
+See `docs/SOLVERS_AND_EXPERIMENTS.md`, `docs/NATIVE_NUMERICAL_BACKENDS.md`, and `docs/PERFORMANCE_BUDGETS.md`.
 
 ## Experiments and reproducibility
 
@@ -276,6 +276,25 @@ A Scene also owns materials, coordinate frame, active camera, and Timeline.
 
 Dense scientific data must remain batched. Many particles should normally be one `PointCloud`; large vector fields should normally be one `VectorGlyphSet`.
 
+## Presentation architecture
+
+Scientific visualization and premium presentation are separate layers.
+
+```text
+semantic result
+    -> explicit/default scientific view
+    -> base Scene + scientific Timeline
+    -> PresentationIntent
+    -> enriched Scene/presentation resources
+    -> Blender / WebGPU / future renderer
+```
+
+The presentation layer owns communication choices such as camera, color scales, legends, axes, annotations, lighting intent, reveal order, and quality/display sampling. It must not alter numerical data or solver resolution.
+
+The premium presentation runtime itself is currently a design target for the post-validation phases; do not report the design documents as already implemented functionality.
+
+See `docs/PREMIUM_PRESENTATION_SYSTEM.md`, `docs/VISUAL_DESIGN_SYSTEM.md`, and `docs/BLENDER_PREMIUM_ACCEPTANCE.md`.
+
 ## Animation and composition
 
 Spectra owns scientific time:
@@ -290,6 +309,26 @@ Scene + Timeline
 Backends do not own scientific timing.
 
 Dynamic arrays such as particle positions, polyline points, surface vertices, and vector-field arrays can be animated while preserving stable topology/IDs for incremental backends.
+
+Presentation time/reveal/camera motion is intended to compose over scientific time without changing physical interpretation.
+
+## Projects, plugins, and product surfaces
+
+The architecture now has design contracts for:
+
+- renderer-independent project/study state;
+- model/result/view/presentation invalidation;
+- external resource/data ingestion;
+- a curated future `spectra.sdk`;
+- third-party plugin packaging/discovery;
+- API/schema compatibility;
+- structured diagnostics;
+- remote/HPC execution;
+- trust/security boundaries.
+
+These are design contracts until their runtime milestones are implemented and verified.
+
+A `.blend` file may be a useful derived renderer artifact, but the long-term scientific source of truth should be a Spectra project/semantic model independent from Blender.
 
 ## Scene documents
 
@@ -367,11 +406,9 @@ These are Blender/Python-backend reference numbers, not GPU-solver benchmarks.
 
 **Do not claim the current `main` head is green until the next full local validation is run.**
 
-GPU/native numerical-provider implementation has not yet been validated or promoted. The design contracts are documented in:
+GPU/native numerical-provider implementation has not yet been validated or promoted.
 
-- `docs/NATIVE_NUMERICAL_BACKENDS.md`
-- `docs/NUMERICAL_BUFFERS.md`
-- `docs/NUMERICAL_BACKEND_VALIDATION.md`
+Documentation/specification work after the runtime batch does not itself require Blender/GPU validation and should be interpreted according to `docs/CAPABILITY_MATURITY_MODEL.md`.
 
 GitHub Actions remains intentionally absent. Do not recreate it unless explicitly requested.
 
@@ -391,6 +428,7 @@ Do not:
 - let a backend invent missing scientific semantics;
 - silently downgrade numerical precision;
 - silently fall back to a solver with different problem semantics;
+- auto-install/execute arbitrary plugin code from untrusted project files;
 - store generated releases/build artifacts in source control.
 
 ## Repository policy
@@ -399,21 +437,34 @@ Do not:
 - `legacy/pre-semantic-core-2026-08-30` — preserved old addon.
 - generated caches/renders/builds/releases do not belong in source control.
 
-## Near-term execution roadmap
+## Near-term roadmap
 
-After the current post-baseline numerical/experiment batch is validated, the intended high-performance progression is:
+After the current post-baseline numerical/experiment batch is validated, the highest-value product sequence is:
 
 ```text
-1. native CPU fixed-step first-order ODE
-2. native CPU adaptive first-order ODE
-3. batched native CPU execution
-4. generic typed numerical buffers
-5. GPU batched ODE provider
-6. GPU grid operators
-7. increasingly device-resident PDE pipelines
+1. renderer-neutral presentation semantics
+2. presentation composer
+3. quantitative color scales + legends
+4. five canonical premium scientific scenes
+5. Blender premium presentation adapter
+6. dense/Geometry Nodes presentation optimizations
+7. curated public SDK
+8. external plugin discovery
+9. renderer-independent project format
 ```
 
-Performance work should follow `docs/NUMERICAL_BACKEND_VALIDATION.md`: numerical parity first, speed second.
+A parallel numerical-performance track can then proceed through:
+
+```text
+1. native CPU first-order provider
+2. typed numerical buffers
+3. batched native execution
+4. GPU batched ODE/grid operators
+5. increasingly device-resident PDE pipelines
+6. remote/HPC execution for larger workloads
+```
+
+Performance work follows numerical parity first, speed second. Product milestones and exit criteria are detailed in `docs/PRODUCT_MILESTONES.md`.
 
 ## Success criterion
 
@@ -423,8 +474,9 @@ A new scientific idea should usually require:
 - reuse of existing computation capabilities;
 - an existing or interchangeable numerical execution role;
 - compilation into generic visual primitives;
+- optional reusable presentation policy;
 - tests;
 
-and **not** require another renderer-specific or device-specific scientific subsystem.
+and **not** require another renderer-specific, UI-specific, or device-specific scientific subsystem.
 
-Spectra should become a scientific computation/scene engine with Blender support, not a Blender addon that accumulated scientific features.
+Spectra should become a scientific computation, project, and presentation engine with Blender support—not a Blender addon that accumulated scientific features.
