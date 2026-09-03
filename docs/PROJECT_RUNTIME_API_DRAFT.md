@@ -2,7 +2,7 @@
 
 Status: **design draft, not implemented runtime**.
 
-This document translates the project/document/state/workflow architecture into a concrete first Python runtime shape.
+This document translates the project/document/state/workflow architecture into a concrete first Python runtime shape while reusing the provenance and experiment-artifact contracts that already exist in the runtime.
 
 ## Goal
 
@@ -12,13 +12,44 @@ A `.blend` file may be an output/cache/workspace, but the project model owns:
 
 - scientific model definitions;
 - parameters and resources;
-- solver policy;
-- result references;
+- solver-selection intent;
+- result/artifact references;
 - experiments;
 - views;
 - presentation variants;
 - environment/plugin requirements;
 - durable metadata.
+
+## Existing runtime contracts that project MUST reuse
+
+Current runtime already owns durable provenance/artifact types:
+
+```text
+spectra.reproducibility.ScientificEnvironmentSnapshot
+spectra.reproducibility.SolverPolicyRecord
+spectra.reproducibility.capture_environment(...)
+
+spectra.domains.experiments.artifacts.ExperimentArtifact
+spectra.domains.experiments.artifacts.NumericalRunArtifact
+```
+
+Important distinction:
+
+```text
+ProjectSolverSelection
+    = desired/configured solver-selection intent before a run
+
+ScientificEnvironmentSnapshot
+    = actual loaded scientific/numerical environment captured for provenance
+
+reproducibility.SolverPolicyRecord
+    = actual active numerical policy captured inside that environment snapshot
+
+ExperimentArtifact / NumericalRunArtifact
+    = durable result-time experiment/run provenance
+```
+
+Do not create another environment snapshot format or another `SolverPolicyRecord` in `spectra.project`.
 
 ## First implementation scope
 
@@ -28,12 +59,13 @@ Initial runtime should support:
 
 1. project metadata;
 2. model records;
-3. result/artifact references;
-4. view records;
-5. presentation variants;
-6. plugin/environment requirements;
-7. dirty/invalidation states;
-8. deterministic JSON round-trip.
+3. project solver-selection intent;
+4. result/artifact references;
+5. view records;
+6. presentation variants;
+7. plugin/environment requirements;
+8. dirty/invalidation states;
+9. deterministic JSON round-trip.
 
 ## Proposed modules
 
@@ -61,7 +93,7 @@ ExperimentId = str
 ResourceId = str
 ```
 
-Recommended namespaces remain human-readable where useful:
+Recommended namespaces may remain human-readable:
 
 ```text
 model.maxwell.primary
@@ -86,7 +118,7 @@ Timestamps may be persisted as metadata, but deterministic scientific fingerprin
 
 ## ModelRecord
 
-A project model record should reference a serializable semantic payload rather than hold renderer objects.
+A project model record references a serializable semantic payload rather than renderer objects.
 
 ```python
 @dataclass(frozen=True)
@@ -98,26 +130,40 @@ class ModelRecord:
     resource_ids: tuple[str, ...] = ()
 ```
 
-For first implementation, only semantic models with an explicit serializer should be persistable.
+For first implementation, only semantic models with explicit serializers should be persistable.
 
-Do not automatically serialize arbitrary dataclasses or Python callables.
+Do not automatically serialize arbitrary dataclasses, Python callables, plugin class instances, Blender objects, or native handles.
 
-## Solver policy record
+## ProjectSolverSelection
+
+This is configuration intent, deliberately distinct from the existing reproducibility `SolverPolicyRecord`.
+
+Suggested shape:
 
 ```python
 @dataclass(frozen=True)
-class SolverPolicyRecord:
+class ProjectSolverSelection:
     role: str
-    policy_id: str | None = None
+    policy_name: str | None = None
     implementation_id: str | None = None
-    requirements: dict[str, object] | None = None
+    requirements: NumericalSolverRequirements | None = None
 ```
 
-This record describes selection intent, not a native solver handle.
+Persistent representation may encode the requirements fields rather than serialize the Python object directly.
 
-## Result reference
+Rules:
 
-Durable project JSON should not necessarily inline large numerical histories.
+- exact implementation selection and policy/requirements selection are explicit;
+- no native solver object/handle is persisted;
+- changing selection intent invalidates affected numerical results;
+- the actual selected implementation is recorded later in `NumericalRunRecord` / `NumericalRunArtifact`;
+- the actual active policy/environment is captured later in `ScientificEnvironmentSnapshot`.
+
+This separation prevents project configuration from being confused with result provenance.
+
+## ResultRecord
+
+Durable project JSON should reference result artifacts rather than inline all numerical history.
 
 ```python
 @dataclass(frozen=True)
@@ -131,9 +177,56 @@ class ResultRecord:
     status: str = "ready"
 ```
 
-The artifact URI may later refer to local chunked storage, a project archive member, or remote object storage.
+`environment_fingerprint` should, when applicable, come from:
 
-## View record
+```python
+ScientificEnvironmentSnapshot.fingerprint
+```
+
+rather than a second project-specific environment hash algorithm.
+
+The artifact URI may later refer to:
+
+```text
+local chunked storage
+project archive member
+remote object storage
+```
+
+## Experiment results
+
+Do not define a second project experiment-result schema.
+
+Project should reference existing:
+
+```text
+spectra.experiment v1 / ExperimentArtifact
+```
+
+Conceptual project record:
+
+```python
+@dataclass(frozen=True)
+class ExperimentRecord:
+    experiment_id: str
+    artifact_uri: str
+    artifact_schema: str = "spectra.experiment"
+    environment_fingerprint: str | None = None
+```
+
+The referenced `ExperimentArtifact` already contains:
+
+- axes;
+- metrics;
+- cases;
+- failures;
+- numerical run summaries;
+- `ScientificEnvironmentSnapshot`;
+- environment fingerprint.
+
+Project should not duplicate those fields unless indexing requires a small summary cache.
+
+## ViewRecord
 
 ```python
 @dataclass(frozen=True)
@@ -144,7 +237,9 @@ class ViewRecord:
     parameters: dict[str, object]
 ```
 
-A view is semantic visualization intent. It should not contain Blender object IDs.
+A view is semantic visualization intent. It must not contain Blender object IDs or shader node names.
+
+A later project version may allow views sourced from experiment artifacts or model semantics directly; v1 can remain narrower if that keeps references simple.
 
 ## Presentation variant
 
@@ -157,7 +252,7 @@ class PresentationVariantRecord:
     intent_payload: dict[str, object]
 ```
 
-One scientific result/view can have many presentation variants:
+One scientific result/view may have many presentation variants:
 
 ```text
 analysis
@@ -166,9 +261,17 @@ presentation
 cinematic
 ```
 
-without rerunning the numerical solve.
+without rerunning the solve.
 
-## Environment requirements
+Once `PresentationIntent` becomes stable/serializable, `intent_payload` should use its canonical serializer rather than a parallel ad-hoc presentation schema.
+
+## Environment requirements vs captured environment
+
+These are different concepts.
+
+### Declarative project requirement
+
+What must be available to open/solve the project:
 
 ```python
 @dataclass(frozen=True)
@@ -179,9 +282,23 @@ class EnvironmentRequirement:
     plugin_version: str | None = None
 ```
 
-Project open should inspect requirements and produce diagnostics. It must not silently install or enable code.
+### Captured result environment
+
+What was actually loaded/selected when a result was produced:
+
+```text
+ScientificEnvironmentSnapshot
+```
+
+Project open compares current runtime against declarative requirements.
+
+Project/result inspection may compare current runtime against a historical captured snapshot.
+
+It must not silently install or enable missing code.
 
 ## ProjectDocument
+
+Suggested first shape:
 
 ```python
 @dataclass(frozen=True)
@@ -189,24 +306,25 @@ class ProjectDocument:
     schema: str
     metadata: ProjectMetadata
     models: tuple[ModelRecord, ...] = ()
-    solver_policies: tuple[SolverPolicyRecord, ...] = ()
+    solver_selections: tuple[ProjectSolverSelection, ...] = ()
     results: tuple[ResultRecord, ...] = ()
+    experiments: tuple[ExperimentRecord, ...] = ()
     views: tuple[ViewRecord, ...] = ()
     presentations: tuple[PresentationVariantRecord, ...] = ()
     requirements: tuple[EnvironmentRequirement, ...] = ()
 ```
 
-Initial schema name could be:
+Initial persistent schema could be:
 
 ```text
 spectra.project v1
 ```
 
-Do not ship this schema until migrations/fixtures are ready.
+Do not ship/freeze it until migrations/fixtures are ready.
 
 ## ProjectRuntime
 
-`ProjectDocument` is immutable persisted state. `ProjectRuntime` coordinates loaded scientific objects, derived state, caches, and operations.
+`ProjectDocument` is immutable persisted state. `ProjectRuntime` coordinates loaded semantic objects, derived state, caches, and operations.
 
 Conceptual API:
 
@@ -222,6 +340,7 @@ class ProjectRuntime:
 
     def document(self) -> ProjectDocument: ...
     def validate_environment(self) -> tuple[Diagnostic, ...]: ...
+    def current_environment(self) -> ScientificEnvironmentSnapshot: ...
     def model_state(self, model_id: str) -> object: ...
     def result_status(self, result_id: str) -> str: ...
     def invalidate_model(self, model_id: str) -> None: ...
@@ -230,11 +349,11 @@ class ProjectRuntime:
     def present(self, presentation_id: str) -> Scene: ...
 ```
 
+`current_environment()` should call/reuse `capture_environment(registry)` rather than rebuild provider/solver inventory logic.
+
 Runtime mutation should eventually occur through semantic commands/transactions rather than arbitrary attribute mutation.
 
 ## Dirty/invalidation rules
-
-Separate dependencies:
 
 ```text
 model change
@@ -242,6 +361,10 @@ model change
   -> dependent views stale
   -> presentation result stale
   -> renderer cache stale
+
+ProjectSolverSelection change
+  -> affected numerical result stale
+  -> dependent views/presentation stale
 
 presentation-only change
   -> presentation result stale
@@ -251,28 +374,27 @@ presentation-only change
 camera-only presentation change
   -> no numerical recompute
 
-solver policy change
-  -> affected numerical result stale
-
 renderer/backend switch
   -> scientific result/view remain valid
   -> native renderer cache rebuilt
 ```
 
-This separation is a product requirement, not just an optimization.
+This separation is a product correctness requirement, not merely an optimization.
 
 ## Model fingerprint
 
-A future deterministic model fingerprint should include scientific inputs that affect computation:
+A future deterministic model fingerprint should include scientific inputs affecting computation:
 
 ```text
 semantic payload
-resources/checksums
-solver selection intent
-relevant plugin/capability versions
+resource checksums
+ProjectSolverSelection
+relevant explicit scientific options
 ```
 
-It should exclude:
+Result provenance separately records the **actual environment** through `ScientificEnvironmentSnapshot`.
+
+Exclude:
 
 ```text
 camera
@@ -295,33 +417,53 @@ Requirements:
 
 - deterministic canonical ordering where meaningful;
 - finite numeric validation;
-- schema identifier required;
-- unknown future schema fails with a structured diagnostic;
+- schema identifier/version required;
+- unknown future schema fails diagnostically;
 - backward migrations explicit;
-- no execution during parse.
+- no execution during parse;
+- reuse existing serializers for stable embedded/reference records instead of copying their encoding logic.
 
 ## Artifact storage boundary
 
-Project JSON references durable result artifacts. Large arrays should later use chunked/binary storage with checksums.
+Project JSON references durable result artifacts.
 
-Do not encode giant PDE histories as nested JSON lists merely because JSON serialization is easy.
+Do not encode giant PDE histories as nested JSON lists merely because JSON is convenient.
 
-Conceptual:
+Conceptually:
 
 ```text
 project.json
 artifacts/
+  experiment_001.json        # existing spectra.experiment artifact
   result_001/manifest.json
   result_001/state.bin or chunked arrays
 resources/
   ...
 ```
 
-Exact archive format comes later.
+Large general result artifact format remains a later design; experiment artifacts already have a working schema.
+
+## Historical environment comparison
+
+A project/result inspector may expose:
+
+```text
+historical result environment fingerprint
+current environment fingerprint
+```
+
+and report differences in:
+
+```text
+domain versions
+capability provider/versions
+solver implementation inventory
+active/default policies
+```
+
+Use the existing snapshot structure for this comparison.
 
 ## Blender interaction
-
-Blender integration should consume project views/presentations:
 
 ```text
 ProjectRuntime.present(id)
@@ -329,29 +471,27 @@ ProjectRuntime.present(id)
     -> IncrementalBlenderBackend.apply(...)
 ```
 
-The project must not persist Blender datablock pointers as scientific state.
+Project state never persists Blender datablock pointers as scientific state.
 
 A `.blend` may optionally store:
 
-- a project path/reference;
-- a project revision/fingerprint;
+- project path/reference;
+- project revision/fingerprint;
 - backend cache metadata;
 
-but it remains secondary.
+but remains secondary.
 
-## Remote execution interaction
-
-The same model/result contracts should support:
+## Remote execution
 
 ```text
-Project model
+Project model + ProjectSolverSelection
   -> ExecutionRequest
   -> remote worker
-  -> Result artifact
-  -> attach only if source model revision still matches
+  -> result artifact + ScientificEnvironmentSnapshot
+  -> attach only if source model revision/fingerprint still matches
 ```
 
-Late remote jobs must not overwrite results for a newer model revision.
+Late remote jobs must not overwrite results for newer model revisions.
 
 ## First test matrix after implementation gate
 
@@ -360,13 +500,18 @@ Late remote jobs must not overwrite results for a newer model revision.
 - duplicate IDs rejected;
 - unknown references rejected;
 - missing plugin/capability requirement diagnosed;
+- project solver selection round-trip;
+- project selection intent remains distinct from captured `SolverPolicyRecord`;
+- `current_environment()` equals `capture_environment(registry)`;
+- `ResultRecord.environment_fingerprint` accepts existing snapshot fingerprint;
+- existing `ExperimentArtifact` can be referenced without re-encoding its internals;
 - presentation change does not invalidate numerical result;
-- model change invalidates dependent result/view/presentation;
+- model/solver-selection change invalidates dependent result/view/presentation;
 - renderer switch does not invalidate scientific result;
 - malformed/unknown schema does not execute code;
 - deterministic serialization;
-- one project can own multiple presentation variants for one view.
+- one project owns multiple presentation variants for one view.
 
 ## Success criterion
 
-A future user should be able to open a Spectra project on a machine without Blender, inspect/solve it headlessly, then open the same project in Blender and receive the same scientific Scene semantics with a Blender-native premium presentation.
+A user can open a Spectra project without Blender, inspect/solve it headlessly, retain exact environment/experiment provenance using existing runtime artifact formats, then open the same project in Blender and receive the same scientific Scene semantics with a Blender-native presentation.
