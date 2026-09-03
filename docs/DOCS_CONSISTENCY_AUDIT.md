@@ -1,35 +1,34 @@
 # Spectra Science — Documentation Consistency Audit
 
-Status: **targeted architecture/status audit of the current docs-only preparation block**.
+Status: **final targeted architecture/status audit before the consolidated agent patch**.
 
-This audit records cross-document decisions that were checked against executable source so later implementation does not inherit contradictory design assumptions.
+This audit records cross-document decisions checked against executable source. It is not a substitute for runtime tests.
 
-It is not a substitute for runtime tests.
+For the next implementation task, `MASTER_AGENT_HANDOFF.md` is the primary execution brief and `FINAL_GAP_CLOSURE.md` records why no material design blocker remains.
 
 ## Runtime status invariant
-
-Current status remains separated into:
 
 ```text
 VERIFIED
   acb9e056...
   224 passed
   DomainCatalog/auto-discovery PASS
-  Blender 5.2 native targeted validation PASS
+  Blender 5.2 targeted native validation PASS
 
 IMPLEMENTED / VALIDATION PENDING
   acb9e056... -> 00b5403...
-  solver roles / adaptive RK45 / experiments / provenance / artifacts
+  solver roles / RK45 / experiments / provenance / artifacts
 
-DESIGN / DOCS ONLY
-  premium presentation / SDK / plugins / project / native GPU etc.
+DESIGN / DOCS ONLY AFTER RUNTIME FREEZE
+  premium presentation / visual attributes / SDK / plugins /
+  project / native CPU-GPU design / product architecture
 ```
 
-No later design document should claim Premium Presentation, ProjectRuntime, plugin manager, native CPU/GPU provider, or visual attributes are already runtime features.
+No design document should be reported as implemented runtime functionality before the next consolidated patch validates it.
 
 ## Decision 1 — one scientific registry model
 
-Source confirms:
+Executable source confirms:
 
 ```text
 DomainRegistry
@@ -37,25 +36,15 @@ DomainCatalog
 DomainModule
 ```
 
-remain the only scientific domain/capability runtime.
+remain the scientific domain/capability runtime.
 
-Therefore docs consistently reject:
+Plugins contribute normal domain factories. Native solver providers register through normal `DomainRegistry.register_numerical_solver(...)`.
 
-```text
-PluginScientificRegistry
-NativeSolverDomainRegistry
-PresentationDomainRegistry
-```
-
-as parallel systems.
-
-Plugins contribute normal domain factories.
-
-Native solver providers register through normal `DomainRegistry.register_numerical_solver(...)`.
+Do not create parallel plugin/native/presentation scientific registries.
 
 ## Decision 2 — one solver-role runtime
 
-Source confirms current runtime owns:
+Current runtime owns:
 
 ```text
 NumericalSolverRegistry
@@ -65,45 +54,33 @@ NumericalSolverRequirements
 NumericalSolverPolicy
 ```
 
-and `DomainRegistry` delegates to it.
-
-Native/GPU docs therefore do not introduce a second solver selector.
-
-First native CPU target remains:
+Native CPU/GPU providers extend this model. First native CPU target remains:
 
 ```text
-role: ode.first_order
-implementation: rk4.native_cpu
+ode.first_order / rk4.native_cpu
 ```
 
-alongside, not replacing, `rk4.reference`.
+alongside `rk4.reference`.
 
-## Decision 3 — visualization vs presentation boundary
+## Decision 3 — visualization and presentation stay separate
 
-Executable `VisualizationRegistry` is type-directed:
+Executable `VisualizationRegistry` remains:
 
 ```text
 semantic value -> base Scene
 ```
 
-Docs consistently place:
+Presentation owns camera, lighting, legends, axes, annotations, reveal, and visual styling:
 
 ```text
-camera
-lighting
-legend
-axes
-annotations
-cinematic styling
+base Scene + PresentationIntent -> enriched Scene
 ```
 
-in the presentation layer after semantic visualization.
+Do not add renderer/preset-specific scientific compilers.
 
-Do not add `compile_cinematic_*` scientific compilers as a second semantic path.
+## Decision 4 — backend remains Scene consumer
 
-## Decision 4 — renderer backend remains Scene consumer
-
-Executable backend contract remains:
+Generic lifecycle remains:
 
 ```text
 Backend.create(static Scene)
@@ -113,108 +90,85 @@ Backend.destroy(handle)
 
 `BackendSession` owns timeline sampling/seek orchestration.
 
-Docs therefore consistently require:
+Blender/WebGPU do not solve or semantically compile scientific problems.
 
-```text
-semantic science
- -> base Scene
- -> presentation composer
- -> Scene
- -> BackendSession/backend
-```
+## Decision 5 — `BackendCapabilities` is the only capability source of truth
 
-and reject Blender-side scientific solving/semantic compilation.
+Prior parallel `RendererCapabilities` / `PresentationBackendCapabilities` ideas are rejected.
 
-## Decision 5 — existing BackendCapabilities is source of truth
+Premium/attribute support extends existing `BackendCapabilities` additively with conservative defaults.
 
-Source already defines `BackendCapabilities`.
+## Decision 6 — presentation camera uses Scene-local bounds
 
-A prior design tendency toward a parallel `RendererCapabilities` / `PresentationBackendCapabilities` type was rejected.
-
-Current design requires additive evolution of existing `BackendCapabilities`, with conservative defaults.
-
-Capability flags describe the Spectra adapter’s implemented/validated behavior, not everything Blender/WebGPU could theoretically support.
-
-## Decision 6 — camera uses Scene-local bounds
-
-Source relationship:
-
-```text
-Scene.frame -> backend root/world transform
-primitive/camera Transform3D -> local under that frame
-```
-
-Therefore presentation auto-camera must use:
+Because `Scene.frame` becomes the backend root/world transform while camera/primitive transforms remain local under it, auto-camera uses:
 
 ```text
 scene_local_bounds(...)
 ```
 
-not frame-applied `scene_bounds(...)` for the camera’s local transform.
+not frame-applied `scene_bounds(...)`.
 
-This rule is reflected in:
-
-- presentation feasibility audit;
-- camera algorithms;
-- composer pipeline;
-- test fixtures.
+This is fixed in camera algorithms, composer pipeline, feasibility audit, and test fixtures.
 
 ## Decision 7 — scientific animation owns conflicting properties
 
-Executable `Timeline` rejects duplicate:
+Current `Timeline` rejects duplicate:
 
 ```text
 (target_id, property_path)
 ```
 
-tracks.
-
-Therefore presentation reveal does not override or blend a scientific track by default.
-
-Current first contract:
+First presentation contract:
 
 ```text
 scientific ownership wins
-presentation conflicting effect skipped/diagnosed
+presentation conflict -> skip + diagnostic
 ```
 
-Generic animation blending is intentionally deferred.
+Generic track blending is deliberately out of scope for the consolidated milestone.
 
-## Decision 8 — Scene v4 remains unchanged for Presentation Phase 1
+## Decision 8 — Presentation Phase 1 does not require Scene schema change
 
-Executable serializer currently uses:
+Current Scene format is v4 and reads v1-v4.
 
-```text
-spectra.scene version 4
-reader supports v1-v4
-```
+Camera/lights/labels/basic axes/reveal use existing primitives/resources.
 
-Presentation Phase 1 uses only current primitives/resources.
-
-Do not bump Scene schema merely for:
-
-- camera;
-- lights;
-- labels;
-- basic axes;
-- staggered reveal.
-
-Scene v5 is reserved for a deliberate persisted contract change such as generic visual attributes/environment semantics.
+Scene v5 is reserved for the separately justified generic visual-attribute contract.
 
 ## Decision 9 — visual attributes are generic visualization data
 
-Current source evidence:
+Current source limitation:
 
-- Surface has one primitive-level color;
-- PointCloud/VectorGlyphSet support color tuples but not named generic scalar channels;
-- Blender current high-cardinality color path uses material slots with a guard;
-- incremental geometry updates do not provide a general attribute-only update path.
+- `Surface` has one primitive color;
+- PointCloud/VectorGlyphSet have color tuples but no named generic scalar channels;
+- Blender high-cardinality material-slot colors are not a final continuous-field solution;
+- no generic attribute-only incremental update path exists.
 
-Therefore quantitative Surface temperature/stress/potential etc. should gain one generic visual-attribute contract instead of domain-specific Surface subclasses or Blender-only shader recovery.
+The chosen direction is a generic immutable visual-attribute model, initially:
 
-## Decision 10 — project selection intent vs execution provenance
+```text
+associations: vertex / instance / primitive
+kinds: scalar / vec2 / vec3 / color
+```
 
-Executable source already owns:
+Exact Python dataclass field placement may be finalized while implementing Scene v5 fixtures, but the architectural meaning is fixed and renderer-neutral.
+
+## Decision 10 — Scene v5 migration boundary is fixed
+
+Scene v5 is for persisted visual attributes.
+
+Required behavior:
+
+- v1-v4 read compatibility retained;
+- v4 attribute absence maps cleanly to default/empty attributes;
+- v5 attribute round-trip;
+- strict validation of association/kind/value count;
+- no silent destructive downgrade;
+- unrelated world/background/compositor schema is not bundled merely because version changes.
+
+## Decision 11 — project selection intent differs from execution provenance
+
+Executable runtime already owns:
 
 ```text
 ScientificEnvironmentSnapshot
@@ -223,187 +177,160 @@ ExperimentArtifact
 NumericalRunArtifact
 ```
 
-Project docs therefore use a distinct concept:
+Project docs therefore use a separate user-intent concept (`ProjectSolverSelection`) and reuse existing execution/result provenance.
+
+No duplicate project solver/environment artifact family.
+
+## Decision 12 — plugin activation uses candidate catalog construction
+
+`DomainCatalog.from_factories()` already probe-loads domains and derives provider ownership from real `provide()` calls.
+
+Plugin activation therefore follows:
 
 ```text
-ProjectSolverSelection
+built-in factories + enabled plugin factories
+    -> candidate DomainCatalog.from_factories(...)
+    -> validate
+    -> activate candidate
 ```
 
-for user/project execution intent.
+Plugin v1 does not require hot-unloading already-loaded domain objects from a mutated live registry.
 
-Project runtime must reuse existing result/experiment provenance rather than invent another solver/environment artifact format.
+Python package entry-point auto-discovery remains a later adapter over the explicit in-process descriptor model and is not required for this consolidated patch.
 
-## Decision 11 — plugin activation builds candidate catalog
+## Decision 13 — root `spectra` remains small
 
-Executable `DomainCatalog.from_factories()` already probe-loads domains and derives provider ownership from real `provide()` calls.
+Future extension-facing imports live in curated `spectra.sdk.*` facade modules that re-export existing authoritative objects.
 
-Planned plugin activation therefore uses:
+Do not export hundreds of classes from root `spectra.__init__`.
+
+## Decision 14 — semantic metadata is additive
+
+Metadata/introspection supplements, but does not replace:
 
 ```text
-built-in factories
-+ enabled plugin factories
- -> candidate DomainCatalog.from_factories(...)
- -> validate
- -> activate candidate
+semantic constructor validation
+DomainRegistry provider/version truth
+NumericalSolverRegistry method/execution metadata
+VisualizationRegistry compiler registrations
 ```
 
-not in-place mutation of the currently working catalog during validation.
+Metadata is optional/transactional initially. No giant hand-maintained central metadata manifest.
 
-Hot-unloading already-loaded domain objects is not part of plugin v1.
+## Decision 15 — native CPU proof comes before real GPU implementation
 
-## Decision 12 — root `spectra` remains small
-
-Current root package deliberately exports very little.
-
-The future public SDK is a curated facade:
+The first native provider proves:
 
 ```text
-spectra.sdk.scene
-spectra.sdk.domain
-spectra.sdk.numerics
-spectra.sdk.experiments
-...
+provider packaging
+semantic adapter
+role registration
+selection/policy
+provenance
+reference parity
+high-level dispatch without domain rewrite
 ```
 
-rather than exporting hundreds of classes from `spectra.__init__`.
+The documented preferred first target is `rk4.native_cpu`, float64.
 
-Third-party extensions should eventually depend on curated SDK modules, not arbitrary internal paths.
+CPython C extension vs a clean C ABI/ctypes bridge is an implementation/toolchain choice, not an unresolved engine architecture question.
 
-## Decision 13 — native CPU proof before GPU
+Real CUDA/GPU provider implementation is deliberately outside the consolidated patch.
 
-Architecture documents align on sequence:
+## Decision 16 — premium Blender extends the existing backend
+
+Current Blender backend already owns static mapping, incremental updates, and timeline transport.
+
+Premium work extends:
 
 ```text
-reference Python
- -> optional native CPU provider
- -> batch/buffer proof
- -> GPU provider
- -> GPU grid operators
- -> device-resident PDE pipeline
+spectra/backends/blender/backend.py
+spectra/backends/blender/incremental.py
+spectra/backends/blender/timeline.py
 ```
 
-The first native provider may not be much faster when Python RHS callbacks dominate. Its first job is to prove provider/ABI/selection/provenance/parity.
+and may extract private helpers if useful.
 
-No performance claim is required for architectural success.
+Do not create a second premium scientific Blender backend.
 
-## Decision 14 — premium Blender extends existing backend
+## Decision 17 — display quality remains separate from numerical quality
 
-Current Blender backend files already implement:
-
-```text
-static mapping
-incremental updates
-engine-time transport
-```
-
-Premium Blender plan extends these paths and may later extract backend-private helpers.
-
-It does not create a second `PremiumBlenderScientificBackend` that bypasses current generic Scene mapping.
-
-## Decision 15 — display quality is separate from numerical quality
-
-Across presentation/Blender/performance docs:
+Presentation may change:
 
 ```text
-display glyph limit
-LOD
+glyph density/LOD
 render samples
+lighting
+camera
 post effects
 ```
 
-may change presentation cost/quality only.
-
-They must not silently alter:
+It must not silently change:
 
 ```text
 solver grid
-step count/tolerance
+step/tolerance
 precision
-scientific field values
-quantitative color range meaning
+scientific values
+quantitative scale meaning
 ```
 
-## Decision 16 — project files are data; plugins are executable trust boundary
+## Decision 18 — project files are data; plugins/native providers are executable trust boundaries
 
-Security/project/plugin docs align on:
+Project/Scene/artifact parsing must not execute arbitrary code.
 
-- project JSON does not auto-install/enable plugins;
-- project parse must not execute plugin payloads;
-- plugin/native providers are executable code requiring application/user trust policy;
-- Blender/native pointers/device pointers are never scientific project state.
+Project requirements do not auto-install/enable plugins.
 
-## Decision 17 — verified measurements stay commit-scoped
+Blender/native/device pointers are never durable scientific project state.
 
-Current docs retain `acb9e056...` as the last full reported green runtime milestone.
+## Decision 19 — verified measurements remain commit-scoped
 
-Do not update:
+Keep the recorded `acb9e056...` baseline until actual local validation establishes a new verified SHA/test count/domain-provider count/native status.
+
+Architecture/source review alone never upgrades validation status.
+
+## Previously listed uncertainties — current resolution
+
+The earlier audit listed several design uncertainties. They are now classified as follows:
+
+### Resolved sufficiently for the consolidated patch
 
 ```text
-pytest count
-domain/provider count
-native validation status
+visual attribute semantics and Scene v5 migration -> VISUAL_ATTRIBUTE_API_DRAFT + migration plan
+native CPU implementation direction -> NATIVE_CPU_IMPLEMENTATION_BLUEPRINT
+project v1 model/examples -> PROJECT_RUNTIME_API_DRAFT + PROJECT_V1_CANONICAL_EXAMPLES
+presentation camera/preset/animation behavior -> dedicated algorithms/fixtures/defaults
+Blender premium path -> source audit + implementation blueprint
 ```
 
-based on architecture/source review alone.
-
-Only the next local validation should establish a new verified baseline.
-
-## Targeted stale-assumption search
-
-The audit specifically looked for old conceptual risks such as:
+### Deliberately deferred and non-blocking
 
 ```text
-124 passed baseline
-Blender not installed/pending validation
-parallel RendererCapabilities
-project SolverPolicyRecord collision
-hardcoded domain consumption of concrete RK4
+renderer-neutral world/background resource
+advanced screen-space legend/layout engine
+generic cinematic camera-orbit animation model
+volume primitive/resource semantics
+real GPU buffer/provider implementation details
+Python entry-point plugin auto-discovery/marketplace
 ```
 
-No runtime status should be inferred merely from absence/presence of a text search hit; source-of-truth files above remain authoritative.
+These are not missing prerequisites for the next milestone.
 
-## Documentation growth rule
+## Implementation handoff hierarchy
 
-The docs-only preparation block is intentionally broad, but runtime implementation should no longer create new architecture documents for every small choice.
-
-After G0 green:
-
-- use existing contracts;
-- update a source-of-truth doc only when implementation exposes a real boundary mismatch;
-- prefer code/tests over another speculative layer;
-- follow `POST_GREEN_TASK_BOARD.md`.
-
-## Remaining known design uncertainties
-
-These are intentionally not frozen yet:
-
-1. exact persistent visual-attribute attachment shape before Scene v5;
-2. whether generic environment/background becomes Scene resource or presentation/project state;
-3. exact native CPU packaging mechanism/wheel strategy;
-4. eventual plugin entry-point API details;
-5. project v1 exact field names until implementation fixtures pass;
-6. screen-space legend/annotation abstraction;
-7. generic camera motion/orbit track model;
-8. volume primitive/resource semantics;
-9. GPU buffer API after native CPU/batch evidence.
-
-These uncertainties are isolated and should not block Premium Presentation Phase 1.
-
-## Implementation handoff
-
-After pending runtime validation is green, begin with:
+Use documents in this order:
 
 ```text
-POST_GREEN_TASK_BOARD.md
-PRESENTATION_PRESET_DEFAULTS.md
-PRESENTATION_TEST_FIXTURES.md
-CAMERA_FIT_ALGORITHMS.md
-PRESENTATION_COMPOSER_PIPELINE.md
-ANIMATION_COMPOSITION_CONTRACT.md
+MASTER_AGENT_HANDOFF.md          primary execution brief
+FINAL_GAP_CLOSURE.md             why design phase is complete enough
+POST_GREEN_TASK_BOARD.md         work-package details/gates
+subsystem blueprint/fixture docs as referenced by the master handoff
 ```
 
-Do not reread every architecture document before writing W1; the board identifies the relevant source-of-truth set.
+Do not ask the next agent to reconstruct architecture from every historical document.
 
-## Success criterion
+## Final conclusion
 
-The documentation block is internally useful only if it reduces implementation ambiguity. The central architecture now has one domain registry, one solver role system, one Scene pipeline, one presentation boundary, one backend lifecycle, and one provenance family; future runtime work should implement those contracts rather than creating parallel substitutes.
+The documentation/source-audit phase has completed its useful job: it has converged on one domain registry, one solver system, one Scene/presentation pipeline, one backend lifecycle, one provenance family, and explicit first implementation contracts.
+
+There is no material design blocker that warrants more speculative architecture work before the consolidated local validation/implementation pass. Remaining unknowns are executable evidence questions and should be resolved by code and tests.
