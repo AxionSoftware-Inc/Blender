@@ -23,11 +23,13 @@ from .primitives import (
 from .scene import Scene
 from .transforms import Quaternion, Transform3D
 from .types import Color, Vec2, Vec3
+from .attributes import VisualAttribute, VisualAttributeSet
+from .units import Dimension, Unit
 
 
 SCENE_SCHEMA = "spectra.scene"
-SCENE_SCHEMA_VERSION = 4
-SUPPORTED_SCENE_SCHEMA_VERSIONS = {1, 2, 3, 4}
+SCENE_SCHEMA_VERSION = 5
+SUPPORTED_SCENE_SCHEMA_VERSIONS = {1, 2, 3, 4, 5}
 
 
 class SceneSerializationError(ValueError):
@@ -138,6 +140,38 @@ def _material_from_data(data: Any) -> Material:
     )
 
 
+def _attribute_to_data(attribute: VisualAttribute) -> dict[str, Any]:
+    unit = None
+    if attribute.unit is not None:
+        dimension = attribute.unit.dimension
+        unit = {"name": attribute.unit.name, "symbol": attribute.unit.symbol,
+                "dimension": {name: getattr(dimension, name) for name in ("length", "mass", "time", "current", "temperature", "amount", "luminous_intensity")},
+                "scale_to_si": attribute.unit.scale_to_si, "offset_to_si": attribute.unit.offset_to_si}
+    return {"name": attribute.name, "association": attribute.association, "kind": attribute.kind,
+            "values": [_encode_value(value) for value in attribute.values],
+            "quantity_id": attribute.quantity_id, "unit": unit}
+
+
+def _attribute_set_from_data(data: Any) -> VisualAttributeSet:
+    if data is None:
+        return VisualAttributeSet()
+    if not isinstance(data, list):
+        raise SceneSerializationError("primitive attributes must be a list")
+    result = []
+    for item in data:
+        if not isinstance(item, dict):
+            raise SceneSerializationError("visual attribute must be an object")
+        unit_data = item.get("unit")
+        unit = None
+        if unit_data is not None:
+            if not isinstance(unit_data, dict):
+                raise SceneSerializationError("visual attribute unit must be an object")
+            dims = unit_data.get("dimension", {})
+            unit = Unit(str(unit_data["name"]), str(unit_data["symbol"]), Dimension(**{name: int(dims.get(name, 0)) for name in ("length", "mass", "time", "current", "temperature", "amount", "luminous_intensity")}), float(unit_data.get("scale_to_si", 1.0)), float(unit_data.get("offset_to_si", 0.0)))
+        result.append(VisualAttribute(str(item["name"]), str(item["association"]), str(item["kind"]), tuple(_decode_value(value) for value in item["values"]), item.get("quantity_id"), unit))
+    return VisualAttributeSet(tuple(result))
+
+
 def _encode_value(value: Any) -> Any:
     if value is None or isinstance(value, (bool, int, float, str)):
         return value
@@ -200,6 +234,7 @@ def primitive_to_data(primitive: Primitive) -> dict[str, Any]:
         "opacity": primitive.opacity,
         "transform": _transform_to_data(primitive.transform),
         "material_id": primitive.material_id,
+        "attributes": [_attribute_to_data(attribute) for attribute in primitive.attributes.attributes],
     }
     if isinstance(primitive, Point):
         return common | {
@@ -286,6 +321,7 @@ def _primitive_common(data: dict[str, Any]) -> dict[str, Any]:
         "opacity": float(data.get("opacity", 1.0)),
         "transform": _transform_from_data(data.get("transform")),
         "material_id": material_id,
+        "attributes": _attribute_set_from_data(data.get("attributes")),
     }
 
 

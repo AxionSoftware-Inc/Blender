@@ -5,6 +5,12 @@ from dataclasses import replace
 from spectra.core.animation import Timeline, Track, draw_track, fade_track
 from spectra.core.primitives import Camera, Group, Light, Polyline
 from spectra.core.scene import Scene
+from spectra.core.framing import fit_camera_to_scene
+from spectra.core.primitives import TextLabel, Light
+from .presentation_models import (
+    PresentationContext, PresentationIntent, ResolvedPresentation, RevealMode,
+    LightingMode, resolve_presentation,
+)
 
 
 def merge_timelines(*timelines: Timeline) -> Timeline:
@@ -60,3 +66,54 @@ def staggered_reveal(
 
     reveal_timeline = Timeline(duration=end_time, tracks=tuple(tracks))
     return replace(scene, timeline=merge_timelines(scene.timeline, reveal_timeline))
+
+
+def compose_presentation(
+    scene: Scene,
+    intent: PresentationIntent | str = PresentationIntent(),
+    *,
+    context: PresentationContext | None = None,
+) -> Scene:
+    """Compose deterministic, renderer-neutral presentation resources."""
+    resolved = resolve_presentation(intent)
+    context = context or PresentationContext()
+    scientific = tuple(p for p in scene.primitives if not p.id.startswith("presentation."))
+    scientific_scene = replace(scene, primitives=scientific, active_camera_id=(
+        scene.active_camera_id if scene.active_camera_id in {p.id for p in scientific} else None
+    ))
+    additions = []
+    if resolved.camera.mode.value == "fit_primary" and context.primary_primitive_id:
+        target = scientific_scene.get(context.primary_primitive_id)
+        camera_scene = replace(scientific_scene, primitives=(target,))
+    else:
+        camera_scene = scientific_scene
+    camera = fit_camera_to_scene(
+        camera_scene, padding=1.0 + resolved.camera.padding,
+        camera_id="presentation.camera.primary", projection=resolved.camera.projection,
+        aspect_ratio=resolved.camera.aspect_ratio, fov_y_radians=resolved.camera.fov_y_radians,
+    )
+    additions.append(camera)
+    if resolved.lighting.mode != LightingMode.UNLIT_DATA:
+        additions.append(Light(id="presentation.light.key", light_type="directional", intensity=1.0))
+        if resolved.lighting.mode in {LightingMode.SCIENTIFIC_STUDIO, LightingMode.RIM_EMPHASIS}:
+            additions.append(Light(id="presentation.light.fill", light_type="ambient", intensity=0.35))
+        if resolved.lighting.mode == LightingMode.RIM_EMPHASIS:
+            additions.append(Light(id="presentation.light.rim", light_type="directional", intensity=0.5))
+    title = context.title or resolved.annotations.title
+    subtitle = context.subtitle or resolved.annotations.subtitle
+    if title:
+        additions.append(TextLabel(id="presentation.title.primary", text=title, position=camera.transform.translation))
+    if subtitle:
+        additions.append(TextLabel(id="presentation.annotation.subtitle", text=subtitle, position=camera.transform.translation))
+    if resolved.annotations.show_time and scene.timeline.duration > 0:
+        additions.append(TextLabel(id="presentation.annotation.time", text="t = 0", position=camera.transform.translation))
+    output = replace(
+        scene, primitives=(*scientific, *additions),
+        active_camera_id=camera.id,
+    )
+    if resolved.animation.reveal == RevealMode.STAGGERED:
+        output = staggered_reveal(output, duration=resolved.animation.reveal_duration, stagger=resolved.animation.stagger)
+    return output
+
+
+__all__ = ["merge_timelines", "staggered_reveal", "compose_presentation"]

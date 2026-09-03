@@ -1,0 +1,2 @@
+from spectra.plugins import *
+

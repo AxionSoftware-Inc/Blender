@@ -85,7 +85,7 @@ def test_scene_round_trips_through_versioned_json() -> None:
     assert restored == scene
     assert restored.active_camera() == camera
     assert '"schema": "spectra.scene"' in payload
-    assert '"version": 4' in payload
+    assert '"version": 5' in payload
     assert '"interpolation": "smooth"' in payload
     assert '"active_camera_id": "camera.main"' in payload
     assert '"kind": "vector_glyph_set"' in payload

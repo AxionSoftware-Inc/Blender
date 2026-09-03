@@ -6,6 +6,7 @@ from .animation import Timeline, get_property_path, replace_property_path
 from .coordinates import CoordinateFrame3D, WORLD_FRAME
 from .materials import Material
 from .primitives import Camera, Group, Primitive
+from .attributes import validate_primitive_attributes
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,6 +27,8 @@ class Scene:
             raise ValueError("Material ids must be unique within a Scene")
 
         primitive_by_id = {primitive.id: primitive for primitive in self.primitives}
+        for primitive in self.primitives:
+            validate_primitive_attributes(primitive)
         material_by_id = {material.id: material for material in self.materials}
         self._validate_material_references(material_by_id)
         self._validate_groups(primitive_by_id)

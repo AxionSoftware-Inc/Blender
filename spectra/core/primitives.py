@@ -6,6 +6,7 @@ from typing import Literal
 
 from .transforms import Transform3D
 from .types import Color, Vec3
+from .attributes import VisualAttributeSet
 
 
 PrimitiveKind = Literal[
@@ -33,6 +34,7 @@ class Primitive:
     opacity: float = 1.0
     transform: Transform3D = Transform3D()
     material_id: str | None = None
+    attributes: VisualAttributeSet = VisualAttributeSet()
 
     def __post_init__(self) -> None:
         if not self.id:
@@ -41,6 +43,8 @@ class Primitive:
             raise ValueError("Primitive opacity must be within [0, 1]")
         if self.material_id == "":
             raise ValueError("Primitive material_id cannot be empty")
+        if not isinstance(self.attributes, VisualAttributeSet):
+            raise TypeError("Primitive attributes must be a VisualAttributeSet")
 
 
 @dataclass(frozen=True, slots=True)
