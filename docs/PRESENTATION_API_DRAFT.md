@@ -6,9 +6,7 @@ This document converts `PREMIUM_PRESENTATION_SYSTEM.md` into a concrete Python-f
 
 ## Goal
 
-The presentation API must transform a scientifically correct renderer-neutral `Scene` into a presentation-enriched `Scene` without changing scientific results or importing renderer SDKs.
-
-Target flow:
+The presentation API transforms a scientifically correct renderer-neutral `Scene` into a presentation-enriched `Scene` without changing scientific results or importing renderer SDKs.
 
 ```text
 semantic value
@@ -19,7 +17,36 @@ semantic value
   -> Blender / WebGPU / MemoryBackend / future renderer
 ```
 
-The API should extend the existing `spectra.presentation` module rather than creating a competing presentation subsystem.
+The API extends existing `spectra.presentation` rather than creating a parallel presentation engine.
+
+## Current Core feasibility
+
+Source review confirms current Core already provides enough generic infrastructure for Phase 1:
+
+```text
+Camera: perspective + orthographic
+Transform3D.look_at(...)
+scene_bounds(...)
+TextLabel
+Light
+Material
+Scene.active_camera_id
+immutable Scene
+Timeline
+merge_timelines(...)
+staggered_reveal(...)
+```
+
+Therefore Phase 1 does not need a Scene schema change.
+
+Important current limitations:
+
+- no first-class generic background/world resource;
+- no screen-space label contract;
+- `Surface` has one uniform color and no per-vertex scalar/color channel;
+- advanced quantitative colorbars are not directly representable yet.
+
+See `PRESENTATION_CORE_FEASIBILITY_AUDIT.md` and `VISUAL_ATTRIBUTE_MODEL.md`.
 
 ## Proposed module layout
 
@@ -28,18 +55,18 @@ spectra/
   presentation.py                 existing helpers + top-level composer
   presentation_models.py          immutable value contracts
   presentation_presets.py         built-in presets
-  presentation_color.py           range/color semantics
-  presentation_layout.py          camera/axes/legend planning
+  presentation_color.py           later quantitative range/color semantics
+  presentation_layout.py          camera/axes/legend helpers as needed
 ```
 
-This split is a draft. Keep public names stable even if private file organization changes.
+Private file layout may evolve; public contracts should stabilize only after tests.
 
 ## Core value types
 
 Use frozen dataclasses or equivalent immutable value objects.
 
 ```python
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 
 class PresentationPreset(str, Enum):
@@ -72,9 +99,11 @@ class LightingMode(str, Enum):
     UNLIT_DATA = "unlit_data"
 ```
 
-Do not expose Blender concepts such as Eevee/Cycles, node group names, world-node sockets, or compositor settings in these types.
+Do not expose Blender concepts such as Eevee/Cycles, node groups, compositor nodes, or Blender world settings in these types.
 
 ## Color-scale contract
+
+Quantitative color work is a later package, but the API direction is:
 
 ```python
 class ColorScaleKind(str, Enum):
@@ -101,13 +130,15 @@ class ColorScalePolicy:
     missing_value_label: str | None = None
 ```
 
-Validation rules:
+Rules:
 
 - explicit ranges require finite `minimum < maximum`;
-- cyclic scales should not silently clamp a phase domain into a sequential interpretation;
-- diverging scales should require an explicit or semantically justified center;
-- presentation range must not alter source field values;
-- units live with legend/quantity metadata, not as guessed strings in renderer code.
+- cyclic data must not silently become sequential;
+- diverging scales require a meaningful center;
+- display mapping never changes source field values;
+- units come from semantic/view metadata, not renderer guesses.
+
+See `SCIENTIFIC_COLOR_POLICY.md`.
 
 ## Policy objects
 
@@ -166,7 +197,7 @@ class QualityPolicy:
     allow_post_processing: bool = True
 ```
 
-Any display limit must decimate only presentation geometry. It must never reduce numerical solver resolution or mutate source solutions.
+Display budgets may reduce presentation sampling only. They must never change solver resolution/precision.
 
 ## PresentationIntent
 
@@ -185,21 +216,17 @@ class PresentationIntent:
     theme: str | None = None
 ```
 
-Preset application should work as deterministic defaults plus explicit overrides:
+Resolution order:
 
 ```text
-builtin preset defaults
+built-in preset defaults
         ↓
-PresentationIntent explicit overrides
+explicit PresentationIntent overrides
         ↓
-validated resolved policy
+validated ResolvedPresentation
 ```
 
-Do not store a giant mutable dictionary of renderer options.
-
-## Resolved presentation
-
-Separate user intent from the fully resolved deterministic policy.
+## ResolvedPresentation
 
 ```python
 @dataclass(frozen=True)
@@ -216,18 +243,18 @@ class ResolvedPresentation:
     theme: str
 ```
 
-Suggested API:
+Pure API:
 
 ```python
 def resolve_presentation(intent: PresentationIntent) -> ResolvedPresentation:
     ...
 ```
 
-Pure resolution should not inspect Blender or mutate a Scene.
+It must not inspect Blender or mutate a Scene.
 
 ## Presentation context
 
-The composer may need semantic metadata that is not safely inferred from raw geometry.
+Semantic metadata not safely inferable from geometry is explicit:
 
 ```python
 @dataclass(frozen=True)
@@ -238,6 +265,8 @@ class QuantityPresentationMetadata:
     signed: bool | None = None
     cyclic: bool = False
     non_negative: bool = False
+    meaningful_center: float | None = None
+    preferred_color_role: str | None = None
 
 @dataclass(frozen=True)
 class PresentationContext:
@@ -247,11 +276,9 @@ class PresentationContext:
     result_fingerprint: str | None = None
 ```
 
-The domain/view may supply this context. The presentation layer must not infer quantum phase, electric potential zero-centering, or coordinate meaning from object names.
+Domains/views may supply this metadata. Presentation must not infer quantum phase or electric-potential reference semantics from IDs/names.
 
 ## Composer API
-
-Initial public shape:
 
 ```python
 def compose_presentation(
@@ -265,142 +292,217 @@ def compose_presentation(
 
 Requirements:
 
-- input Scene remains unchanged;
-- output scientific primitive IDs remain unchanged;
-- presentation-owned resources use deterministic names from `PRESENTATION_RESOURCE_NAMESPACE.md`;
-- repeated composition with the same inputs is deterministic;
-- presentation changes do not recompute scientific domains;
-- MemoryBackend must be able to inspect the result;
+- input Scene unchanged;
+- scientific primitive IDs unchanged;
+- presentation IDs deterministic/namespaced;
+- repeated composition deterministic;
+- no scientific recomputation;
+- MemoryBackend can inspect result;
 - no renderer SDK import.
 
-## First implementation scope
+## Phase 1 implementation scope
 
-Phase 1 should deliberately stay small:
+Implement only features cleanly expressible by current generic Scene:
 
 1. policy dataclasses/enums;
 2. preset resolution;
-3. deterministic validation;
+3. validation;
 4. bounds-driven camera creation/replacement;
-5. presentation-owned title/time labels;
-6. existing `staggered_reveal` integration;
-7. basic axes/light intent only if current Scene primitives express them cleanly.
+5. active-camera assignment;
+6. title/subtitle/time `TextLabel` resources;
+7. existing reveal/timeline composition;
+8. basic generic `Light` rig where appropriate.
 
-Do not implement quantitative per-vertex colormaps, Geometry Nodes, compositor effects, or complex legend widgets in the first patch.
+Current source proves these are feasible without Core schema changes.
 
-## Preset defaults
+## Camera implementation direction
 
-Suggested starting table:
+Use current:
 
 ```text
-analysis:
-  camera = orthographic_analysis when suitable, otherwise fit_all
-  lighting = flat_analysis
-  axes = visible
-  annotations = analysis
-  animation reveal = none
-
-publication:
-  camera = deterministic fit_all
-  lighting = unlit_data or restrained
-  axes = visible when quantitative
-  annotations = minimal
-  post = restricted
-
-presentation:
-  camera = fit_primary/fit_all
-  lighting = scientific_studio
-  annotations = teaching
-  reveal = staggered
-
-cinematic:
-  camera = perspective_context/orbit_reveal
-  lighting = scientific_studio or rim_emphasis
-  annotations = important_only
-  reveal = staged
-
-dark_lab:
-  theme = dark_lab
-  camera = perspective_context
-  lighting = rim_emphasis/scientific_studio
-  annotations = important_only
+scene_bounds(...)
+Bounds3D.center
+Bounds3D.bounding_sphere_radius
+Transform3D.look_at(...)
+Camera(projection=...)
 ```
 
-Exact defaults may evolve before API stabilization.
+A presentation-private helper can derive deterministic eye position/distance from bounds and FOV.
 
-## Backend capability negotiation draft
+Do not add Blender lens settings to generic policy.
 
-Do not put capability negotiation into Phase 1, but reserve a clean shape:
+## Theme/background stance
 
-```python
-@dataclass(frozen=True)
-class PresentationBackendCapabilities:
-    per_instance_color: bool = False
-    volumetrics: bool = False
-    post_processing: bool = False
-    screen_space_labels: bool = False
-    instanced_glyphs: bool = False
-    camera_depth_of_field: bool = False
+Current Scene has no generic world/background field.
+
+Therefore Phase 1 `theme` may influence currently expressible resources such as:
+
+- label colors;
+- presentation materials;
+- lights;
+
+but actual world/background realization is deferred.
+
+Do not add `Scene.background` casually.
+
+If multiple renderers need a persistent generic environment intent, introduce it in its own checkpoint.
+
+## Axes and legend stance
+
+No dedicated Axes or Legend primitive currently exists.
+
+Basic axes/legends may be composed from:
+
+```text
+Polyline
+TextLabel
+Region
+Group
 ```
 
-A later API may be:
+Advanced ticks/layout/quantitative colorbars are later presentation utilities.
+
+## Backend capability negotiation
+
+**Do not create a separate presentation/renderer capability registry.**
+
+Spectra already has:
 
 ```python
-def resolve_for_backend(
+spectra.backends.base.BackendCapabilities
+```
+
+Premium presentation must extend/use this existing single source of backend capability truth.
+
+Later pure resolution:
+
+```python
+def resolve_presentation_for_backend(
     resolved: ResolvedPresentation,
-    capabilities: PresentationBackendCapabilities,
-) -> ResolvedPresentation:
+    capabilities: BackendCapabilities,
+) -> BackendResolvedPresentation:
     ...
 ```
 
-Fallback must affect presentation quality only, never scientific semantics.
+See `RENDERER_CAPABILITIES_API_DRAFT.md`.
+
+Do not extend `BackendCapabilities` in Phase 1 unless generic presentation actually needs negotiation. Add the smallest fields later with conservative defaults.
+
+## Current Blender source facts
+
+Current reference Blender backend already maps:
+
+```text
+Camera
+Light
+TextLabel
+Material
+PointCloud
+VectorGlyphSet
+Surface
+```
+
+PointCloud/VectorGlyphSet per-instance colors use a bounded material-slot path with at most 256 unique colors per primitive. That is not yet a high-cardinality quantitative attribute path.
+
+Current Surface has one uniform generic color.
+
+Therefore quantitative surface color is explicitly deferred to the visual-attribute work package.
 
 ## Serialization stance
 
-Do not modify `spectra.scene v4` merely to land Phase 1.
+Do not modify `spectra.scene v4` for Phase 1.
 
 Preferred sequence:
 
-1. implement in-process immutable contracts;
+1. implement in-process presentation contracts;
 2. validate composer behavior;
-3. decide whether presentation intent belongs in future `spectra.project` rather than Scene schema;
-4. only version persistent schemas once the runtime contract proves stable.
+3. store durable presentation intent later in `spectra.project` if appropriate;
+4. version Scene only if a genuinely generic primitive/resource extension requires it.
 
-## Testing plan after validation gate
+## Preset defaults
 
-Unit tests:
+Initial family:
+
+```text
+analysis
+publication
+presentation
+cinematic
+dark_lab
+```
+
+Keep differences strong and limited.
+
+Conceptually:
+
+```text
+analysis:
+  deterministic analytical framing
+  flat/unlit data emphasis
+  axes/diagnostics visible
+  no reveal by default
+
+publication:
+  deterministic restrained framing
+  minimal annotations
+  quantitative integrity prioritized
+
+presentation:
+  teaching annotations
+  staged reveal
+  scientific-studio lighting
+
+cinematic:
+  perspective context
+  important-only annotations
+  controlled lighting/camera motion
+
+dark_lab:
+  dark-style presentation resources where expressible
+  luminous bounded accents
+  high contrast labels
+```
+
+## Tests after validation gate
+
+Unit:
 
 - preset resolution deterministic;
 - explicit override wins;
-- invalid color ranges rejected;
-- input Scene not mutated;
+- invalid policies rejected;
+- policy objects immutable.
+
+Composer:
+
+- input Scene unchanged;
 - scientific IDs preserved;
+- scientific geometry arrays unchanged;
 - deterministic presentation IDs;
-- same scene+intent produces equal output;
-- changing presentation does not change source scientific geometry arrays;
-- reveal timeline composes rather than replaces scientific timeline.
+- timeline merged, not replaced;
+- fit camera active and valid;
+- repeated composition equal;
+- MemoryBackend compatible.
 
-Integration tests:
+Integration:
 
-- MemoryBackend inspection;
-- electrostatic base Scene + analysis preset;
-- Maxwell base Scene + cinematic preset;
-- quantum phase view requests cyclic color semantics;
+- Maxwell base Scene + cinematic preset first;
+- electrostatic analysis/dark_lab next;
 - Blender native mapping only after generic composer is green.
 
 ## Compatibility rule
 
-Existing APIs remain valid:
+Existing flows remain valid:
 
 ```python
 registry.compile_scene(value)
 staggered_reveal(scene, ...)
 ```
 
-Premium presentation is additive. Users should not be forced through presentation policies merely to obtain a scientific Scene.
+Premium presentation is additive.
 
 ## Success criterion
 
-After implementation a caller should be able to write conceptually:
+A caller can conceptually write:
 
 ```python
 scene = registry.compile_scene(solution_view)
@@ -418,4 +520,4 @@ scene = compose_presentation(
 backend.apply(scene.sample(0.0))
 ```
 
-and no physics, PDE, chemistry, or quantum module should know that Blender may eventually render the result.
+and no physics, PDE, chemistry, quantum, or Blender-specific code is required in the presentation composer.
