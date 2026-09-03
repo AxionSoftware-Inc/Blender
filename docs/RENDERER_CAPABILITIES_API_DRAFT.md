@@ -1,142 +1,173 @@
-# Spectra Science — Renderer Capability Negotiation API Draft
+# Spectra Science — Backend Capability Negotiation API Draft
 
 Status: **design draft, not implemented runtime**.
 
-This document defines a concrete Python-facing contract for letting presentation logic adapt to Blender, WebGPU, headless, or future renderers without embedding renderer checks inside scientific domains.
+This document defines how premium presentation should adapt to Blender, WebGPU, MemoryBackend, headless renderers, or future backends without creating a second capability system.
+
+## Important source-of-truth correction
+
+Spectra already has:
+
+```python
+spectra.backends.base.BackendCapabilities
+```
+
+with current fields:
+
+```text
+primitive_kinds
+supports_group_hierarchy
+supports_materials
+```
+
+and every backend exposes a class-level:
+
+```python
+capabilities: BackendCapabilities
+```
+
+Therefore premium presentation must **extend the existing `BackendCapabilities` contract**, not introduce a parallel `RendererCapabilities` record.
+
+This avoids two conflicting answers to the question:
+
+> What can this backend represent?
 
 ## Goal
-
-The presentation layer should be able to ask:
-
-> What can this renderer express efficiently and faithfully?
-
-and resolve deterministic presentation fallbacks while preserving scientific semantics.
 
 Target flow:
 
 ```text
 base Scene
 + PresentationIntent
-+ RendererCapabilities
++ existing BackendCapabilities
         ↓
-resolved presentation plan
+backend-aware presentation resolution
         ↓
-renderer backend
+resolved presentation plan + explicit fallbacks
+        ↓
+backend
 ```
 
-The renderer capability profile is descriptive. It must not become the scientific model.
+Scientific domains remain unaware of backend identity.
 
-## Proposed capability record
+## Proposed additive `BackendCapabilities` fields
+
+Potential future extension:
 
 ```python
-@dataclass(frozen=True)
-class RendererCapabilities:
-    backend_id: str
-    backend_version: str | None = None
+@dataclass(frozen=True, slots=True)
+class BackendCapabilities:
+    primitive_kinds: frozenset[PrimitiveKind]
+    supports_group_hierarchy: bool = True
+    supports_materials: bool = True
 
-    per_instance_color: bool = False
-    per_instance_scale: bool = False
-    instanced_glyphs: bool = False
-    point_cloud_attributes: bool = False
-    surface_vertex_attributes: bool = False
+    # presentation/data features — additive, conservative defaults
+    supports_per_instance_color: bool = False
+    supports_per_instance_scale: bool = False
+    supports_instanced_glyphs: bool = False
+    supports_point_cloud_attributes: bool = False
+    supports_surface_vertex_attributes: bool = False
 
-    transparency: bool = True
-    volumetrics: bool = False
-    post_processing: bool = False
-    depth_of_field: bool = False
-    shadows: bool = True
+    supports_transparency: bool = False
+    supports_volumetrics: bool = False
+    supports_post_processing: bool = False
+    supports_depth_of_field: bool = False
+    supports_world_background: bool = False
+    supports_screen_space_labels: bool = False
+    supports_world_space_text: bool = True
 
-    world_background: bool = True
-    screen_space_labels: bool = False
-    world_space_text: bool = True
-    multiple_viewports: bool = False
-
-    interactive_updates: bool = True
-    incremental_geometry_updates: bool = False
-    topology_preserving_updates: bool = False
+    supports_incremental_geometry_updates: bool = False
+    supports_topology_preserving_updates: bool = False
 
     max_recommended_glyphs: int | None = None
     max_recommended_labels: int | None = None
 ```
 
-Fields should represent generic rendering capabilities, not native API names.
+Exact field names are provisional until implementation.
 
-Avoid:
+Rules:
 
-```text
-supports_geometry_nodes
-supports_eevee_bloom
-supports_cycles_ocio
-```
+- new fields get conservative defaults;
+- existing backends remain source-compatible where possible;
+- do not encode native technology names such as Geometry Nodes, Eevee, Cycles, Vulkan, or WebGPU shader features in the generic contract;
+- backend-private diagnostics may expose those details separately.
 
-Those may exist in backend-private diagnostics but should not define generic presentation semantics.
+## Existing Blender facts from source audit
 
-## Backend API
+Current `BlenderBackend` already declares support for all core primitive kinds plus materials/group hierarchy.
 
-A backend may expose:
-
-```python
-class Backend(Protocol):
-    def capabilities(self) -> RendererCapabilities:
-        ...
-```
-
-For backward compatibility, a default conservative profile may be supplied by base backend infrastructure until all backends implement the method explicitly.
-
-## Reference profiles
-
-### MemoryBackend
-
-Conceptually:
+Current native mapping confirms:
 
 ```text
-backend_id = memory
-interactive_updates = true
-incremental_geometry_updates = false/semantic-only
-world_space_text = representable as Scene content
-post_processing = false
-volumetrics = false
+Camera -> Blender camera, perspective + orthographic
+Light -> Blender native light
+TextLabel -> Blender FONT curve
+Material -> node material
+PointCloud -> one mesh object
+VectorGlyphSet -> one multi-spline Curve object
 ```
 
-MemoryBackend exists for semantic inspection, not premium pixels.
-
-### IncrementalBlenderBackend
-
-Initial profile should describe only what current mapping actually supports reliably.
-
-Conceptually:
+Current batched color path:
 
 ```text
-interactive_updates = true
-incremental_geometry_updates = true
-topology_preserving_updates = true
-world_space_text = true
-shadows = true
-world_background = true
-transparency = true
+PointCloud.colors
+VectorGlyphSet.colors
 ```
 
-Do not mark `per_instance_color` or advanced instancing true until the native implementation is validated.
+is implemented through Blender material slots, with an explicit guard of at most **256 unique colors per batched primitive**.
 
-### Future WebGPU backend
-
-Could eventually expose:
+Therefore current Blender behavior is best described as:
 
 ```text
-per_instance_color = true
-per_instance_scale = true
-instanced_glyphs = true
-point_cloud_attributes = true
-surface_vertex_attributes = true
-screen_space_labels = true
-interactive_updates = true
+supports bounded per-instance categorical/resolved colors
 ```
 
-but only after implementation.
+not yet:
 
-## Presentation resolution
+```text
+supports arbitrary high-cardinality quantitative per-instance attributes
+```
 
-Suggested function:
+A future attribute/shader path should replace that bounded material-slot fallback.
+
+## Current Surface limitation
+
+Current Blender `Surface` mapping creates a mesh from vertices/triangles and applies one primitive/material color.
+
+There is no generic Surface vertex scalar/color attribute in current Core/Scene schema.
+
+Therefore do not advertise:
+
+```text
+supports_surface_vertex_attributes = true
+```
+
+until both:
+
+1. generic Scene attribute semantics exist;
+2. Blender mapping is implemented and validated.
+
+See `VISUAL_ATTRIBUTE_MODEL.md`.
+
+## Incremental backend facts
+
+The separately verified `IncrementalBlenderBackend` preserves stable object/datablock identity for common topology-stable updates.
+
+A future capability field can state this generically, but it should be attached to the actual incremental backend profile rather than the conservative rebuild-oriented `BlenderBackend` profile.
+
+Distinguish:
+
+```text
+backend can render primitive
+backend can update primitive interactively
+backend can update native geometry in-place
+```
+
+These are not the same guarantee.
+
+## Presentation resolution types
+
+Suggested additive types outside backend Core:
 
 ```python
 @dataclass(frozen=True)
@@ -150,78 +181,21 @@ class PresentationFallback:
 class BackendResolvedPresentation:
     presentation: ResolvedPresentation
     fallbacks: tuple[PresentationFallback, ...] = ()
+```
 
+Suggested pure function:
 
+```python
 def resolve_presentation_for_backend(
     presentation: ResolvedPresentation,
-    capabilities: RendererCapabilities,
+    capabilities: BackendCapabilities,
 ) -> BackendResolvedPresentation:
     ...
 ```
 
-The function should be deterministic and pure.
+No backend SDK import is needed for this resolution.
 
-## Fallback examples
-
-### Dense vector field
-
-Requested:
-
-```text
-high-density instanced arrows with per-instance color
-```
-
-Renderer lacks per-instance color but supports batched curves.
-
-Resolved:
-
-```text
-batched vector geometry + bounded categorical/material fallback
-```
-
-Scientific vectors remain unchanged.
-
-### Volumetric field
-
-Requested cinematic volume, renderer lacks volumetrics.
-
-Possible deterministic fallback:
-
-```text
-explicit scalar slices or isosurfaces
-```
-
-Only if the semantic visualization already provides a valid alternate view or the presentation plan explicitly allows that fallback.
-
-A renderer must not invent an isosurface threshold.
-
-### Screen-space labels
-
-Requested screen-space legend, backend lacks it.
-
-Fallback:
-
-```text
-world-space TextLabel presentation group
-```
-
-if readable.
-
-### Depth of field
-
-Requested cinematic DOF, unsupported.
-
-Fallback:
-
-```text
-no DOF
-```
-
-This affects aesthetics only.
-
-## Hard vs soft requirements
-
-Not every presentation feature should silently degrade.
+## Hard vs soft presentation requirements
 
 ```python
 class PresentationRequirementLevel(str, Enum):
@@ -229,78 +203,83 @@ class PresentationRequirementLevel(str, Enum):
     REQUIRED = "required"
 ```
 
-A user may request:
+Example:
 
 ```text
-preferred volumetrics
-required quantitative per-instance color
+preferred depth of field
+required quantitative scalar color fidelity
 ```
 
-If a required feature cannot be represented faithfully, resolution should fail with a structured diagnostic rather than silently changing meaning.
+If a required capability cannot be represented, return/fail with a structured diagnostic rather than silently changing scientific meaning.
 
-## Quantitative color integrity
+## Fallback examples
 
-This is especially important.
+### Depth of field
 
-If a scientific view requires a continuous quantitative color map and a backend cannot represent the values faithfully, do not degrade into a few arbitrary material bins without explicit policy.
+Unsupported:
 
-Options:
+```text
+resolve to no DOF
+```
 
-- choose another valid renderer representation;
-- decimate spatially while preserving value mapping;
+Safe because aesthetics change, science does not.
+
+### Screen-space legend
+
+Unsupported but world-space text available:
+
+```text
+world-space TextLabel/legend composition
+```
+
+### Per-instance high-cardinality scalar color
+
+If backend only has bounded material slots:
+
+Do **not** silently quantize a required continuous field into arbitrary material bins.
+
+Allowed responses:
+
+- choose another faithful representation;
 - fail required-quality presentation;
-- mark approximation clearly if the user explicitly allows it.
+- explicitly use an approximation policy if the user allows it.
 
-## Quality profile
+### Volumetric view
 
-A backend may additionally expose implementation-specific recommended limits through generic fields:
+If backend lacks volume support, do not invent an isosurface threshold.
 
-```text
-max_recommended_glyphs
-max_recommended_labels
+Fallback is only valid when the semantic/view layer already supplies an explicit alternate view such as a slice or isosurface policy.
+
+## Backend class API
+
+Current backend contract uses a class attribute:
+
+```python
+class Backend(Protocol):
+    name: str
+    capabilities: BackendCapabilities
 ```
 
-These are hints, not hard scientific limits.
+Keep this model for static backend capability profiles.
 
-Presentation decimation should remain explicit and deterministic.
+If device/runtime-specific capabilities later vary by GPU/device, add an explicit optional query method only when needed rather than replacing the existing static attribute immediately.
 
-## Capability versioning
+Conceptual later addition:
 
-`RendererCapabilities` itself is a public contract.
-
-Add new fields with conservative defaults where possible.
-
-Do not reinterpret an existing field silently.
-
-Backend version and capability profile may be recorded in presentation/export metadata for reproducibility of visual output.
-
-## Incremental update capability
-
-Distinguish:
-
-```text
-interactive_updates
-incremental_geometry_updates
-topology_preserving_updates
+```python
+def runtime_capabilities(self) -> BackendCapabilities:
+    ...
 ```
 
-A backend might support interactive full rebuilds without stable native object identity. Another may support in-place updates.
-
-Presentation/composer code should not assume all interactive backends are incremental.
-
-## Renderer ownership
-
-Capabilities do not change ownership rules.
-
-Backend-created native resources remain backend-owned and must map from deterministic Spectra IDs where possible.
-
-Switching renderer capability profiles must not rename scientific primitive IDs.
+but only if static metadata proves insufficient.
 
 ## Plugin renderer backends
 
-Future renderer plugins may provide a backend factory plus capability profile.
+Future backend plugins should provide normal backend classes/factories whose `capabilities` use the same existing contract.
 
-Conceptual plugin metadata:
+Do not define a plugin-only renderer capability schema.
+
+Conceptual descriptor:
 
 ```python
 @dataclass(frozen=True)
@@ -308,45 +287,56 @@ class RendererBackendDescriptor:
     backend_id: str
     display_name: str
     factory: Callable[[], Backend]
-    static_capabilities: RendererCapabilities | None = None
 ```
 
-Dynamic device-specific capabilities may still be queried after backend creation.
+The created backend supplies `BackendCapabilities` normally.
 
-## Headless export
+## Versioning
 
-A headless renderer/export worker can use the same capability contract.
+Because `BackendCapabilities` already exists, extend it carefully:
 
-Example:
+- additive fields with conservative defaults are preferred;
+- do not reinterpret `supports_materials` to mean quantitative attributes;
+- primitive support remains in `primitive_kinds`;
+- new fields should describe orthogonal behavior.
+
+Existing tests for `validate_backend_compatibility()` must remain valid.
+
+## First implementation package
+
+Do not extend `BackendCapabilities` during Presentation W1/W2 unless the composer actually needs negotiation.
+
+Recommended order:
 
 ```text
-remote worker supports post-processing and volumetrics
-local WebGPU preview does not
+W1/W2 generic presentation
+    ↓
+W3 quantitative/color needs become concrete
+    ↓
+add smallest necessary BackendCapabilities fields
+    ↓
+MemoryBackend + Blender profiles/tests
+    ↓
+backend-aware presentation fallback
 ```
 
-The same presentation intent may resolve differently but deterministically, with recorded fallbacks.
+This keeps the first presentation patch small.
 
-## Tests after implementation gate
+## Tests when implemented
 
-- conservative base profile;
-- MemoryBackend capability inspection;
-- Blender profile matches only validated features;
-- deterministic fallback list;
-- required unsupported feature fails;
-- preferred unsupported feature degrades predictably;
-- scientific Scene data unchanged by capability resolution;
-- quantitative color requirement never silently becomes decorative color;
-- capability profile serialization/introspection if later exposed through project/export metadata.
+- old backend constructors/profiles remain valid with defaults;
+- `BackendCapabilities.all_core_primitives()` still works;
+- `validate_backend_compatibility()` behavior unchanged for primitive/material checks;
+- MemoryBackend uses conservative presentation feature flags;
+- Blender advertises only source-verified/validated features;
+- IncrementalBlenderBackend advertises incremental guarantees separately;
+- required unsupported presentation feature fails;
+- preferred feature degrades deterministically;
+- scientific Scene arrays are unchanged by negotiation;
+- quantitative color never silently becomes decorative approximation.
 
 ## Success criterion
 
-A scientific domain should never contain code equivalent to:
+Spectra has **one backend capability contract**.
 
-```python
-if backend == "blender":
-    ...
-elif backend == "webgpu":
-    ...
-```
-
-The domain compiles science into a generic view. Presentation negotiation and renderer backends decide how to express that view faithfully on the available rendering technology.
+Scientific domains compile semantics into generic Scene/view data. Presentation consults `BackendCapabilities` to choose faithful presentation fallbacks. Blender/WebGPU details remain inside their adapters.
