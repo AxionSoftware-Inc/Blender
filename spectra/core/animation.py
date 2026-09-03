@@ -31,12 +31,15 @@ class Track(Generic[T]):
     target_id: str
     property_path: str
     keyframes: tuple[Keyframe[T], ...]
+    owner: str = "scientific"
 
     def __post_init__(self) -> None:
         if not self.target_id:
             raise ValueError("Animation track target_id cannot be empty")
         if not self.property_path:
             raise ValueError("Animation track property_path cannot be empty")
+        if not self.owner or not self.owner.strip():
+            raise ValueError("Animation track owner cannot be empty")
         if not self.keyframes:
             raise ValueError("Animation track requires at least one keyframe")
         times = [keyframe.time for keyframe in self.keyframes]
@@ -230,6 +233,7 @@ def fade_track(
     start_opacity: float = 0.0,
     end_opacity: float = 1.0,
     interpolation: Interpolation = "smooth",
+    owner: str = "scientific",
 ) -> Track[float]:
     return Track(
         target_id=target_id,
@@ -238,6 +242,7 @@ def fade_track(
             Keyframe(start_time, start_opacity, interpolation),
             Keyframe(end_time, end_opacity),
         ),
+        owner=owner,
     )
 
 
@@ -247,6 +252,7 @@ def draw_track(
     start_time: float,
     end_time: float,
     interpolation: Interpolation = "smooth",
+    owner: str = "scientific",
 ) -> Track[float]:
     """Animate Polyline trim_end from 0 to 1."""
     return Track(
@@ -256,6 +262,7 @@ def draw_track(
             Keyframe(start_time, 0.0, interpolation),
             Keyframe(end_time, 1.0),
         ),
+        owner=owner,
     )
 
 
@@ -267,6 +274,7 @@ def move_track(
     start_time: float,
     end_time: float,
     interpolation: Interpolation = "smooth",
+    owner: str = "scientific",
 ) -> Track[Vec3]:
     return Track(
         target_id=target_id,
@@ -275,4 +283,5 @@ def move_track(
             Keyframe(start_time, start, interpolation),
             Keyframe(end_time, end),
         ),
+        owner=owner,
     )
