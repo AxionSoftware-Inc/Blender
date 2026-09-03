@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import dataclass, replace
 import math
 
 from spectra.core.attributes import VisualAttribute, VisualAttributeSet
 from spectra.core.primitives import PointCloud, Primitive, VectorGlyphSet
 from spectra.core.scene import Scene
 from spectra.core.types import Color
+from spectra.core.units import Unit
 from spectra.presentation_models import ColorPalette, ColorRangeMode, ColorScalePolicy
 
 
@@ -60,8 +61,25 @@ _PALETTES: dict[ColorPalette, tuple[Color, ...]] = {
 }
 
 
+@dataclass(frozen=True, slots=True)
+class ResolvedColorScale:
+    minimum: float
+    maximum: float
+    palette: ColorPalette
+    unit: Unit | None = None
+    quantity_id: str | None = None
+
+    def __post_init__(self) -> None:
+        if not math.isfinite(self.minimum) or not math.isfinite(self.maximum):
+            raise ValueError("resolved color scale bounds must be finite")
+        if self.maximum <= self.minimum:
+            raise ValueError("resolved color scale maximum must exceed minimum")
+
+
+
 def _lerp(left: float, right: float, amount: float) -> float:
     return left + (right - left) * amount
+
 
 
 def sample_palette(palette: ColorPalette, position: float) -> Color:
@@ -80,6 +98,7 @@ def sample_palette(palette: ColorPalette, position: float) -> Color:
         _lerp(left.b, right.b, amount),
         _lerp(left.a, right.a, amount),
     )
+
 
 
 def resolve_scalar_range(
@@ -109,11 +128,15 @@ def resolve_scalar_range(
     return minimum, maximum
 
 
-def map_scalar_values(
+
+def _map_values_with_range(
     values: tuple[float, ...],
     policy: ColorScalePolicy,
+    minimum: float,
+    maximum: float,
 ) -> tuple[Color, ...]:
-    minimum, maximum = resolve_scalar_range(values, policy)
+    if any(not math.isfinite(value) for value in values):
+        raise ValueError("scalar color mapping values must be finite")
     span = maximum - minimum
     if span <= 0.0 or not math.isfinite(span):
         raise ValueError("color scale range must be finite and increasing")
@@ -127,6 +150,16 @@ def map_scalar_values(
             raise ValueError("scalar value lies outside unclamped color scale range")
         colors.append(sample_palette(policy.palette, normalized))
     return tuple(colors)
+
+
+
+def map_scalar_values(
+    values: tuple[float, ...],
+    policy: ColorScalePolicy,
+) -> tuple[Color, ...]:
+    minimum, maximum = resolve_scalar_range(values, policy)
+    return _map_values_with_range(values, policy, minimum, maximum)
+
 
 
 def _select_scalar_attribute(
@@ -151,26 +184,90 @@ def _select_scalar_attribute(
     return None
 
 
+
+def matching_scalar_attributes(
+    scene: Scene,
+    policy: ColorScalePolicy,
+    *,
+    quantity_role: str | None = None,
+) -> tuple[tuple[Primitive, VisualAttribute], ...]:
+    matches = []
+    for primitive in scene.primitives:
+        attribute = _select_scalar_attribute(primitive, policy, quantity_role)
+        if attribute is not None:
+            matches.append((primitive, attribute))
+    return tuple(matches)
+
+
+
+def resolve_scene_color_scale(
+    scene: Scene,
+    policy: ColorScalePolicy,
+    *,
+    quantity_role: str | None = None,
+) -> ResolvedColorScale | None:
+    matches = matching_scalar_attributes(
+        scene,
+        policy,
+        quantity_role=quantity_role,
+    )
+    if not matches:
+        return None
+
+    first_unit = matches[0][1].unit
+    for _, attribute in matches[1:]:
+        if attribute.unit != first_unit:
+            raise ValueError(
+                "shared quantitative color scale requires matching VisualAttribute units"
+            )
+
+    values = tuple(
+        float(value)
+        for _, attribute in matches
+        for value in attribute.values
+    )
+    minimum, maximum = resolve_scalar_range(values, policy)
+    quantity_id = next(
+        (
+            attribute.quantity_id
+            for _, attribute in matches
+            if attribute.quantity_id is not None
+        ),
+        quantity_role,
+    )
+    return ResolvedColorScale(
+        minimum=minimum,
+        maximum=maximum,
+        palette=policy.palette,
+        unit=first_unit,
+        quantity_id=quantity_id,
+    )
+
+
+
 def _replace_attribute(
     attributes: VisualAttributeSet,
     replacement: VisualAttribute,
 ) -> VisualAttributeSet:
-    result = [attribute for attribute in attributes.attributes if attribute.name != replacement.name]
+    result = [
+        attribute
+        for attribute in attributes.attributes
+        if attribute.name != replacement.name
+    ]
     result.append(replacement)
     return VisualAttributeSet(tuple(result))
 
 
-def colorize_primitive(
+
+def _apply_color_attribute(
     primitive: Primitive,
+    scalar: VisualAttribute,
     policy: ColorScalePolicy,
-    *,
-    quantity_role: str | None = None,
+    minimum: float,
+    maximum: float,
 ) -> Primitive:
-    scalar = _select_scalar_attribute(primitive, policy, quantity_role)
-    if scalar is None:
-        return primitive
     values = tuple(float(value) for value in scalar.values)
-    colors = map_scalar_values(values, policy)
+    colors = _map_values_with_range(values, policy, minimum, maximum)
     color_attribute = VisualAttribute(
         name=policy.output_attribute_name,
         association=scalar.association,
@@ -186,9 +283,28 @@ def colorize_primitive(
     # Compatibility bridge for current batched backends. Generic color attributes
     # remain the source of truth, but existing PointCloud/VectorGlyphSet renderers
     # can consume the same mapped values through their legacy per-instance colors.
-    if scalar.association == "instance" and isinstance(updated, (PointCloud, VectorGlyphSet)):
+    if scalar.association == "instance" and isinstance(
+        updated,
+        (PointCloud, VectorGlyphSet),
+    ):
         return replace(updated, colors=colors)
     return updated
+
+
+
+def colorize_primitive(
+    primitive: Primitive,
+    policy: ColorScalePolicy,
+    *,
+    quantity_role: str | None = None,
+) -> Primitive:
+    scalar = _select_scalar_attribute(primitive, policy, quantity_role)
+    if scalar is None:
+        return primitive
+    values = tuple(float(value) for value in scalar.values)
+    minimum, maximum = resolve_scalar_range(values, policy)
+    return _apply_color_attribute(primitive, scalar, policy, minimum, maximum)
+
 
 
 def colorize_scene(
@@ -197,19 +313,46 @@ def colorize_scene(
     *,
     quantity_role: str | None = None,
 ) -> Scene:
+    resolved = resolve_scene_color_scale(
+        scene,
+        policy,
+        quantity_role=quantity_role,
+    )
+    if resolved is None:
+        return scene
+
+    matches = {
+        primitive.id: attribute
+        for primitive, attribute in matching_scalar_attributes(
+            scene,
+            policy,
+            quantity_role=quantity_role,
+        )
+    }
     return replace(
         scene,
         primitives=tuple(
-            colorize_primitive(primitive, policy, quantity_role=quantity_role)
+            _apply_color_attribute(
+                primitive,
+                matches[primitive.id],
+                policy,
+                resolved.minimum,
+                resolved.maximum,
+            )
+            if primitive.id in matches
+            else primitive
             for primitive in scene.primitives
         ),
     )
 
 
 __all__ = [
+    "ResolvedColorScale",
     "sample_palette",
     "resolve_scalar_range",
     "map_scalar_values",
+    "matching_scalar_attributes",
+    "resolve_scene_color_scale",
     "colorize_primitive",
     "colorize_scene",
 ]
