@@ -6,7 +6,12 @@ from spectra.core.scene import Scene
 from spectra.core.serialization import scene_from_data, scene_to_data
 from spectra.core.types import Vec3
 from spectra.presentation import compose_presentation
-from spectra.presentation_models import CameraMode, CameraPolicy, PresentationIntent
+from spectra.presentation_models import (
+    CameraMode,
+    CameraPolicy,
+    PresentationContext,
+    PresentationIntent,
+)
 
 
 def test_presentation_tracks_round_trip_with_owner() -> None:
@@ -98,8 +103,7 @@ def test_fit_primary_ignores_unrelated_scientific_timeline_targets() -> None:
     result = compose_presentation(
         scene,
         intent,
-        context=None,
+        context=PresentationContext(primary_primitive_id="primary"),
     )
-    # FIT_PRIMARY falls back to all when no primary id is supplied; the important
-    # invariant here is that the scientific timeline remains valid.
     assert result.timeline.tracks[0] == track
+    assert result.active_camera_id == "presentation.camera.primary"
