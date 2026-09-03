@@ -2,22 +2,99 @@
 
 This directory records architectural contracts, validated backend behavior, current numerical design, future extension rules, and product/presentation architecture.
 
-`README.md` at repository root gives the high-level project state. Use this index to choose the source-of-truth document for a specific subsystem.
+`README.md` at repository root gives the high-level project state. `CURRENT_STATUS.md` separates verified runtime, implemented-but-pending-validation runtime, and design-only work.
 
 ## Start here
 
 For a new contributor/agent, read in this order:
 
 1. `../README.md`
-2. `SYSTEM_ARCHITECTURE_MAP.md`
-3. `DOMAIN_SYSTEM.md`
-4. `DOMAIN_CATALOG.md`
-5. `SOLVERS_AND_EXPERIMENTS.md`
-6. `PREMIUM_PRESENTATION_SYSTEM.md`
-7. `PRODUCT_WORKFLOWS.md`
-8. `PRODUCT_MILESTONES.md`
-9. `POST_VALIDATION_IMPLEMENTATION_PLAN.md`
-10. the subsystem-specific documents relevant to the task.
+2. `CURRENT_STATUS.md`
+3. `SYSTEM_ARCHITECTURE_MAP.md`
+4. `DOMAIN_SYSTEM.md`
+5. `DOMAIN_CATALOG.md`
+6. `SOLVERS_AND_EXPERIMENTS.md`
+7. `PREMIUM_PRESENTATION_SYSTEM.md`
+8. `POST_GREEN_TASK_BOARD.md`
+9. `MASTER_AGENT_HANDOFF.md` when executing the next consolidated patch/validation task
+10. subsystem-specific documents relevant to the work package.
+
+## Current implementation-ready source set
+
+These are the highest-priority documents when moving from design to executable work.
+
+### Runtime status and execution plan
+
+- `CURRENT_STATUS.md` — verified baseline vs pending runtime vs design-only work.
+- `POST_GREEN_TASK_BOARD.md` — work-package ordering and exit gates after pending runtime validates green.
+- `IMPLEMENTATION_WORK_PACKAGES.md` — larger implementation decomposition.
+- `POST_VALIDATION_IMPLEMENTATION_PLAN.md` — product/performance sequencing.
+- `MASTER_AGENT_HANDOFF.md` — consolidated next-agent instructions and single large task scope.
+- `DOCS_CONSISTENCY_AUDIT.md` — architecture/status consistency review.
+- `SOURCE_AUDIT_DECISIONS.md` — decisions derived from current executable source rather than speculative parallel abstractions.
+
+### Premium presentation implementation
+
+- `PRESENTATION_API_DRAFT.md`
+- `PRESENTATION_PRESET_DEFAULTS.md`
+- `PRESENTATION_COMPOSER_PIPELINE.md`
+- `PRESENTATION_TEST_FIXTURES.md`
+- `PRESENTATION_RESOURCE_NAMESPACE.md`
+- `PRESENTATION_RESOURCE_ALGORITHMS.md`
+- `ANIMATION_COMPOSITION_CONTRACT.md`
+- `CAMERA_FIT_ALGORITHMS.md`
+- `SCIENTIFIC_COLOR_POLICY.md`
+- `COLOR_SCALE_ALGORITHMS.md`
+- `PREMIUM_SCENE_BLUEPRINTS.md`
+- `PREMIUM_SHOWCASE_ACCEPTANCE_DATA.md`
+- `PHASE1_PRESENTATION_IMPLEMENTATION_CHECKLIST.md`
+
+### Visual attributes / Scene evolution
+
+- `VISUAL_ATTRIBUTE_MODEL.md`
+- `VISUAL_ATTRIBUTE_API_DRAFT.md`
+- `SCENE_SCHEMA_EVOLUTION_CHECKLIST.md`
+- `SCENE_V5_VISUAL_ATTRIBUTE_MIGRATION_PLAN.md`
+- `BACKEND_CAPABILITIES_EXTENSION_PLAN.md`
+- `RENDERER_CAPABILITIES_API_DRAFT.md`
+
+### Blender premium implementation
+
+- `BLENDER_BACKEND.md`
+- `BLENDER_PREMIUM_PRESENTATION.md`
+- `BLENDER_PREMIUM_SOURCE_AUDIT.md`
+- `BLENDER_PREMIUM_ACCEPTANCE.md`
+- `BLENDER_PREMIUM_IMPLEMENTATION_BLUEPRINT.md`
+- `BACKEND_SESSION_PRODUCT_CONTRACT.md`
+
+### SDK / plugins / project runtime
+
+- `PUBLIC_SDK_FACADE.md`
+- `SDK_EXPORT_MATRIX.md`
+- `MODULE_SDK.md`
+- `PLUGIN_PACKAGING.md`
+- `PLUGIN_RUNTIME_API_DRAFT.md`
+- `PLUGIN_SDK_QUICKSTART.md`
+- `SAMPLE_EXTENSION_PACKAGE.md`
+- `PROJECT_DOCUMENT_MODEL.md`
+- `PROJECT_RUNTIME_API_DRAFT.md`
+- `PROJECT_V1_CANONICAL_EXAMPLES.md`
+- `PROJECT_STATE_MODEL.md`
+- `METADATA_RUNTIME_API_DRAFT.md`
+- `SEMANTIC_METADATA_FIELD_CATALOG.md`
+- `INTROSPECTION_API_DRAFT.md`
+
+### Native/high-performance execution
+
+- `NATIVE_NUMERICAL_BACKENDS.md`
+- `NATIVE_PROVIDER_API_DRAFT.md`
+- `NATIVE_CPU_IMPLEMENTATION_BLUEPRINT.md`
+- `NUMERICAL_BUFFERS.md`
+- `NUMERICAL_BACKEND_VALIDATION.md`
+- `CANONICAL_REFERENCE_CASES.md`
+- `HIGH_PERFORMANCE_ROADMAP.md`
+- `PERFORMANCE_BUDGETS.md`
+- `OBSERVABILITY_AND_PROFILING.md`
 
 ## Platform map and policy
 
@@ -33,17 +110,17 @@ Product-level milestones and exit criteria from semantic-engine foundation throu
 
 Shared maturity and verification vocabulary distinguishing design, prototype, reference, experimental, beta, production, targeted/full/native/stress validation, and scientific-model scope.
 
-### `DIAGNOSTICS_AND_ERRORS.md`
+### `DIAGNOSTICS_AND_ERRORS.md` / `DIAGNOSTIC_CODE_MATRIX.md`
 
-Structured validation/capability/numerical/plugin/presentation/backend diagnostics, severity, solver-selection rejection reasons, failure preservation, and user-vs-developer detail rules.
+Structured validation/capability/numerical/plugin/presentation/backend diagnostics and the machine-readable diagnostic code vocabulary.
 
 ### `TEST_STRATEGY_AND_CHECKPOINTS.md`
 
-Layered validation strategy from compile/import and analytical tests through catalog, solver/provider, experiments, Scene/presentation, native Blender/GPU, stress, schema, plugin, project, CLI, and security checks; also records checkpoint discipline.
+Layered validation strategy from compile/import and analytical tests through catalog, solver/provider, experiments, Scene/presentation, native Blender/GPU, stress, schema, plugin, project, CLI, and security checks.
 
 ### `RELEASE_QUALIFICATION.md`
 
-Release/subsystem qualification gates covering scientific scope, compatibility, numerical correctness, Blender/presentation, project/plugin/native/GPU/remote/data/CLI/export/security/performance, and release-report requirements.
+Release/subsystem qualification gates covering scientific scope, compatibility, numerical correctness, Blender/presentation, project/plugin/native/GPU/remote/data/CLI/export/security/performance.
 
 ## Engine and domain architecture
 
@@ -57,27 +134,11 @@ Automatic built-in domain discovery, probe registration, capability ownership, d
 
 ### `SEMANTIC_METADATA_AND_INTROSPECTION.md`
 
-Future semantic/capability/domain/view/solver metadata contracts enabling generic UI, AI authoring, docs, plugin inspection, units/constraints, and large-module introspection without hardcoded switch statements.
-
-### `MODULE_SDK.md`
-
-How built-in and third-party scientific modules should define semantics, dependencies, capabilities, views, numerical providers, and tests.
-
-### `SAMPLE_EXTENSION_PACKAGE.md`
-
-Concrete third-party package blueprint using geometric optics to demonstrate package layout, domain capabilities, units, explicit views, presentation hints, diagnostics, experiment reuse, plugin lifecycle, and testing expectations.
+Semantic/capability/domain/view/solver metadata contracts enabling generic UI, AI authoring, docs, plugin inspection, units/constraints, and large-module introspection without hardcoded switch statements.
 
 ### `NAMING_CONVENTIONS.md`
 
 Naming rules for domains, capabilities, solver roles/implementations, method IDs, views, presentation resources, metrics, plugins, and backend identifiers.
-
-### `PUBLIC_SDK_FACADE.md`
-
-Design for a curated future `spectra.sdk` import surface so external extensions do not depend on arbitrary private repository paths.
-
-### `PLUGIN_PACKAGING.md`
-
-Future external package/entry-point discovery model, plugin compatibility, enable/disable, provider conflicts, native plugin lifecycle, and trust boundary.
 
 ### `API_STABILITY_POLICY.md`
 
@@ -95,15 +156,11 @@ Trust zones for built-ins, third-party plugins, native providers, project/data f
 
 ### `PRODUCT_WORKFLOWS.md`
 
-How Blender UI, standalone clients, CLI/headless workers, WebGPU, Python, and AI authoring should orchestrate the same semantic/numerical/project/presentation engine.
+How Blender UI, standalone clients, CLI/headless workers, WebGPU, Python, and AI authoring orchestrate the same semantic/numerical/project/presentation engine.
 
 ### `UI_INFORMATION_ARCHITECTURE.md`
 
-Recommended product organization around Project, Model, Solve, Results, View, Presentation, Experiments, Resources, Diagnostics, and Export—without making UI/native renderer state authoritative.
-
-### `PROJECT_STATE_MODEL.md`
-
-Conceptual project lifecycle, dirty/invalidation states, model/result/view/presentation/renderer separation, caching, stale-result handling, local/remote execution, and product-level state transitions.
+Recommended product organization around Project, Model, Solve, Results, View, Presentation, Experiments, Resources, Diagnostics, and Export.
 
 ### `COMMAND_AND_UNDO_MODEL.md`
 
@@ -113,17 +170,13 @@ Semantic command/transaction model for UI, Python, AI, undo/redo, preview edits,
 
 Future semantic revision/collaboration model, merge/conflict classes, shared-vs-local state, result history, presentation variants, resource/plugin compatibility, permissions, and remote job integration.
 
-### `PROJECT_DOCUMENT_MODEL.md`
-
-Future renderer-independent persistent project/study envelope for scientific models, solver policies, experiment artifacts, presentation variants, Scene caches, and external data resources.
-
 ### `TEMPLATE_SYSTEM.md`
 
 Versioned scientific/project/experiment/presentation/workflow templates with explicit assumptions, parameters, solver policies, views, presets, plugin integration, and AI/template-selection rules.
 
 ### `CACHE_AND_ARTIFACT_STORAGE.md`
 
-Durable project/result/experiment artifacts versus derived scientific, Scene, presentation, renderer, resource, and execution caches; fingerprints, invalidation, chunking, large-array storage, quotas, and remote artifact publication.
+Durable project/result/experiment artifacts versus derived scientific, Scene, presentation, renderer, resource, and execution caches.
 
 ### `DATA_INGESTION_AND_RESOURCES.md`
 
@@ -143,11 +196,7 @@ Remote/HPC worker contract, execution requests, capability negotiation, job life
 
 ### `AI_AUTHORING_AND_COMPILATION.md`
 
-AI authoring boundary: natural-language intent compiles into explicit semantic/project commands, units/capabilities/views are introspected, diagnostics remain authoritative, and AI never replaces deterministic numerical execution.
-
-### `POST_VALIDATION_IMPLEMENTATION_PLAN.md`
-
-Recommended implementation order after the next green validation: presentation semantics/composer, quantitative colors/legends, canonical premium scenes, Blender premium mapping, SDK/plugins/project format, then native CPU/GPU execution phases.
+AI authoring boundary: natural-language intent compiles into explicit semantic/project commands; diagnostics and deterministic numerical execution remain authoritative.
 
 ## Numerical execution
 
@@ -159,34 +208,6 @@ Stable numerical roles, solver interchangeability, selection policies, experimen
 
 Current fixed/adaptive numerical method/run semantics, selected implementation/execution metadata, solver policies, PDE pipeline provenance, per-case traces, and durable artifact rules.
 
-### `NATIVE_NUMERICAL_BACKENDS.md`
-
-Contract for native CPU, GPU, and external solver providers.
-
-### `NUMERICAL_BUFFERS.md`
-
-Typed execution-buffer and data-layout design for native/GPU implementations.
-
-### `NUMERICAL_BACKEND_VALIDATION.md`
-
-Parity, convergence, performance, transfer, memory, and promotion criteria for high-performance numerical providers.
-
-### `CANONICAL_REFERENCE_CASES.md`
-
-Shared analytical/numerical/visual/performance reference cases for ODE/PDE/math/physics, experiments, native/GPU parity, Blender/WebGPU validation, and performance reporting.
-
-### `PERFORMANCE_BUDGETS.md`
-
-Performance workload classes, latency/throughput separation, numerical/render/project/remote budgets, memory/history/caching considerations, and benchmark reporting boundaries.
-
-### `OBSERVABILITY_AND_PROFILING.md`
-
-Layered timing/resource/cache/copy/renderer/remote observability, profiling modes, correlation IDs, structured traces, performance inspector concepts, and benchmark integration.
-
-### `HIGH_PERFORMANCE_ROADMAP.md`
-
-Incremental path from Python reference solvers to native CPU, batched execution, GPU grid operators, and device-resident pipelines.
-
 ## Presentation and rendering
 
 ### `PREMIUM_PRESENTATION_SYSTEM.md`
@@ -197,21 +218,9 @@ Renderer-neutral presentation intent: presets, camera, color scales, legends, ax
 
 Shared product visual language for scientific hierarchy, typography roles, spacing, color semantics, geometry/material/lighting language, camera composition, multi-panel comparison, animation character, preset consistency, and accessibility.
 
-### `PRESENTATION_RESOURCE_NAMESPACE.md`
+### `VISUALIZATION_PRESENTATION_BOUNDARY.md`
 
-Deterministic IDs, namespaces, ownership metadata, incremental update rules, preset switching, and cleanup behavior for cameras, lights, legends, axes, annotations, materials, and presentation tracks.
-
-### `BLENDER_PREMIUM_PRESENTATION.md`
-
-How Blender may realize premium presentation intent through native materials, lights, camera, attributes, Geometry Nodes, compositor, ownership, and incremental updates.
-
-### `BLENDER_PREMIUM_ACCEPTANCE.md`
-
-Acceptance gates for premium Blender presentation: architecture boundaries, ownership/cleanup, incremental identity, color integrity, framing, lighting, dense batching, animation, canonical scenes, preset switching, save/reload, performance, and visual review.
-
-### `BLENDER_BACKEND.md`
-
-Current Blender backend contract and verified Blender 5.2 native behavior.
+Keeps semantic visualization (`semantic object -> base Scene`) separate from presentation enrichment (`base Scene -> presented Scene`).
 
 ### `SHOWCASE_SCENARIOS.md`
 
@@ -233,38 +242,37 @@ Documents describe different kinds of truth. Interpret them carefully.
 
 ### Verified behavior
 
-Explicit validation records such as Blender 5.2 native smoke or a stated pytest baseline describe observed behavior at a specific commit.
+Explicit validation records describe observed behavior at a specific commit.
 
-### Current implemented architecture
-
-Some documents describe code already present on `main` but not yet included in the latest full local validation milestone.
-
-### Design contract / future direction
-
-Files such as native/GPU buffer design, premium presentation runtime phases, external plugin entry-point discovery, public SDK facade, semantic metadata, project/template/cache/collaboration models, remote worker contract, AI authoring, and UI/headless/export architecture may describe architecture intentionally specified before implementation.
-
-Do not report a design contract as implemented runtime functionality.
-
-## Current validation note
-
-The last fully reported verified baseline before the current numerical/experiment development batch was:
+Current recorded verified baseline:
 
 ```text
 commit: acb9e056326177fac49cc57b202ca80cca5090a7
 compileall: PASS
 pytest: 224 passed
-Blender 5.2 LTS native smoke: PASS
+Blender 5.2 native smoke: PASS
 ```
 
-`main` has moved beyond that baseline. The current large numerical/experiments batch should not be called fully green until its next local validation completes.
+### Implemented, awaiting validation
 
-Documentation-only commits after that batch do not themselves require Blender/GPU execution validation.
+The executable numerical/experiments batch after the verified baseline ends at:
+
+```text
+00b5403a9ffb005b7eb011833174e013158ee1f4
+```
+
+It must not be called fully green until the next local validation completes.
+
+### Design/documentation after runtime freeze
+
+Changes after `00b5403...` are intentionally documentation/design/source-audit work unless `CURRENT_STATUS.md` is explicitly updated to say otherwise. These documents must not be reported as implemented runtime functionality.
 
 ## Rules for updating docs
 
 - update architecture documents when public boundaries change;
 - keep verified measurements tied to the commit/machine/context that produced them;
 - distinguish implemented code from future design;
+- prefer current executable source over speculative duplicate abstractions;
 - do not write renderer-specific behavior into scientific-domain docs;
 - do not document reference solvers as industrial/production CFD, FEA, FDTD, or quantum chemistry solvers;
 - update this index when introducing another subsystem source-of-truth document.
