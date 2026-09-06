@@ -43,6 +43,26 @@ def test_namespace_scene_rewrites_all_internal_references() -> None:
     assert scene.timeline.tracks[0].target_id == "math/curve"
 
 
+def test_namespace_scene_preserves_track_owner_metadata() -> None:
+    scene = _curve_scene()
+    presentation_track = draw_track(
+        "curve",
+        start_time=0.0,
+        end_time=1.0,
+        owner="presentation",
+    )
+    scene = Scene(
+        primitives=scene.primitives,
+        materials=scene.materials,
+        timeline=Timeline(duration=1.0, tracks=(presentation_track,)),
+    )
+
+    namespaced = namespace_scene(scene, "lesson")
+    track = namespaced.timeline.tracks[0]
+    assert track.target_id == "lesson/curve"
+    assert track.owner == "presentation"
+
+
 def test_namespaced_scenes_with_same_local_ids_can_be_composed() -> None:
     combined = compose_namespaced_scenes(
         (
