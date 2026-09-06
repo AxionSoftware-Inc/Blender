@@ -54,8 +54,17 @@ def test_electrostatic_base_scene_preserves_signed_voltage_and_batched_views(bas
     assert min(potential.values) < 0.0 < max(potential.values)
     assert max(potential.values) == pytest.approx(-min(potential.values), rel=2e-3, abs=1e-8)
 
+    # The canonical test grid samples both source x positions on the y=0 row.
+    center_row = 6 * 13
+    assert potential.values[center_row + 3] > 0.0   # +q at x=-1.5 m
+    assert potential.values[center_row + 9] < 0.0   # -q at x=+1.5 m
+
     assert isinstance(vectors, VectorGlyphSet)
     assert vectors.instance_count == 5 * 5
+    center_vector = vectors.vectors[12]
+    assert center_vector.x > 0.0  # E points from +q toward -q at the dipole center.
+    assert abs(center_vector.y) < 1e-10
+    assert abs(center_vector.z) < 1e-10
     assert base_scene.timeline.duration == 0.0
     assert base_scene.timeline.tracks == ()
 
@@ -87,7 +96,7 @@ def test_presented_electrostatic_scene_uses_symmetric_quantitative_scale(present
     assert display.association == "vertex"
     assert display.quantity_id == "electric_potential"
     assert len(display.values) == len(potential.values)
-    assert surface.color == surface.color  # scalar data are carried by attributes, not material slots
+    assert len(set(display.values)) > 4
 
     minimum = float(presented_scene.get("presentation.legend.label.minimum").text)
     maximum = float(presented_scene.get("presentation.legend.label.maximum").text)
