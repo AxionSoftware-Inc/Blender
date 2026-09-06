@@ -51,17 +51,34 @@ def test_default_scientific_owner_keeps_legacy_json_shape() -> None:
     assert "owner" not in data["timeline"]["tracks"][0]
 
 
-def test_switching_from_presentation_to_analysis_removes_reveal_tracks() -> None:
+def test_switching_from_presentation_to_analysis_removes_reveal_tracks_and_tail() -> None:
     line = Polyline(
         id="trajectory",
         points=(Vec3(0.0, 0.0, 0.0), Vec3(1.0, 0.0, 0.0)),
     )
     presented = compose_presentation(Scene(primitives=(line,)), "presentation")
     assert any(track.owner == "presentation" for track in presented.timeline.tracks)
+    assert presented.timeline.duration > 0.0
 
     analysis = compose_presentation(presented, "analysis")
     assert all(track.owner != "presentation" for track in analysis.timeline.tracks)
+    assert analysis.timeline.duration == 0.0
     assert len({primitive.id for primitive in analysis.primitives}) == len(analysis.primitives)
+
+
+def test_recomposition_preserves_longer_trackless_scientific_duration() -> None:
+    point = Point(id="sample", position=Vec3(0.0, 0.0, 0.0), radius=0.2)
+    scientific = Scene(
+        primitives=(point,),
+        timeline=Timeline(duration=5.0),
+    )
+    presented = compose_presentation(scientific, "presentation")
+    assert presented.timeline.duration == 5.0
+    assert any(track.owner == "presentation" for track in presented.timeline.tracks)
+
+    analysis = compose_presentation(presented, "analysis")
+    assert analysis.timeline.duration == 5.0
+    assert analysis.timeline.tracks == ()
 
 
 def test_recomposition_is_resource_and_track_idempotent() -> None:
@@ -79,6 +96,7 @@ def test_recomposition_is_resource_and_track_idempotent() -> None:
         (track.target_id, track.property_path, track.owner)
         for track in twice.timeline.tracks
     ]
+    assert once.timeline.duration == twice.timeline.duration
 
 
 def test_fit_primary_ignores_unrelated_scientific_timeline_targets() -> None:
