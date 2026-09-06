@@ -67,14 +67,18 @@ class BlenderTimelineController:
     ``playback_duration`` belongs to presentation/transport. ``duration`` remains
     the scientific Timeline duration and is never rewritten to make an animation
     visually slower or faster.
+
+    The new field is deliberately appended after the legacy constructor fields so
+    older positional construction keeps its historical argument order. Product
+    code should still prefer ``bind()``.
     """
 
     session: BackendSession[IncrementalBlenderHandle]
     fps: float
     start_frame: int
-    playback_duration: float
     handler: FrameHandler
     bound: bool = True
+    playback_duration: float | None = None
 
     @classmethod
     def bind(
@@ -117,8 +121,8 @@ class BlenderTimelineController:
             session=session,
             fps=float(fps),
             start_frame=int(start_frame),
-            playback_duration=transport_duration,
             handler=on_frame_change,
+            playback_duration=transport_duration,
         )
         controller_holder["controller"] = controller
 
@@ -145,8 +149,13 @@ class BlenderTimelineController:
         return self.session.source_scene.timeline.duration
 
     @property
+    def transport_duration(self) -> float:
+        """Human-facing playback duration, defaulting to historical 1:1 time."""
+        return self.duration if self.playback_duration is None else self.playback_duration
+
+    @property
     def end_frame(self) -> int:
-        return self.start_frame + max(0, int(round(self.playback_duration * self.fps)))
+        return self.start_frame + max(0, int(round(self.transport_duration * self.fps)))
 
     def seek_frame(self, frame: int) -> Scene:
         if not self.bound:
