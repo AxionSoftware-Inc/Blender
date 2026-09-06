@@ -1,6 +1,6 @@
 # Spectra Science — Current Status
 
-This file records the latest verified runtime checkpoint and the next bounded development milestone.
+This file records the latest verified runtime checkpoint and the current bounded development milestone.
 
 ## Current fully verified baseline
 
@@ -61,7 +61,7 @@ Scientific scalar values and color mapping remain renderer-independent.
 
 ## Verified Blender quantitative path
 
-`QuantitativeBlenderBackend` is now validated in Blender 5.2 for:
+`QuantitativeBlenderBackend` is validated in Blender 5.2 for:
 
 ```text
 Surface vertex display_color
@@ -108,7 +108,7 @@ with implementation:
 rk4.native_cpu
 ```
 
-The optional CPython extension now built successfully and was validated as real CPU execution:
+The optional CPython extension built successfully and was validated as real CPU execution:
 
 ```text
 NATIVE_CPU_AVAILABLE = True
@@ -137,15 +137,13 @@ This number is machine/problem/RHS-specific. It is evidence for this validation 
 
 ## Catalog/runtime checkpoint
 
-At this baseline:
+At the verified baseline:
 
 ```text
 119 domains
 468 providers
 300 tests
 ```
-
-The extra provider relative to the previous baseline reflects the current validated runtime graph.
 
 ## Current architecture status
 
@@ -163,21 +161,57 @@ Verified runtime includes:
 - curated SDK/plugin/project runtime layers;
 - Blender 5.2 generic, incremental, and quantitative targeted behavior.
 
-## Next bounded milestone — five flagship premium scenes
+## Current development batch — Maxwell flagship validation pending
 
-The next product-visible track starts from this verified commit and should remain bounded rather than becoming another foundational rewrite.
+Work after `183b8aa...` has started the first product-visible canonical showcase.
+
+Implemented, **not yet promoted to verified**:
+
+- `spectra.showcases` product/integration package;
+- canonical SI Maxwell plane-wave showcase;
+- +x propagation, E +y, B +z;
+- physical speed of light rather than a normalized presentation speed;
+- batched E/B `VectorGlyphSet` views;
+- animated E/B field-profile traces;
+- explicit `c·B` display scaling while preserving physical B units;
+- premium title/subtitle/camera resources with presentation reveal disabled;
+- Blender `playback_duration` transport scaling separate from scientific Timeline duration;
+- Scene namespacing now preserves `Track.owner` metadata;
+- canonical Blender Maxwell example and targeted smoke;
+- plain-Python Maxwell structure/time/orientation tests.
+
+The key time invariant is:
+
+```text
+scientific Scene Timeline = exact SI nanoseconds
+Blender playback duration = presentation transport seconds
+```
+
+The renderer/client may slow the playback for humans, but it must not rewrite scientific time.
+
+A seconds-long presentation reveal is intentionally disabled in this showcase because the current Scene has one Timeline; mixing such a reveal into a nanosecond scientific Timeline would corrupt scientific duration semantics.
+
+Validation source of truth:
+
+```text
+docs/MAXWELL_FLAGSHIP_VALIDATION_HANDOFF.md
+```
+
+Until that handoff passes, the verified runtime baseline remains `183b8aa...` / 300 tests / 119 domains / 468 providers.
+
+## Flagship premium-scene sequence
 
 Recommended order:
 
 ```text
-1. Maxwell electromagnetic wave
+1. Maxwell electromagnetic wave        <- current batch
 2. Electrostatic field laboratory
 3. Quantum probability + phase
 4. Thermoelastic solid
 5. Schwarzschild geodesics
 ```
 
-The purpose is to prove one reusable pipeline:
+The reusable pipeline being proven is:
 
 ```text
 scientific semantics / result
@@ -189,12 +223,14 @@ scientific semantics / result
     -> Blender now / future WebGPU later
 ```
 
-Each showcase should have plain-Python structure tests first, then targeted Blender validation where relevant.
+Each showcase should be promoted through a bounded test/native checkpoint before the next one introduces another platform-level requirement.
 
 ## Still future or materially incomplete
 
 Examples:
 
+- independent presentation Timeline / intro-hold-outro sequencing;
+- dynamic efficient scientific time labels;
 - high-cardinality native/Geometry-Nodes `VectorGlyphSet` realization;
 - fully screen-space legend/layout system;
 - volume rendering primitive semantics;
@@ -223,7 +259,7 @@ Keep three things explicit at every checkpoint:
 2. what has actually been validated at a concrete commit;
 3. what remains reference/foundation work versus production-grade capability.
 
-For the current runtime milestone, the verified baseline is:
+For the current fully verified runtime milestone, the baseline remains:
 
 ```text
 183b8aa869f1643462fbfb00193e109d65c323e7
