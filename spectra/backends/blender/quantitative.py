@@ -40,6 +40,11 @@ def _visual_color_attribute(primitive: Primitive) -> VisualAttribute | None:
 def _sanitize_primitive(primitive: Primitive) -> Primitive:
     color_attribute = _visual_color_attribute(primitive)
     changes: dict[str, object] = {"attributes": VisualAttributeSet()}
+    if color_attribute is not None:
+        # Quantitative opacity is realized by the dedicated shader. Keeping the
+        # base incremental geometry at opacity 1 prevents opacity-only updates
+        # from falling off the geometry fast path and replacing native data.
+        changes["opacity"] = 1.0
     if isinstance(primitive, PointCloud) and color_attribute is not None:
         # Avoid the legacy material-slot color path. The quantitative adapter
         # realizes the explicit Scene v5 color attribute on the mesh instead.
