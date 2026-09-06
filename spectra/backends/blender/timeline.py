@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 from typing import Any, Callable
 
 from spectra.backends.driver import BackendSession
@@ -19,14 +20,39 @@ def frame_to_engine_time(
     start_frame: int,
     fps: float,
     duration: float,
+    playback_duration: float | None = None,
 ) -> float:
-    """Map a Blender/UI frame to Spectra engine time and clamp to the timeline."""
-    if fps <= 0.0:
-        raise ValueError("fps must be positive")
-    if duration < 0.0:
-        raise ValueError("duration cannot be negative")
-    seconds = (int(frame) - int(start_frame)) / float(fps)
-    return min(max(seconds, 0.0), float(duration))
+    """Map Blender transport frames to Spectra scientific time.
+
+    ``duration`` is always the authoritative Spectra/scientific Timeline duration.
+    ``playback_duration`` is optional presentation transport time. When omitted,
+    the historical 1 Blender second == 1 scientific second behavior is preserved.
+
+    A separate playback duration lets nanosecond Maxwell evolution or very slow
+    scientific processes be shown over a human-readable video duration without
+    changing, resampling, or relabeling the scientific Timeline itself.
+    """
+    if not math.isfinite(fps) or fps <= 0.0:
+        raise ValueError("fps must be finite and positive")
+    if not math.isfinite(duration) or duration < 0.0:
+        raise ValueError("duration must be a finite non-negative value")
+    if playback_duration is not None:
+        if not math.isfinite(playback_duration):
+            raise ValueError("playback_duration must be finite")
+        if duration > 0.0 and playback_duration <= 0.0:
+            raise ValueError("playback_duration must be positive for an animated Scene")
+        if duration == 0.0 and playback_duration < 0.0:
+            raise ValueError("playback_duration cannot be negative")
+
+    if duration == 0.0:
+        return 0.0
+
+    transport_duration = duration if playback_duration is None else playback_duration
+    presentation_seconds = (int(frame) - int(start_frame)) / float(fps)
+    if transport_duration <= 0.0:
+        return 0.0
+    normalized = presentation_seconds / transport_duration
+    return min(max(normalized * duration, 0.0), float(duration))
 
 
 @dataclass
@@ -37,11 +63,16 @@ class BlenderTimelineController:
     transport signal. Every frame change is converted to engine time, then the
     source Scene is sampled by BackendSession and the resulting static snapshot
     is incrementally applied to native Blender objects.
+
+    ``playback_duration`` belongs to presentation/transport. ``duration`` remains
+    the scientific Timeline duration and is never rewritten to make an animation
+    visually slower or faster.
     """
 
     session: BackendSession[IncrementalBlenderHandle]
     fps: float
     start_frame: int
+    playback_duration: float
     handler: FrameHandler
     bound: bool = True
 
@@ -52,11 +83,24 @@ class BlenderTimelineController:
         *,
         fps: float = 30.0,
         start_frame: int = 1,
+        playback_duration: float | None = None,
         set_blender_frame_range: bool = True,
         backend: IncrementalBlenderBackend | None = None,
     ) -> "BlenderTimelineController":
-        if fps <= 0.0:
-            raise ValueError("fps must be positive")
+        if not math.isfinite(fps) or fps <= 0.0:
+            raise ValueError("fps must be finite and positive")
+        scientific_duration = scene.timeline.duration
+        if playback_duration is None:
+            transport_duration = scientific_duration
+        else:
+            if not math.isfinite(playback_duration):
+                raise ValueError("playback_duration must be finite")
+            if scientific_duration > 0.0 and playback_duration <= 0.0:
+                raise ValueError("playback_duration must be positive for an animated Scene")
+            if scientific_duration == 0.0 and playback_duration < 0.0:
+                raise ValueError("playback_duration cannot be negative")
+            transport_duration = float(playback_duration)
+
         bpy, _ = _require_blender()
         renderer = backend or IncrementalBlenderBackend()
         session = BackendSession.open(renderer, scene)
@@ -73,6 +117,7 @@ class BlenderTimelineController:
             session=session,
             fps=float(fps),
             start_frame=int(start_frame),
+            playback_duration=transport_duration,
             handler=on_frame_change,
         )
         controller_holder["controller"] = controller
@@ -84,8 +129,7 @@ class BlenderTimelineController:
         if set_blender_frame_range:
             native_scene = bpy.context.scene
             native_scene.frame_start = int(start_frame)
-            duration = scene.timeline.duration
-            frame_count = max(0, int(round(duration * fps)))
+            frame_count = max(0, int(round(transport_duration * fps)))
             native_scene.frame_end = int(start_frame) + frame_count
             if hasattr(native_scene.render, "fps"):
                 whole_fps = max(1, int(round(fps)))
@@ -97,11 +141,12 @@ class BlenderTimelineController:
 
     @property
     def duration(self) -> float:
+        """Authoritative Spectra/scientific Timeline duration."""
         return self.session.source_scene.timeline.duration
 
     @property
     def end_frame(self) -> int:
-        return self.start_frame + max(0, int(round(self.duration * self.fps)))
+        return self.start_frame + max(0, int(round(self.playback_duration * self.fps)))
 
     def seek_frame(self, frame: int) -> Scene:
         if not self.bound:
@@ -111,6 +156,7 @@ class BlenderTimelineController:
             start_frame=self.start_frame,
             fps=self.fps,
             duration=self.duration,
+            playback_duration=self.playback_duration,
         )
         return self.session.seek(time)
 
