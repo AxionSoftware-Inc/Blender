@@ -1,275 +1,230 @@
 # Spectra Science — Current Status
 
-This file separates the last fully verified runtime milestone from the current validation-pending development batch.
+This file records the latest verified runtime checkpoint and the next bounded development milestone.
 
-## Last fully verified baseline
+## Current fully verified baseline
 
 Commit:
 
 ```text
-b9ca6b017cac83f45cc3864a88e219c848c12fc8
+183b8aa869f1643462fbfb00193e109d65c323e7
 ```
 
-Reported local validation:
+Reported local/native validation:
 
 ```text
+repo clean/synced: PASS
 compileall spectra: PASS
-pytest: 276 passed
-initial failures: 0
+pytest: 300 passed
+initial source failures: 0
+validation-environment issue: setuptools missing; installed, native extension rebuilt successfully
 DomainCatalog / auto-discovery: PASS
 119 domains
-467 providers
-numerical provenance / solver registry: PASS
-presentation / Scene v5 / VisualAttribute: PASS
+468 providers
+Scene v5 / Track.owner: PASS
+quantitative shared scale: PASS
+legend / axes / annotations: PASS
+presentation recomposition / duration: PASS
 SDK / plugin / project layers: PASS
-native-provider RK4 boundary: PASS
-Blender 5.2 targeted smoke: PASS
-repo clean / synchronized at the milestone
+native extension build: PASS
+NATIVE_CPU_AVAILABLE: True
+native/reference RK4 parity: PASS — max error 0.0
+RK4 convergence: PASS — ratios ~16.42, ~16.21
+CPU-only selection/provenance: PASS
+Python fallback truthfulness: PASS
+Blender 5.2 quantitative smoke: PASS
+existing Blender static/wave/EM smoke: PASS
+GitHub Actions: absent
+remaining blockers: none
 ```
 
-Blender validation at that baseline included static, wave, EM, 10k PointCloud/VectorGlyphSet batching, stable identity, 100-frame leak testing, and cleanup/orphan checks.
+This supersedes the earlier `b9ca6b0...` / 276-test baseline.
 
-Reported Blender reference measurement from that run:
+## Verified quantitative presentation
 
-```text
-create:          ~170.49 ms
-combined update: ~89.95 ms
-```
+The renderer-neutral presentation layer now includes verified runtime support for:
 
-These measurements are commit/machine/workload-specific.
+- `VIRIDIS`, `MAGMA`, `COOLWARM`, and `PHASE` palettes;
+- `DATA`, `FIXED`, and `SYMMETRIC` range policies;
+- one Scene-wide shared quantitative range for one quantity role;
+- explicit rejection of mixed units on one shared scale until an explicit conversion contract exists;
+- scalar `VisualAttribute` -> deterministic `display_color` mapping;
+- deterministic world-space quantitative legends;
+- analysis XYZ axes;
+- camera-facing title/subtitle/time annotations;
+- deterministic presentation IDs;
+- scientific-vs-presentation track ownership;
+- presentation recomposition and duration recovery;
+- Scene-v5 persistence of non-default `Track.owner` metadata.
 
-### Native-provider meaning at the verified baseline
+Scientific scalar values and color mapping remain renderer-independent.
 
-At `b9ca6b0...`:
+## Verified Blender quantitative path
 
-```text
-ode.first_order / rk4.native_cpu
-```
-
-was a validated solver-registry/provider/provenance boundary, but still delegated to Python reference RK4. Therefore the verified baseline does **not** prove compiled native CPU acceleration.
-
-## Current development batch — validation pending
-
-Current `main` contains a bounded quantitative-presentation/native-execution batch built on `b9ca6b0...`.
-
-**Do not call current `main` green until `docs/QUANTITATIVE_NATIVE_VALIDATION_HANDOFF.md` completes.**
-
-### Quantitative presentation
-
-Implemented, validation pending:
-
-- renderer-neutral `VIRIDIS`, `MAGMA`, `COOLWARM`, `PHASE` palettes;
-- `DATA`, `FIXED`, `SYMMETRIC` range policies;
-- one Scene-wide shared range for one quantitative role;
-- explicit mixed-unit rejection until a conversion policy exists;
-- scalar VisualAttribute -> deterministic `display_color` VisualAttribute;
-- PointCloud/VectorGlyphSet legacy color compatibility bridge;
-- deterministic quantitative legend resources using the same resolved range;
-- deterministic analysis XYZ axes;
-- camera-facing world-space title/subtitle/time annotations;
-- SDK exposure of quantitative presentation helpers.
-
-Scientific scalar values remain renderer-independent. Blender does not own scalar-to-color mapping.
-
-### Presentation timeline/recomposition fixes
-
-Implemented, validation pending:
-
-- fixed stale `duration=` call to `staggered_reveal`; runtime uses `item_duration=`;
-- `Track.owner` defaults to `scientific`;
-- presentation reveal tracks use owner `presentation`;
-- scientific `(target_id, property_path)` ownership wins over presentation effects;
-- presentation recomposition strips old presentation-owned resources/tracks;
-- presentation-only Timeline tail is removed when switching back to a non-reveal preset;
-- longer intentional scientific Timeline duration is preserved;
-- repeated composition is resource/track/duration idempotent;
-- FIT_PRIMARY temporary framing Scene has no unrelated timeline references;
-- Scene-v5 serialization persists non-default track owner while preserving old scientific-track JSON shape.
-
-### Blender quantitative adapter
-
-New runtime adapter, validation pending:
-
-```text
-QuantitativeBlenderBackend
-```
-
-Targeted native mapping:
+`QuantitativeBlenderBackend` is now validated in Blender 5.2 for:
 
 ```text
 Surface vertex display_color
-    -> Blender mesh FLOAT_COLOR / POINT attribute
+    -> Blender FLOAT_COLOR / POINT mesh attribute
 
 PointCloud instance display_color
-    -> current 6-vertex instance representation
-    -> Blender mesh FLOAT_COLOR / POINT attribute
+    -> current batched mesh representation
+    -> Blender FLOAT_COLOR / POINT mesh attribute
 ```
 
-Native attribute name:
+The targeted quantitative smoke verified:
 
-```text
-spectra_display_color
-```
+- 300 distinct values;
+- one PointCloud native object;
+- one quantitative material;
+- native mesh color attribute;
+- per-value alpha;
+- effective `attribute alpha × primitive opacity` behavior;
+- color-only object/datablock/material identity preservation;
+- opacity-only object/datablock/material identity preservation;
+- cleanup PASS.
 
-Implemented intent:
-
-- avoid high-cardinality material-slot explosion for quantitative Surface/PointCloud;
-- one quantitative mesh primitive -> one quantitative material;
-- >256 distinct PointCloud values through native mesh color attributes;
-- per-value `Color.a` preserved in the native color buffer;
-- effective alpha = `attribute_alpha * primitive.opacity` in the shader;
-- color-only updates preserve object/datablock identity;
-- opacity-only updates keep geometry sanitized at opacity 1 and update the quantitative material instead;
-- opacity-only updates are intended to preserve object/datablock/material identity;
-- cleanup owns/removes quantitative materials with the normal backend lifecycle.
+The existing static/wave/EM Blender smoke also remained green.
 
 Current deliberate limitation:
 
 ```text
-VectorGlyphSet remains on the existing Curve/color fallback path
+VectorGlyphSet -> existing Curve/color fallback path
 ```
 
-The Blender 5.2 quantitative material/attribute path is not yet promoted until native smoke passes.
+High-cardinality VectorGlyphSet native attributes / Geometry Nodes remain a later optimization.
 
-### Real optional native CPU RK4 kernel
+## Verified real native CPU RK4 provider
 
-New implementation, validation pending:
+The stable numerical role remains:
 
 ```text
-native/spectra_native_cpu.c
-spectra._native_cpu
+ode.first_order
 ```
 
-Compiled state:
+with implementation:
+
+```text
+rk4.native_cpu
+```
+
+The optional CPython extension now built successfully and was validated as real CPU execution:
 
 ```text
 NATIVE_CPU_AVAILABLE = True
-implementation_id = rk4.native_cpu
-method_id = rk4.fixed
 execution.kind = cpu
 backend = spectra.native_cpu
 device = host-cpu
 ```
 
-Fallback state:
+Validation confirmed:
+
+- exact parity with the reference RK4 case used by the validation (`max error 0.0`);
+- fourth-order convergence behavior;
+- CPU-only solver selection;
+- tracked execution provenance;
+- truthful Python fallback behavior when the extension is unavailable.
+
+Reference benchmark from the reported validation workload:
 
 ```text
-NATIVE_CPU_AVAILABLE = False
-implementation_id = rk4.native_cpu
-method_id = rk4.fixed
-execution.kind = python
-backend = spectra.native_cpu.python_fallback
-device = None
+Python reference RK4: 56.538 ms
+native provider:       12.842 ms
+observed speedup:      ~4.40×
 ```
 
-The fallback must not satisfy CPU-only requirements. Targeted tests now exercise direct parity, registry selection, CPU-only requirements, fallback-tag selection, and tracked provenance.
+This number is machine/problem/RHS-specific. It is evidence for this validation workload, not a universal RK4 speedup claim. The native loop still invokes Python RHS callbacks at each RK stage; typed/batched native buffers remain the next numerical-performance direction.
 
-The extension is optional for ordinary installation, but the next validation must explicitly build it and prove the compiled path. Python RHS callbacks are still invoked four times per RK4 step, so performance claims require measurement.
+## Catalog/runtime checkpoint
 
-### Targeted tests/examples in this batch
+At this baseline:
 
 ```text
-tests/test_quantitative_presentation.py
-tests/test_quantitative_shared_scale_and_legend.py
-tests/test_presentation_recomposition.py
-tests/test_blender_quantitative_backend.py
-tests/test_native_cpu_extension_boundary.py
-examples/blender_quantitative_smoke.py
+119 domains
+468 providers
+300 tests
 ```
 
-The Blender smoke now checks 300 quantitative values, native color attributes, per-value alpha, primitive opacity update, color-only/opacity-only identity, one-material behavior, and cleanup.
+The extra provider relative to the previous baseline reflects the current validated runtime graph.
 
-These tests are written but are not a substitute for the pending full local/native validation.
+## Current architecture status
 
-## Active validation source of truth
-
-Use:
-
-```text
-docs/QUANTITATIVE_NATIVE_VALIDATION_HANDOFF.md
-```
-
-Required high-level gates:
-
-```text
-explicit native extension build
-compileall/import boundary
-new targeted tests
-full pytest
-catalog/provider probe
-native/reference RK4 parity + convergence
-CPU-only policy selection
-Python fallback truthfulness
-Blender 300-value quantitative smoke
-alpha × opacity shader sanity
-color-only / opacity-only identity
-presentation legend/axes/annotation visual sanity
-existing Blender static/wave/EM regressions
-10k batching / identity / leak / cleanup checks
-```
-
-GitHub Actions remains intentionally absent.
-
-## Current capability status
-
-### Fully verified through `b9ca6b0...`
+Verified runtime includes:
 
 - renderer-independent semantic/capability engine;
-- 119-domain / 467-provider reported catalog baseline;
-- solver-role/policy/provenance platform;
+- automatic domain discovery and provider graph;
 - RK4/Heun/RK45 reference solvers;
-- experiments, sensitivity, uncertainty, calibration, Pareto, reproducibility, artifacts/tracing;
-- Scene v5 / VisualAttribute foundation;
-- initial renderer-neutral presentation runtime;
-- initial SDK/plugin/project runtime layers;
-- Blender 5.2 generic/incremental batching and identity behavior.
+- real optional native CPU RK4 provider plus truthful fallback;
+- solver policies, problem-aware selection, execution descriptors, provenance;
+- ODE/PDE and current scientific-domain foundations;
+- experiments, batching, convergence, sensitivity, uncertainty, calibration, Pareto, reproducibility, artifacts/tracing;
+- Scene v5 / VisualAttribute;
+- quantitative presentation runtime;
+- curated SDK/plugin/project runtime layers;
+- Blender 5.2 generic, incremental, and quantitative targeted behavior.
 
-### Implemented after baseline, awaiting validation
+## Next bounded milestone — five flagship premium scenes
 
-- quantitative shared-range color pipeline;
-- deterministic legends, analysis axes, camera-facing annotations;
-- presentation track ownership/recomposition/duration fixes;
-- Blender mesh color-attribute realization for Surface/PointCloud;
-- per-value alpha and material-owned primitive opacity;
-- color/opacity-only quantitative identity path;
-- optional compiled CPython C RK4 loop with truthful fallback metadata;
-- explicit native/fallback registry-policy-provenance tests.
+The next product-visible track starts from this verified commit and should remain bounded rather than becoming another foundational rewrite.
 
-### Still future or materially incomplete
+Recommended order:
 
-- VectorGlyphSet high-cardinality native attribute/Geometry Nodes representation;
+```text
+1. Maxwell electromagnetic wave
+2. Electrostatic field laboratory
+3. Quantum probability + phase
+4. Thermoelastic solid
+5. Schwarzschild geodesics
+```
+
+The purpose is to prove one reusable pipeline:
+
+```text
+scientific semantics / result
+    -> explicit scientific view
+    -> generic Scene + Timeline
+    -> presentation intent
+    -> quantitative/semantic visual policy
+    -> premium presented Scene
+    -> Blender now / future WebGPU later
+```
+
+Each showcase should have plain-Python structure tests first, then targeted Blender validation where relevant.
+
+## Still future or materially incomplete
+
+Examples:
+
+- high-cardinality native/Geometry-Nodes `VectorGlyphSet` realization;
 - fully screen-space legend/layout system;
 - volume rendering primitive semantics;
-- typed/batched native numerical buffers that reduce repeated Python RHS overhead;
+- typed/batched native numerical buffers that reduce Python callback overhead;
+- native grid/PDE kernels;
 - GPU numerical provider;
-- device-resident grid/PDE pipeline;
-- production CFD/FEA/RF/quantum-chemistry solver stacks;
-- five canonical polished premium showcase scenes;
+- device-resident PDE pipeline;
+- industrial CFD/RANS/LES/AMR;
+- production FEM/contact/plasticity/fracture/shells/beams;
+- production RF/FDTD/PML/dispersive electromagnetics;
+- quantum chemistry/DFT/many-body stack;
 - standalone/WebGPU polished product;
 - production remote/HPC/collaboration services.
 
-## Rule for the next verified baseline
+## Repository policy
 
-Only the local-agent validation report may promote this batch.
+GitHub Actions remains intentionally absent. Do not recreate it unless explicitly requested.
 
-When it passes, record:
+Generated `.pyd`, `.so`, `.dll`, `.dylib`, build/wheel outputs, caches, renders, and releases do not belong in source control.
 
-```text
-final SHA
-actual pytest count
-actual domain/provider count
-native extension build/availability status
-native/fallback selection + provenance status
-Blender quantitative/alpha/opacity status
-existing Blender regression status
-root fixes
-benchmarks if meaningful
-remaining limitations
-repo clean/synced state
-```
+## Success criterion
 
-Until then, the verified runtime baseline remains:
+Keep three things explicit at every checkpoint:
+
+1. what is implemented;
+2. what has actually been validated at a concrete commit;
+3. what remains reference/foundation work versus production-grade capability.
+
+For the current runtime milestone, the verified baseline is:
 
 ```text
-b9ca6b017cac83f45cc3864a88e219c848c12fc8
+183b8aa869f1643462fbfb00193e109d65c323e7
 ```
