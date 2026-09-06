@@ -42,7 +42,11 @@ def compile_time_vector_field_animation_scene(
 
     keyframes = []
     for index in range(animation.temporal_samples):
-        engine_time = index * engine_step
+        # Anchor the terminal sample exactly at the declared duration.  The
+        # intermediate division is intentionally retained, but binary floating
+        # point rounding must not make the final keyframe exceed Timeline's
+        # strict endpoint contract for very small SI durations.
+        engine_time = duration if index == animation.temporal_samples - 1 else index * engine_step
         physical_time = animation.start_time + engine_time
         vectors = tuple(
             animation.field.evaluate(point, physical_time) * animation.vector_scale
@@ -145,7 +149,11 @@ def compile_time_scalar_field_surface_animation_scene(
 
     keyframes = []
     for index in range(animation.temporal_samples):
-        engine_time = index * engine_step
+        engine_time = (
+            duration
+            if index == animation.temporal_samples - 1
+            else index * engine_step
+        )
         physical_time = animation.start_time + engine_time
         vertices = _sample_scalar_surface_vertices(
             animation.field,

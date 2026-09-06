@@ -23,6 +23,12 @@ from .quantum_wavepacket import (
     build_quantum_wavepacket_scene,
     solve_quantum_wavepacket_showcase,
 )
+from .thermoelastic_bar import (
+    ThermoelasticBarShowcaseConfig,
+    build_thermoelastic_bar_base_scene,
+    build_thermoelastic_bar_scene,
+    solve_thermoelastic_bar_showcase,
+)
 
 __all__ = [
     "ElectrostaticLabShowcaseConfig",
@@ -37,4 +43,8 @@ __all__ = [
     "build_quantum_wavepacket_base_scene",
     "build_quantum_wavepacket_scene",
     "solve_quantum_wavepacket_showcase",
+    "ThermoelasticBarShowcaseConfig",
+    "build_thermoelastic_bar_base_scene",
+    "build_thermoelastic_bar_scene",
+    "solve_thermoelastic_bar_showcase",
 ]

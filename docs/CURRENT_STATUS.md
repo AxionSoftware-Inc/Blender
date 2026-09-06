@@ -7,7 +7,7 @@ This file records the latest verified runtime checkpoint and the current bounded
 Commit:
 
 ```text
-183b8aa869f1643462fbfb00193e109d65c323e7
+b24c31c6e48cb88a9efc541ca8632ba8d08f600d
 ```
 
 Reported local/native validation:
@@ -15,7 +15,7 @@ Reported local/native validation:
 ```text
 repo clean/synced: PASS
 compileall spectra: PASS
-pytest: 300 passed
+pytest: 320 passed
 initial source failures: 0
 validation-environment issue: setuptools missing; installed, native extension rebuilt successfully
 DomainCatalog / auto-discovery: PASS
@@ -142,7 +142,7 @@ At the verified baseline:
 ```text
 119 domains
 468 providers
-300 tests
+320 tests
 ```
 
 ## Current architecture status
@@ -161,11 +161,10 @@ Verified runtime includes:
 - curated SDK/plugin/project runtime layers;
 - Blender 5.2 generic, incremental, and quantitative targeted behavior.
 
-## Current development batch — Maxwell flagship validation pending
+## Verified flagship showcase batch
 
-Work after `183b8aa...` has started the first product-visible canonical showcase.
-
-Implemented, **not yet promoted to verified**:
+The current product-visible canonical showcase batch is verified at
+`b24c31c6e48cb88a9efc541ca8632ba8d08f600d`:
 
 - `spectra.showcases` product/integration package;
 - canonical SI Maxwell plane-wave showcase;
@@ -179,6 +178,10 @@ Implemented, **not yet promoted to verified**:
 - Scene namespacing now preserves `Track.owner` metadata;
 - canonical Blender Maxwell example and targeted smoke;
 - plain-Python Maxwell structure/time/orientation tests.
+- electrostatic dipole laboratory with shared Poisson, potential, electric-field,
+  and field-line capabilities;
+- quantum wavepacket probability/phase showcase with explicit SI/display separation;
+- thermoelastic heated-bar showcase composing existing heat and thermoelastic capabilities.
 
 The key time invariant is:
 
@@ -197,17 +200,19 @@ Validation source of truth:
 docs/MAXWELL_FLAGSHIP_VALIDATION_HANDOFF.md
 ```
 
-Until that handoff passes, the verified runtime baseline remains `183b8aa...` / 300 tests / 119 domains / 468 providers.
+The stacked Maxwell, electrostatic, quantum, and thermoelastic validation gates
+pass with 320 tests, 119 domains, and 468 providers. Blender 5.2 flagship smokes
+pass with stable native identities and cleanup.
 
 ## Flagship premium-scene sequence
 
 Recommended order:
 
 ```text
-1. Maxwell electromagnetic wave        <- current batch
-2. Electrostatic field laboratory
-3. Quantum probability + phase
-4. Thermoelastic solid
+1. Maxwell electromagnetic wave        <- verified
+2. Electrostatic field laboratory       <- verified
+3. Quantum probability + phase           <- verified
+4. Thermoelastic solid                  <- verified
 5. Schwarzschild geodesics
 ```
 
@@ -262,5 +267,5 @@ Keep three things explicit at every checkpoint:
 For the current fully verified runtime milestone, the baseline remains:
 
 ```text
-183b8aa869f1643462fbfb00193e109d65c323e7
+b24c31c6e48cb88a9efc541ca8632ba8d08f600d
 ```
