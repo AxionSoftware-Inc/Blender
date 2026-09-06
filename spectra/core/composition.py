@@ -21,7 +21,8 @@ def namespace_scene(scene: Scene, namespace: str) -> Scene:
     """Return a Scene whose primitive/material identifiers are namespaced.
 
     This lets independently-compiled scientific modules be composed without
-    requiring them to coordinate local IDs in advance.
+    requiring them to coordinate local IDs in advance. Track ownership is
+    metadata, not part of the target identifier, and must survive namespacing.
     """
 
     primitive_ids = {
@@ -51,6 +52,7 @@ def namespace_scene(scene: Scene, namespace: str) -> Scene:
             target_id=primitive_ids[track.target_id],
             property_path=track.property_path,
             keyframes=track.keyframes,
+            owner=track.owner,
         )
         for track in scene.timeline.tracks
     )
