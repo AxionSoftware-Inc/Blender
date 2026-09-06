@@ -105,19 +105,17 @@ def _write_mesh_color_attribute(mesh: Any, primitive: Primitive, colors: tuple[C
             "Blender mesh color-attribute size does not match Spectra vertex representation"
         )
 
+    # Store the full display color in the mesh attribute. RGB and alpha stay
+    # renderer-neutral upstream; primitive opacity is intentionally applied in
+    # the material so color-only updates only touch the native attribute buffer.
     flat: list[float] = []
     for color in colors:
-        flat.extend((color.r, color.g, color.b, color.a * primitive.opacity))
+        flat.extend((color.r, color.g, color.b, color.a))
     try:
         data.foreach_set("color", flat)
     except (AttributeError, TypeError, ValueError):
         for item, color in zip(data, colors, strict=True):
-            item.color = (
-                color.r,
-                color.g,
-                color.b,
-                color.a * primitive.opacity,
-            )
+            item.color = (color.r, color.g, color.b, color.a)
     mesh.update()
 
 
@@ -148,26 +146,38 @@ def _configure_quantitative_material(
     links.new(attribute.outputs["Color"], emission.inputs["Color"])
     emission.inputs["Strength"].default_value = 1.0
 
-    shader_output = emission.outputs["Emission"]
-    if opacity < 0.999999:
-        transparent = nodes.new("ShaderNodeBsdfTransparent")
-        mix = nodes.new("ShaderNodeMixShader")
-        mix.inputs[0].default_value = opacity
-        links.new(transparent.outputs["BSDF"], mix.inputs[1])
-        links.new(shader_output, mix.inputs[2])
-        shader_output = mix.outputs["Shader"]
-        if hasattr(material, "surface_render_method"):
-            try:
-                material.surface_render_method = "DITHERED"
-            except (TypeError, ValueError):
-                pass
-        elif hasattr(material, "blend_method"):
-            try:
-                material.blend_method = "BLEND"
-            except (TypeError, ValueError):
-                pass
+    # Attribute alpha is scientific/presentation display data. Primitive opacity
+    # is an independent Scene-level visibility factor, so effective alpha is
+    # attribute_alpha * primitive.opacity. Keeping the multiplication in the
+    # shader lets animated/color-only attribute updates avoid material rebuilds.
+    alpha_output = attribute.outputs.get("Alpha") or attribute.outputs.get("Fac")
+    if alpha_output is None:
+        raise RuntimeError("Blender Attribute shader node exposes no alpha/factor output")
+    alpha_multiply = nodes.new("ShaderNodeMath")
+    alpha_multiply.operation = "MULTIPLY"
+    alpha_multiply.inputs[1].default_value = opacity
+    links.new(alpha_output, alpha_multiply.inputs[0])
 
-    links.new(shader_output, output.inputs["Surface"])
+    transparent = nodes.new("ShaderNodeBsdfTransparent")
+    mix = nodes.new("ShaderNodeMixShader")
+    links.new(alpha_multiply.outputs[0], mix.inputs[0])
+    links.new(transparent.outputs["BSDF"], mix.inputs[1])
+    links.new(emission.outputs["Emission"], mix.inputs[2])
+    links.new(mix.outputs["Shader"], output.inputs["Surface"])
+
+    # Quantitative attributes may contain per-value alpha even when primitive
+    # opacity is one, so blending must stay enabled for the quantitative material.
+    if hasattr(material, "surface_render_method"):
+        try:
+            material.surface_render_method = "DITHERED"
+        except (TypeError, ValueError):
+            pass
+    elif hasattr(material, "blend_method"):
+        try:
+            material.blend_method = "BLEND"
+        except (TypeError, ValueError):
+            pass
+
     material["spectra_opacity"] = opacity
     handle.owned_material_names.add(material.name)
     return material
