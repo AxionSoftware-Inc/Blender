@@ -15,6 +15,7 @@ legacy/pre-semantic-core-2026-08-30
 Start with:
 
 - `docs/CURRENT_STATUS.md`
+- `docs/QUANTITATIVE_NATIVE_VALIDATION_HANDOFF.md`
 - `docs/README.md`
 - `docs/SYSTEM_ARCHITECTURE_MAP.md`
 - `docs/DOMAIN_SYSTEM.md`
@@ -182,9 +183,9 @@ Solver selection can use:
 - semantic problem compatibility;
 - ordered fallback policies.
 
-The first `rk4.native_cpu` provider-role proof is also present and validated through the same registry/provenance path. This establishes provider interchangeability; it is not yet a claim that all numerical execution is native or faster than reference Python.
+At the verified `b9ca6b0...` baseline, `rk4.native_cpu` proved solver-provider selection/provenance wiring but still delegated to Python RK4. The current post-baseline development batch adds an optional CPython C-extension RK4 loop and truthful Python fallback metadata; that compiled path remains **validation pending** until the local native build/parity gates pass.
 
-See `docs/SOLVERS_AND_EXPERIMENTS.md`, `docs/NATIVE_NUMERICAL_BACKENDS.md`, and `docs/PERFORMANCE_BUDGETS.md`.
+See `docs/SOLVERS_AND_EXPERIMENTS.md`, `docs/NATIVE_NUMERICAL_BACKENDS.md`, `docs/PERFORMANCE_BUDGETS.md`, and `docs/QUANTITATIVE_NATIVE_VALIDATION_HANDOFF.md`.
 
 ## Experiments and reproducibility
 
@@ -297,11 +298,13 @@ semantic result
 
 The presentation layer owns communication choices such as camera, color policy, annotations, lighting intent, reveal order, and display quality. It must not alter numerical data or solver resolution.
 
-The first renderer-neutral presentation runtime is now implemented and validated, including policy/preset resolution, deterministic presentation resources, Scene-local camera fitting, and scientific/presentation animation ownership rules.
+The first renderer-neutral presentation runtime is verified at `b9ca6b0...`, including policy/preset resolution, deterministic presentation resources, Scene-local camera fitting, and scientific/presentation animation ownership foundations.
 
-More advanced presentation depth—continuous quantitative legends, richer screen-space layout, volume presentation, and renderer-specific premium effects—remains future work.
+The current development batch adds shared quantitative color scales, deterministic world-space legends, analysis axes, camera-facing annotations, stronger recomposition/timeline ownership, and a Blender mesh color-attribute adapter for Surface/PointCloud. These additions are implemented but **not yet promoted to the verified baseline**.
 
-See `docs/PREMIUM_PRESENTATION_SYSTEM.md`, `docs/PRESENTATION_COMPOSER_PIPELINE.md`, and `docs/BLENDER_PREMIUM_ACCEPTANCE.md`.
+Full screen-space layout, volume presentation, richer compositing, and advanced dense VectorGlyphSet/Geometry-Nodes realization remain later work.
+
+See `docs/PREMIUM_PRESENTATION_SYSTEM.md`, `docs/PRESENTATION_COMPOSER_PIPELINE.md`, `docs/BLENDER_PREMIUM_ACCEPTANCE.md`, and `docs/QUANTITATIVE_NATIVE_VALIDATION_HANDOFF.md`.
 
 ## Animation and composition
 
@@ -367,6 +370,10 @@ VectorGlyphSet -> one Blender Curve representation
 
 `BlenderTimelineController` maps Blender transport frames to Spectra engine time while Spectra remains the source of timeline semantics.
 
+### QuantitativeBlenderBackend — development batch
+
+The current pending batch adds a dedicated incremental adapter that maps Scene-v5 quantitative `display_color` attributes for `Surface` and `PointCloud` to one native Blender mesh color attribute/material path. It is designed to avoid high-cardinality material-slot explosion and preserve object/datablock identity for color/opacity updates. Native Blender 5.2 validation is still required before promotion.
+
 ## Current verified baseline
 
 The current fully reported local/native validation milestone is:
@@ -385,7 +392,7 @@ DomainCatalog:      PASS — 119 domains / 467 providers
 numerical/provenance/solver registry: PASS
 presentation / Scene v5 / VisualAttribute: PASS
 SDK / plugin / project layers: PASS
-native CPU RK4 provider: PASS
+native-provider RK4 boundary: PASS (Python delegation at this baseline)
 Blender 5.2 LTS targeted smoke: PASS
 repo: clean and synchronized
 ```
@@ -411,6 +418,24 @@ combined update: ~89.95 ms
 These are commit/machine/run-specific Blender backend reference numbers, not GPU numerical benchmarks.
 
 GitHub Actions remains intentionally absent. Do not recreate it unless explicitly requested.
+
+## Current development batch — validation pending
+
+`main` now contains a bounded post-`b9ca6b0...` batch whose promotion gates are defined in `docs/QUANTITATIVE_NATIVE_VALIDATION_HANDOFF.md`.
+
+Implemented, awaiting local/native validation:
+
+- shared quantitative scalar ranges and deterministic palettes;
+- legends, XYZ axes, and camera-facing presentation annotations;
+- `Track.owner` persistence and presentation recomposition fixes;
+- Blender mesh color attributes for quantitative Surface/PointCloud;
+- per-value alpha × primitive opacity material semantics;
+- color/opacity-only incremental identity path;
+- optional CPython C RK4 loop with truthful Python fallback metadata;
+- explicit CPU-only registry/policy/provenance tests;
+- Blender 300-value quantitative smoke plus alpha/opacity checks.
+
+Until those gates pass, **do not describe current `main` as the new verified baseline**.
 
 ## Still not production-grade
 
@@ -455,23 +480,22 @@ Do not:
 
 ## Near-term roadmap
 
-Further work should branch from the `b9ca6b0...` verified baseline in bounded checkpoints.
+The current quantitative/native batch is the immediate gate. After it is green, the next high-value work is:
 
-High-value presentation/render track:
+Presentation/render track:
 
 ```text
-1. richer quantitative color/legend runtime
-2. Blender visual-attribute/material realization
-3. canonical premium scientific showcase scenes
-4. dense/Geometry Nodes optimization where measured evidence requires it
-5. richer layout/annotation/volume presentation
+1. five canonical premium scientific showcase scenes
+2. richer Blender material/lighting/compositor realization
+3. dense VectorGlyphSet / Geometry Nodes optimization where measured evidence requires it
+4. richer screen-space layout / annotations / volume presentation
 ```
 
 Numerical-performance track:
 
 ```text
-1. move beyond the native-provider proof to real native execution where useful
-2. typed numerical buffers and batching
+1. typed numerical buffers and batching
+2. native kernels that reduce Python callback overhead
 3. GPU provider and batched ODE/grid operators
 4. increasingly device-resident PDE pipelines
 5. remote/HPC execution for larger workloads
