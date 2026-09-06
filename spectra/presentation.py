@@ -142,22 +142,47 @@ def _scientific_timeline(scene: Scene) -> Timeline:
     return Timeline(duration=duration, tracks=scientific_tracks)
 
 
-def _legend_transform(camera: Camera, bounds: Bounds3D) -> tuple[Transform3D, float]:
-    """Place a small camera-facing legend near the right side of scientific data."""
+def _camera_facing_anchor(
+    camera: Camera,
+    bounds: Bounds3D,
+    *,
+    right_scale: float,
+    up_scale: float,
+) -> tuple[Transform3D, float]:
     radius = max(bounds.bounding_sphere_radius, 1e-3)
     right = camera.transform.rotation.rotate(Vec3(1.0, 0.0, 0.0))
     up = camera.transform.rotation.rotate(Vec3(0.0, 1.0, 0.0))
     toward_camera = camera.transform.rotation.rotate(Vec3(0.0, 0.0, 1.0))
     anchor = (
         bounds.center
-        + right * (radius * 0.72)
-        + up * (radius * 0.18)
+        + right * (radius * right_scale)
+        + up * (radius * up_scale)
         + toward_camera * (radius * 0.08)
     )
     return Transform3D(
         translation=anchor,
         rotation=camera.transform.rotation,
     ), radius
+
+
+def _legend_transform(camera: Camera, bounds: Bounds3D) -> tuple[Transform3D, float]:
+    """Place a small camera-facing legend near the right side of scientific data."""
+    return _camera_facing_anchor(
+        camera,
+        bounds,
+        right_scale=0.72,
+        up_scale=0.18,
+    )
+
+
+def _annotation_transform(camera: Camera, bounds: Bounds3D) -> tuple[Transform3D, float]:
+    """Place camera-facing annotations near the upper-left scientific framing."""
+    return _camera_facing_anchor(
+        camera,
+        bounds,
+        right_scale=-0.68,
+        up_scale=0.68,
+    )
 
 
 def _format_scale_value(value: float) -> str:
@@ -401,30 +426,48 @@ def compose_presentation(
 
     title = context.title or resolved.annotations.title
     subtitle = context.subtitle or resolved.annotations.subtitle
-    if title:
-        additions.append(
-            TextLabel(
-                id="presentation.title.primary",
-                text=title,
-                position=camera.transform.translation,
-            )
+    show_time = resolved.annotations.show_time and scientific_scene.timeline.duration > 0
+    if title or subtitle or show_time:
+        annotation_transform, annotation_radius = _annotation_transform(
+            camera,
+            scientific_bounds,
         )
-    if subtitle:
-        additions.append(
-            TextLabel(
-                id="presentation.annotation.subtitle",
-                text=subtitle,
-                position=camera.transform.translation,
+        title_size = max(annotation_radius * 0.11, 0.055)
+        secondary_size = max(annotation_radius * 0.07, 0.04)
+        vertical_step = max(annotation_radius * 0.14, 0.08)
+        offset_index = 0
+        if title:
+            additions.append(
+                TextLabel(
+                    id="presentation.title.primary",
+                    text=title,
+                    position=Vec3(0.0, 0.0, 0.0),
+                    size=title_size,
+                    transform=annotation_transform,
+                )
             )
-        )
-    if resolved.annotations.show_time and scientific_scene.timeline.duration > 0:
-        additions.append(
-            TextLabel(
-                id="presentation.annotation.time",
-                text="t = 0",
-                position=camera.transform.translation,
+            offset_index += 1
+        if subtitle:
+            additions.append(
+                TextLabel(
+                    id="presentation.annotation.subtitle",
+                    text=subtitle,
+                    position=Vec3(0.0, -vertical_step * offset_index, 0.0),
+                    size=secondary_size,
+                    transform=annotation_transform,
+                )
             )
-        )
+            offset_index += 1
+        if show_time:
+            additions.append(
+                TextLabel(
+                    id="presentation.annotation.time",
+                    text="t = 0",
+                    position=Vec3(0.0, -vertical_step * offset_index, 0.0),
+                    size=secondary_size,
+                    transform=annotation_transform,
+                )
+            )
 
     output = replace(
         scientific_scene,
