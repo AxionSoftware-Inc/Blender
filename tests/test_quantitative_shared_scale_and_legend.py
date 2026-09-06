@@ -4,7 +4,7 @@ import pytest
 
 from spectra.color_scales import resolve_scene_color_scale
 from spectra.core.attributes import VisualAttribute, VisualAttributeSet
-from spectra.core.primitives import PointCloud, Surface
+from spectra.core.primitives import PointCloud, Surface, TextLabel
 from spectra.core.scene import Scene
 from spectra.core.types import Vec3
 from spectra.core.units import CENTIMETER, METER
@@ -71,6 +71,30 @@ def test_quantitative_presentation_creates_deterministic_legend() -> None:
     assert composed.get("presentation.legend.label.quantity").text == "temperature"
     assert composed.get("presentation.legend.label.minimum").text == "0"
     assert composed.get("presentation.legend.label.maximum").text == "10"
+
+
+def test_presentation_annotations_are_camera_facing_and_not_at_camera_eye() -> None:
+    scene = Scene(primitives=(_cloud("low", 0.0), _cloud("high", 10.0)))
+    composed = compose_presentation(
+        scene,
+        "presentation",
+        context=PresentationContext(
+            quantity_role="temperature",
+            title="Temperature field",
+            subtitle="Shared quantitative scale",
+        ),
+    )
+    camera = composed.active_camera()
+    assert camera is not None
+    title = composed.get("presentation.title.primary")
+    subtitle = composed.get("presentation.annotation.subtitle")
+    assert isinstance(title, TextLabel)
+    assert isinstance(subtitle, TextLabel)
+    assert title.transform.translation != camera.transform.translation
+    assert subtitle.transform.translation == title.transform.translation
+    assert title.transform.rotation == camera.transform.rotation
+    assert subtitle.transform.rotation == camera.transform.rotation
+    assert subtitle.position.y < title.position.y
 
 
 def test_analysis_preset_materializes_xyz_axes() -> None:
