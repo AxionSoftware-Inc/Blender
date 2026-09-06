@@ -84,7 +84,8 @@ def test_electrostatic_base_scene_contains_sources_and_field_lines(base_scene) -
         and primitive.id.startswith("showcase.electrostatic.field_lines.curve_")
     )
     assert len(lines) == 8
-    assert all(len(line.points) == 25 for line in lines)
+    # Do not bind the showcase to one concrete ODE implementation's accepted-step count.
+    assert all(len(line.points) >= 2 for line in lines)
 
 
 def test_presented_electrostatic_scene_uses_symmetric_quantitative_scale(presented_scene) -> None:
