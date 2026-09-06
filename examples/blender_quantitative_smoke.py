@@ -17,7 +17,7 @@ from spectra.backends.blender import QuantitativeBlenderBackend
 from spectra.core.attributes import VisualAttribute, VisualAttributeSet
 from spectra.core.primitives import PointCloud
 from spectra.core.scene import Scene
-from spectra.core.types import Vec3
+from spectra.core.types import Color, Vec3
 from spectra.presentation import compose_presentation
 from spectra.presentation_models import PresentationContext
 
@@ -40,8 +40,37 @@ def build_scene(values: tuple[float, ...]) -> Scene:
         radius=0.035,
         attributes=VisualAttributeSet((temperature,)),
     )
+
+    # Direct display colors exercise the generic Scene-v5 color path, including
+    # per-value alpha. This cloud intentionally has no temperature scalar so the
+    # publication color-scale pass leaves its explicit display colors unchanged.
+    alpha_values = (0.0, 0.25, 0.75, 1.0)
+    alpha_colors = tuple(
+        Color(1.0, 0.35, 0.1, alpha)
+        for alpha in alpha_values
+    )
+    alpha_cloud = PointCloud(
+        id="alpha.cloud",
+        positions=tuple(
+            Vec3(2.8 + index * 0.15, 0.0, 0.0)
+            for index in range(len(alpha_colors))
+        ),
+        radius=0.055,
+        attributes=VisualAttributeSet(
+            (
+                VisualAttribute(
+                    name="display_color",
+                    association="instance",
+                    kind="color",
+                    values=alpha_colors,
+                    quantity_id="display_alpha",
+                ),
+            )
+        ),
+    )
+
     return compose_presentation(
-        Scene(primitives=(cloud,)),
+        Scene(primitives=(cloud, alpha_cloud)),
         "publication",
         context=PresentationContext(
             quantity_role="temperature",
@@ -68,6 +97,24 @@ assert len(attribute.data) == 300 * 6
 assert len(mesh.materials) == 1, "quantitative cloud should use one shader material"
 assert len(handle.object_names) < 40, "quantitative presentation expanded into too many objects"
 
+# Per-value alpha must survive into Blender's native color buffer, and the
+# quantitative material must contain a dynamic alpha multiply + transparent mix.
+alpha_obj = bpy.data.objects[handle.object_names["alpha.cloud"]]
+alpha_mesh = alpha_obj.data
+alpha_attribute = alpha_mesh.color_attributes.get("spectra_display_color")
+assert alpha_attribute is not None
+assert len(alpha_attribute.data) == 4 * 6
+observed_alphas = tuple(float(alpha_attribute.data[index * 6].color[3]) for index in range(4))
+expected_alphas = (0.0, 0.25, 0.75, 1.0)
+for observed, expected in zip(observed_alphas, expected_alphas, strict=True):
+    assert abs(observed - expected) < 1e-5, (observed, expected)
+assert len(alpha_mesh.materials) == 1
+alpha_material = alpha_mesh.materials[0]
+node_types = {node.type for node in alpha_material.node_tree.nodes}
+assert "MATH" in node_types, "quantitative material must multiply attribute alpha"
+assert "MIX_SHADER" in node_types, "quantitative material must mix transparency"
+assert "BSDF_TRANSPARENT" in node_types, "quantitative material must support alpha transparency"
+
 # Reverse only scalar values. Geometry/object/datablock identities must remain
 # stable while the native color buffer is updated in place.
 updated = build_scene(tuple(reversed(values)))
@@ -81,6 +128,13 @@ assert updated_attribute is not None
 assert len(updated_attribute.data) == 300 * 6
 assert len(updated_obj.data.materials) == 1
 
+updated_alpha_obj = bpy.data.objects[handle.object_names["alpha.cloud"]]
+updated_alpha_attribute = updated_alpha_obj.data.color_attributes.get("spectra_display_color")
+assert updated_alpha_attribute is not None
+updated_alphas = tuple(float(updated_alpha_attribute.data[index * 6].color[3]) for index in range(4))
+for observed, expected in zip(updated_alphas, expected_alphas, strict=True):
+    assert abs(observed - expected) < 1e-5, (observed, expected)
+
 collection_name = handle.collection_name
 backend.destroy(handle)
 assert bpy.data.collections.get(collection_name) is None
@@ -88,5 +142,5 @@ assert bpy.data.collections.get(collection_name) is None
 print(
     "Spectra quantitative Blender smoke PASS:",
     "300 values -> one PointCloud object, one material, native color attribute,",
-    "color-only identity preserved, cleanup PASS",
+    "per-value alpha preserved, color-only identity preserved, cleanup PASS",
 )
