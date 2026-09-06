@@ -17,7 +17,12 @@ def _color_attribute(association: str, count: int) -> VisualAttribute:
         association=association,
         kind="color",
         values=tuple(
-            Color(index / max(count - 1, 1), 0.25, 1.0 - index / max(count - 1, 1))
+            Color(
+                index / max(count - 1, 1),
+                0.25,
+                1.0 - index / max(count - 1, 1),
+                0.25 + 0.75 * index / max(count - 1, 1),
+            )
             for index in range(count)
         ),
     )
@@ -36,11 +41,13 @@ def test_quantitative_scene_sanitization_preserves_geometry() -> None:
         id="surface",
         vertices=(Vec3(0.0, 0.0, 0.0), Vec3(1.0, 0.0, 0.0), Vec3(0.0, 1.0, 0.0)),
         triangles=((0, 1, 2),),
+        opacity=0.35,
         attributes=VisualAttributeSet((colors,)),
     )
     sanitized = _sanitize_scene(Scene(primitives=(surface,))).get("surface")
     assert sanitized.vertices == surface.vertices
     assert sanitized.triangles == surface.triangles
+    assert sanitized.opacity == 1.0
     assert not sanitized.attributes
 
 
@@ -50,17 +57,21 @@ def test_point_cloud_quantitative_path_avoids_legacy_material_colors() -> None:
         id="cloud",
         positions=(Vec3(0.0, 0.0, 0.0), Vec3(1.0, 0.0, 0.0)),
         colors=tuple(display.values),
+        opacity=0.5,
         attributes=VisualAttributeSet((display,)),
     )
     sanitized = _sanitize_scene(Scene(primitives=(cloud,))).get("cloud")
     assert sanitized.positions == cloud.positions
     assert sanitized.colors == ()
+    assert sanitized.opacity == 1.0
     assert not sanitized.attributes
 
     expanded = _expanded_mesh_colors(cloud, display)
     assert len(expanded) == 12
     assert expanded[:6] == (display.values[0],) * 6
     assert expanded[6:] == (display.values[1],) * 6
+    assert expanded[0].a == display.values[0].a
+    assert expanded[-1].a == display.values[1].a
 
 
 def test_vector_glyph_set_keeps_curve_color_fallback() -> None:
@@ -70,8 +81,12 @@ def test_vector_glyph_set_keeps_curve_color_fallback() -> None:
         origins=(Vec3(0.0, 0.0, 0.0), Vec3(1.0, 0.0, 0.0)),
         vectors=(Vec3(0.0, 1.0, 0.0), Vec3(0.0, 1.0, 0.0)),
         colors=tuple(display.values),
+        opacity=0.4,
         attributes=VisualAttributeSet((display,)),
     )
     sanitized = _sanitize_scene(Scene(primitives=(glyphs,))).get("vectors")
     assert sanitized.colors == glyphs.colors
+    # VGS is deliberately not on the mesh quantitative adapter yet, so its
+    # legacy opacity/color path remains untouched.
+    assert sanitized.opacity == glyphs.opacity
     assert not sanitized.attributes
