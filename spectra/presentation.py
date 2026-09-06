@@ -105,14 +105,41 @@ def staggered_reveal(
 
 
 def _scientific_timeline(scene: Scene) -> Timeline:
-    """Drop presentation-owned tracks while retaining scientific duration."""
-    tracks = tuple(
+    """Drop presentation-owned tracks and recover scientific timeline duration.
+
+    Presentation effects may extend ``Timeline.duration`` beyond the scientific
+    timeline. During recomposition we remove those tracks and avoid retaining a
+    purely presentation-created tail. If the pre-existing timeline duration is
+    longer than every presentation track, that longer duration is preserved as
+    scientific intent (including intentionally trackless scientific time).
+    """
+    scientific_tracks = tuple(
         track
         for track in scene.timeline.tracks
         if track.owner != "presentation"
         and not track.target_id.startswith("presentation.")
     )
-    return Timeline(duration=scene.timeline.duration, tracks=tracks)
+    presentation_tracks = tuple(
+        track
+        for track in scene.timeline.tracks
+        if track.owner == "presentation"
+        or track.target_id.startswith("presentation.")
+    )
+    if not presentation_tracks:
+        return Timeline(duration=scene.timeline.duration, tracks=scientific_tracks)
+
+    scientific_end = max(
+        (track.keyframes[-1].time for track in scientific_tracks),
+        default=0.0,
+    )
+    presentation_end = max(
+        (track.keyframes[-1].time for track in presentation_tracks),
+        default=0.0,
+    )
+    duration = scientific_end
+    if scene.timeline.duration > presentation_end:
+        duration = max(duration, scene.timeline.duration)
+    return Timeline(duration=duration, tracks=scientific_tracks)
 
 
 def _legend_transform(camera: Camera, bounds: Bounds3D) -> tuple[Transform3D, float]:
