@@ -145,8 +145,15 @@ def _configure_quantitative_material(
     nodes.clear()
 
     output = nodes.new("ShaderNodeOutputMaterial")
-    attribute = nodes.new("ShaderNodeAttribute")
-    attribute.attribute_name = _NATIVE_COLOR_ATTRIBUTE
+    # Blender 5.x resolves mesh color layers through Vertex Color.  The
+    # generic Attribute node still exists in some versions, but does not
+    # reliably sample FLOAT_COLOR/POINT layers in the Eevee path.
+    try:
+        attribute = nodes.new("ShaderNodeVertexColor")
+        attribute.layer_name = _NATIVE_COLOR_ATTRIBUTE
+    except (AttributeError, TypeError, RuntimeError):
+        attribute = nodes.new("ShaderNodeAttribute")
+        attribute.attribute_name = _NATIVE_COLOR_ATTRIBUTE
     emission = nodes.new("ShaderNodeEmission")
     links.new(attribute.outputs["Color"], emission.inputs["Color"])
     emission.inputs["Strength"].default_value = 1.0
