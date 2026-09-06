@@ -1,84 +1,89 @@
 # Spectra Science — Quantitative Presentation + Native CPU Validation Handoff
 
-Status: **current post-`b9ca6b0...` runtime batch; validation pending**.
+Status: **post-`b9ca6b0...` runtime batch; validation pending**.
 
-This is the local-agent handoff for the development batch built on the last fully verified baseline:
+Last fully verified baseline:
 
 ```text
 b9ca6b017cac83f45cc3864a88e219c848c12fc8
+compileall: PASS
+pytest: 276 passed
+catalog: 119 domains / 467 providers
+Blender 5.2 targeted smoke: PASS
 ```
 
-Do not update the verified baseline until every required gate below is complete.
+Do not promote current `main` until every applicable gate below passes.
 
-## Batch goals
+## What this batch changes
 
-This batch deepens two previously verified foundations:
+This is a bounded product-depth/performance batch. It must not become a new foundational rewrite.
 
-1. renderer-neutral quantitative presentation and Blender realization;
-2. the `rk4.native_cpu` provider from a registry/provenance proof into an optional real CPython C-extension RK4 loop.
+### 1. Renderer-neutral quantitative presentation
 
-It also fixes presentation recomposition/timeline ownership bugs found during source audit.
-
-## Major runtime changes
-
-### Quantitative color engine
-
-New:
+New/expanded runtime:
 
 ```text
 spectra/color_scales.py
-```
-
-Validate:
-
-- VIRIDIS / MAGMA / COOLWARM / PHASE deterministic palette sampling;
-- DATA / FIXED / SYMMETRIC range modes;
-- Scene-wide shared ranges for the same quantitative role;
-- PointCloud/VectorGlyphSet legacy color compatibility bridge;
-- generic `display_color` VisualAttribute remains the source of truth;
-- mismatched units across one shared scale fail explicitly rather than silently misrepresenting values.
-
-### Presentation runtime depth
-
-Modified:
-
-```text
 spectra/presentation_models.py
 spectra/presentation.py
 spectra/sdk/presentation.py
 ```
 
-Validate:
+Required semantics:
 
-- `ColorScalePolicy` resolver defaults and validation;
-- staggered reveal bug is fixed (`item_duration`, not stale `duration` keyword);
-- scientific animation property ownership wins over presentation reveal;
-- `Track.owner="presentation"` permits deterministic preset recomposition;
-- switching `presentation -> analysis` removes presentation-owned reveal tracks;
-- repeated composition does not duplicate presentation IDs/tracks;
-- FIT_PRIMARY camera does not fail because unrelated scientific timeline targets are absent from its temporary bounds Scene;
+- deterministic `VIRIDIS`, `MAGMA`, `COOLWARM`, `PHASE` palettes;
+- `DATA`, `FIXED`, `SYMMETRIC` range modes;
+- one shared range across all matching scalar attributes in one Scene;
+- no per-primitive auto-range when multiple primitives represent the same quantity;
+- mixed units on one shared scale fail explicitly until an explicit conversion policy exists;
+- scalar scientific values remain unchanged;
+- scalar -> `display_color` happens renderer-neutrally;
+- `display_color` VisualAttribute is the source of truth;
+- PointCloud/VectorGlyphSet legacy `colors` fields are only compatibility bridges;
+- quantitative legend uses the same resolved min/max/palette as the mapped data;
 - analysis preset materializes deterministic XYZ axes;
-- quantitative presets materialize deterministic world-space legend resources;
-- camera is fitted before axes/legend resources are added, so scientific framing remains authoritative.
+- camera is fitted to scientific content before legend/axes/annotation resources are added.
 
-### Timeline ownership persistence
+### 2. Presentation recomposition and ownership
 
 Modified:
 
 ```text
 spectra/core/animation.py
 spectra/core/serialization.py
+spectra/presentation.py
 ```
 
-Validate:
+Required semantics:
 
 - `Track.owner` defaults to `scientific`;
-- old Scene documents with no owner field still deserialize as scientific;
-- scientific tracks preserve the previous JSON shape (owner omitted);
-- presentation tracks persist owner through Scene v5 JSON/data round-trip;
-- no Scene schema version bump was introduced solely for this additive optional field.
+- presentation-generated tracks use owner `presentation`;
+- scientific `(target_id, property_path)` wins over conflicting presentation reveal;
+- old presentation primitives/tracks are removed before recomposition;
+- `presentation -> analysis` does not leave presentation reveal tracks;
+- a purely presentation-created Timeline tail is removed on recomposition;
+- a longer intentional scientific Timeline duration is preserved;
+- repeated composition is resource/track/duration idempotent;
+- FIT_PRIMARY temporary framing Scene contains no unrelated timeline references;
+- non-default track owner persists through Scene-v5 round-trip;
+- old scientific tracks keep the previous JSON shape with owner omitted;
+- no Scene schema bump is required solely for the optional owner field.
 
-### Blender quantitative mesh realization
+### 3. Camera-facing world-space presentation annotations
+
+Title/subtitle/time annotations must no longer be placed at the camera eye.
+
+Required behavior:
+
+- annotation resources are outside scientific framing calculation;
+- title/subtitle/time use a deterministic camera-facing transform near the scientific bounds;
+- annotation rotation matches camera orientation;
+- annotation anchor is not camera translation;
+- these resources remain renderer-neutral Scene primitives, not Blender-only overlays.
+
+Full screen-space UI remains later work.
+
+### 4. Blender quantitative mesh realization
 
 New:
 
@@ -87,15 +92,15 @@ spectra/backends/blender/quantitative.py
 QuantitativeBlenderBackend
 ```
 
-Target native paths:
+Target mappings:
 
 ```text
-Surface vertex color VisualAttribute
-    -> Blender mesh FLOAT_COLOR / POINT attribute
+Surface vertex display_color
+    -> one Blender mesh FLOAT_COLOR / POINT attribute
 
-PointCloud instance color VisualAttribute
-    -> expand one color across current 6-vertex octahedron instance
-    -> Blender mesh FLOAT_COLOR / POINT attribute
+PointCloud instance display_color
+    -> expand one value across the current 6-vertex octahedron instance
+    -> one Blender mesh FLOAT_COLOR / POINT attribute
 ```
 
 Native attribute name:
@@ -104,106 +109,103 @@ Native attribute name:
 spectra_display_color
 ```
 
-Validate in Blender 5.2:
+Required behavior:
 
-- correct API for `mesh.color_attributes`;
-- `FLOAT_COLOR` + `POINT` works;
-- shader attribute node reads the native attribute;
-- one quantitative primitive uses one shader material rather than hundreds of materials;
-- >256 unique PointCloud colors work through the quantitative backend;
+- no high-cardinality material-slot explosion for quantitative Surface/PointCloud;
+- one quantitative primitive uses one quantitative shader material;
+- >256 distinct PointCloud values work;
+- generic scalar-to-color mapping is not recomputed in Blender;
 - color-only updates preserve Blender object identity;
-- color-only updates preserve Blender mesh/datablock identity;
-- no object/material/datablock leak after repeated updates;
-- cleanup removes owned resources;
-- non-quantitative existing Blender paths remain unchanged.
+- color-only updates preserve mesh/datablock identity;
+- per-value `Color.a` survives into the native mesh color attribute;
+- effective rendered alpha is `attribute_alpha * primitive.opacity`;
+- primitive opacity is applied in the quantitative material, not baked into geometry;
+- opacity-only updates preserve object and mesh/datablock identity;
+- quantitative material identity is preserved across opacity changes;
+- repeated updates do not leak objects, materials, meshes, or color attributes;
+- cleanup removes owned resources.
 
-Current deliberate limitation:
+Deliberate limitation:
 
 ```text
-VectorGlyphSet -> current Curve representation / existing color fallback
+VectorGlyphSet -> existing Curve/color fallback
 ```
 
-Do not rewrite VectorGlyphSet representation in this validation patch unless a root regression requires it.
+Do not rewrite VGS/Geometry Nodes in this validation patch unless a root regression proves it necessary.
 
-### Native CPU RK4 kernel
+### 5. Optional real native CPU RK4
 
-New:
+New/modified:
 
 ```text
 native/spectra_native_cpu.c
 setup.py
-```
-
-Modified:
-
-```text
 spectra/domains/differential_equations/native_cpu.py
 ```
 
-Expected behavior:
-
-When `spectra._native_cpu` successfully builds/imports:
+Compiled state:
 
 ```text
 NATIVE_CPU_AVAILABLE = True
+implementation_id = rk4.native_cpu
+method_id = rk4.fixed
 execution.kind = cpu
 backend = spectra.native_cpu
 device = host-cpu
-rk4.native_cpu -> C RK4 integration loop
 ```
 
-When no compiled extension is available:
+Fallback state:
 
 ```text
 NATIVE_CPU_AVAILABLE = False
-rk4.native_cpu -> deterministic Python RK4 fallback
+implementation_id = rk4.native_cpu
+method_id = rk4.fixed
 execution.kind = python
 backend = spectra.native_cpu.python_fallback
+device = None
 ```
 
-The fallback must never claim native CPU execution.
+The fallback must never satisfy a CPU-only execution requirement.
 
-The extension build is optional for normal package installation, but **this validation should explicitly attempt a real native build** on the validation machine.
+The native loop still calls the Python RHS four times per RK4 step, so this milestone proves a real compiled integration loop/provider boundary, not guaranteed speedup.
+
+Native build artifacts (`.pyd`, `.so`, `.dll`, `.dylib`, build directories) must not be committed.
 
 ## Required validation sequence
 
-### G0 — Repository state
+### G0 — repo state
 
 ```text
 git status
 git pull
 ```
 
-Record starting SHA.
+Record starting SHA. Do not create GitHub Actions.
 
-Do not create GitHub Actions.
+### G1 — explicit native build
 
-### G1 — Native extension build
-
-Use the active Python environment and explicitly build the extension so compilation errors are visible.
-
-Typical command:
+Use the active Python environment and make compilation errors visible:
 
 ```text
 python setup.py build_ext --inplace
 ```
 
-Then verify:
+Then:
 
 ```text
 python -c "from spectra.domains.differential_equations.native_cpu import NATIVE_CPU_AVAILABLE, NATIVE_RK4_EXECUTION; print(NATIVE_CPU_AVAILABLE, NATIVE_RK4_EXECUTION)"
 ```
 
-Target for the native validation machine:
+Target on the validation machine:
 
 ```text
 NATIVE_CPU_AVAILABLE == True
 NATIVE_RK4_EXECUTION.kind == "cpu"
 ```
 
-If the local compiler/toolchain is missing, do not fake success. Report the toolchain blocker. Normal package installation should still work because the extension is optional.
+If the compiler/toolchain is missing, report the blocker. Do not fake native success. The extension is optional for ordinary installation, so lack of a compiler must not make normal Python installation impossible.
 
-### G2 — Compile/import
+### G2 — compile/import boundary
 
 ```text
 python -m compileall spectra
@@ -211,7 +213,7 @@ python -m compileall spectra
 
 Must PASS.
 
-Also import at least:
+Outside Blender, import at least:
 
 ```text
 spectra.presentation
@@ -222,9 +224,9 @@ spectra.domains.differential_equations.native_cpu
 spectra.sdk.presentation
 ```
 
-outside Blender to preserve lazy Blender import behavior.
+No eager `bpy` import regression.
 
-### G3 — Targeted plain-Python tests
+### G3 — targeted plain-Python tests
 
 Run at minimum:
 
@@ -236,124 +238,157 @@ tests/test_blender_quantitative_backend.py
 tests/test_native_cpu_extension_boundary.py
 ```
 
-Also rerun existing:
+Explicitly confirm:
+
+- shared Scene range;
+- fixed/symmetric range behavior;
+- legend min/max/quantity labels;
+- axes IDs;
+- camera-facing annotation placement;
+- mixed-unit rejection;
+- Track.owner round-trip;
+- presentation tail removal and scientific duration preservation;
+- preset-switch/recomposition idempotence;
+- quantitative sanitization keeps geometry and removes legacy PointCloud material colors;
+- quantitative sanitization routes primitive opacity to material path;
+- expanded instance colors preserve alpha;
+- compiled/fallback native metadata truthfulness;
+- CPU-only registry selection behavior;
+- tracked provenance reports actual execution kind/backend.
+
+Also rerun existing tests for:
 
 ```text
 animation
-Scene serialization v1-v5 compatibility
-presentation
+Scene v1-v5 serialization compatibility
 bounds/framing
+presentation
 backend import/contract
 solver registry/policy/provenance
 DomainCatalog/auto-discovery
-SDK/plugin/project tests
+SDK/plugin/project
 ```
 
-Fix root causes, not expectations, unless an old expectation is genuinely stale because of the documented additive contract.
+Root causes only. Do not weaken tests merely to get green.
 
-### G4 — Full pytest
+### G4 — full suite
 
 ```text
 pytest -q
 ```
 
-Must PASS with zero failures.
+Must PASS with zero failures. Record the actual new count; do not reuse 276.
 
-Record the actual new test count; do not reuse 276.
+### G5 — catalog/provider probe
 
-### G5 — Catalog/provider probe
-
-Run the normal catalog/auto-discovery probe.
-
-Record actual:
+Run normal DomainCatalog auto-discovery/probe and record actual:
 
 ```text
 domain count
 provider count
 ```
 
-Check that native CPU domain registration remains deterministic in both build states.
+Check determinism and provider ownership. Native CPU domain version/metadata must be stable for the active build state.
 
-### G6 — Native CPU semantic parity
+### G6 — native CPU parity and selection
 
 With `NATIVE_CPU_AVAILABLE=True`:
 
-- compare native vs reference RK4 on deterministic analytical/reference ODEs;
-- confirm times/state shapes;
-- confirm order/convergence behavior remains RK4 order 4;
-- confirm invalid derivative dimensions propagate useful errors;
-- confirm provider selection requiring `execution_kinds=("cpu",)` selects `rk4.native_cpu`;
-- confirm tracked provenance reports actual CPU execution metadata;
-- confirm no scientific/PDE/mechanics consumer required source changes.
+- compare C-extension RK4 to reference RK4 on deterministic ODEs;
+- compare times/state shape and values;
+- verify expected fourth-order convergence;
+- verify derivative dimension mismatch/error propagation;
+- CPU-only requirements select `rk4.native_cpu`;
+- tracked run reports `execution_kind=cpu`, backend `spectra.native_cpu`, implementation `rk4.native_cpu`;
+- high-level science consumers require no source rewrite.
 
-Do not claim meaningful speedup yet unless benchmark evidence actually shows it. Python RHS callbacks remain in the loop and may dominate.
+Do not claim a speedup unless measured.
 
-### G7 — Python fallback truthfulness
+### G7 — fallback truthfulness
 
-Also validate an environment/path where `_native_cpu` is unavailable (or temporarily make it unavailable without committing generated binaries).
+Validate a run/import state where `_native_cpu` is unavailable without committing generated binaries.
 
 Confirm:
 
 ```text
-NATIVE_CPU_AVAILABLE=False
-solve_native_rk4 still returns correct results
-execution.kind=python
-CPU-only requirements do not select the fallback as a CPU implementation
+NATIVE_CPU_AVAILABLE == False
+solve_native_rk4 remains semantically correct
+execution.kind == python
+backend == spectra.native_cpu.python_fallback
+CPU-only requirements do not select rk4.native_cpu fallback
+fallback-tagged Python selection can still be inspected/tracked explicitly
 ```
-
-This is a provenance correctness gate.
 
 ### G8 — Blender 5.2 quantitative smoke
 
 Run:
 
 ```text
-examples/blender_quantitative_smoke.py
+blender --background --python examples/blender_quantitative_smoke.py
 ```
 
-This specifically validates:
+The script must prove at minimum:
 
-- 300 distinct quantitative values;
-- one PointCloud native object;
-- one native shader material for the cloud;
-- mesh color attribute length `300 * 6` for the current octahedron representation;
-- color-only update;
-- object identity preserved;
-- mesh/datablock identity preserved;
+- 300 quantitative scalar values work (>256 legacy material limit);
+- quantitative PointCloud remains one native object;
+- one quantitative shader material per quantitative mesh primitive;
+- native `spectra_display_color` exists as `FLOAT_COLOR / POINT`;
+- current 300-instance cloud has `300 * 6` native color entries;
+- color-only update preserves object identity;
+- color-only update preserves mesh/datablock identity;
+- direct per-value alpha `(0, .25, .75, 1)` survives in the native attribute;
+- material graph contains alpha multiplication + transparent mix;
+- primitive opacity update changes material opacity from 1 -> .5;
+- opacity-only update preserves object identity;
+- opacity-only update preserves mesh/datablock identity;
+- quantitative material identity is preserved;
 - cleanup PASS.
 
-If Blender 5.2 API differs from the assumptions in `quantitative.py`, fix the adapter root cause while keeping renderer-neutral Scene semantics unchanged.
+If Blender 5.2 differs from adapter API assumptions, fix the adapter root cause while keeping Scene semantics unchanged.
 
-### G9 — Existing Blender regression smoke
+### G9 — presentation visual sanity in Blender
 
-Rerun the previously green Blender paths:
+On at least one quantitative presented Scene verify:
+
+- camera frames scientific content, not legends/annotations;
+- legend is on the intended side and camera-facing;
+- title/subtitle are visible and not located at the camera eye;
+- analysis XYZ axes appear without moving the fitted camera;
+- alpha transparency visually behaves monotonically from transparent to opaque.
+
+This is a targeted smoke, not a pixel-perfect golden-image requirement.
+
+### G10 — existing Blender regression smoke
+
+Rerun previously green paths:
 
 ```text
 examples/blender_smoke.py
 examples/blender_wave_animation.py
 examples/blender_em_wave_animation.py
-10k PointCloud / VectorGlyphSet batching check
-identity preservation
-100-frame leak check
+10k PointCloud batching
+10k VectorGlyphSet batching
+object/datablock identity
+100-frame leak test
 cleanup/orphan check
 ```
 
-Do not expand dense data into thousands of Blender objects.
+Dense batches must remain one native representation each, not thousands of Blender objects.
 
-### G10 — Performance sanity
+### G11 — performance sanity
 
-Re-measure the existing dense Blender reference workload if practical and record it separately from quantitative color-update timing.
+Record separately:
 
-Also measure:
+Blender:
 
 ```text
+existing dense create/update workload
 300-value quantitative create
-color-only update
+color-only quantitative update
+opacity-only quantitative update
 ```
 
-Do not compare native C RK4 timing to Blender render timing; they are unrelated performance layers.
-
-For native RK4, benchmark only after parity and report:
+Native RK4, only after parity:
 
 ```text
 state size
@@ -364,52 +399,59 @@ native-provider time
 speedup or slowdown
 ```
 
-A slowdown with Python callbacks is not an architectural failure; report it honestly.
+Python callback overhead may make the C-loop improvement small or negative. Report honestly.
 
 ## Root-cause rules
 
 Do not:
 
-- weaken scientific range/unit semantics merely to make a render pass;
-- silently convert mismatched units without an explicit conversion contract;
-- move scalar-to-color mapping into Blender;
-- use hundreds of Blender material slots for the new quantitative PointCloud path;
-- label Python fallback execution as CPU/native;
-- disable old tests to get green;
-- recreate GitHub Actions;
-- commit `.pyd`, `.so`, `.dll`, `.dylib`, `build/`, or generated wheel artifacts.
+- change scientific scalar values for presentation;
+- use per-primitive ranges for one shared quantitative role;
+- silently mix/convert units without a declared conversion policy;
+- move scalar-to-color computation into Blender;
+- restore hundreds of material slots for quantitative PointClouds;
+- bake primitive opacity into geometry/color data when material realization owns it;
+- label Python fallback as CPU/native;
+- make the native provider default merely because it exists;
+- disable old tests;
+- rewrite VectorGlyphSet representation in this batch without evidence;
+- create GitHub Actions;
+- commit generated native binaries/build directories.
 
 ## Expected final report
 
-Return one compact but complete report containing:
+Return:
 
 ```text
 Final SHA
 repo clean/synced?
 compileall result
-full pytest result + actual test count
+full pytest result + actual count
 initial failure count
 root fixes made
 domain count
 provider count
-Scene v5 serialization/Track.owner result
-shared color scale/legend/axes result
+Scene v5 / Track.owner result
+shared quantitative scale result
+legend / axes / annotation result
+presentation recomposition/duration result
 Blender quantitative smoke result
-300-color material/object counts
-color-only object identity result
-color-only datablock identity result
-existing Blender regression smoke result
+300-value object/material/attribute counts
+per-value alpha result
+color-only identity result
+opacity-only identity/material result
+existing Blender regression result
 native extension build result
 NATIVE_CPU_AVAILABLE
-native vs reference parity result
-CPU-only policy selection result
-fallback metadata truthfulness result
-native RK4 benchmark (if meaningful)
-Blender quantitative timing (if measured)
+native/reference parity + convergence
+CPU-only selection result
+fallback truthfulness result
+native RK4 benchmark if meaningful
+Blender quantitative timings if measured
 remaining blockers/limitations
 GitHub Actions absent confirmation
 ```
 
 ## Promotion rule
 
-Only after all applicable gates pass should the post-`b9ca6b0...` batch become the new verified baseline.
+Only after all applicable gates pass should this batch supersede `b9ca6b017cac83f45cc3864a88e219c848c12fc8` as the verified runtime baseline.
