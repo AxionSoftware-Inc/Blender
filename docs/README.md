@@ -2,7 +2,7 @@
 
 This directory records architectural contracts, validated backend behavior, current numerical design, future extension rules, and product/presentation architecture.
 
-`README.md` at repository root gives the high-level project state. `CURRENT_STATUS.md` separates verified runtime, implemented-but-pending-validation runtime, and design-only work.
+`README.md` at repository root gives the high-level project state. `CURRENT_STATUS.md` is the concise source of truth separating the last verified runtime baseline from current validation-pending runtime work.
 
 ## Start here
 
@@ -10,28 +10,28 @@ For a new contributor/agent, read in this order:
 
 1. `../README.md`
 2. `CURRENT_STATUS.md`
-3. `SYSTEM_ARCHITECTURE_MAP.md`
-4. `DOMAIN_SYSTEM.md`
-5. `DOMAIN_CATALOG.md`
-6. `SOLVERS_AND_EXPERIMENTS.md`
-7. `PREMIUM_PRESENTATION_SYSTEM.md`
-8. `POST_GREEN_TASK_BOARD.md`
-9. `MASTER_AGENT_HANDOFF.md` when executing the next consolidated patch/validation task
-10. subsystem-specific documents relevant to the work package.
+3. `QUANTITATIVE_NATIVE_VALIDATION_HANDOFF.md` when validating current `main`
+4. `SYSTEM_ARCHITECTURE_MAP.md`
+5. `DOMAIN_SYSTEM.md`
+6. `DOMAIN_CATALOG.md`
+7. `SOLVERS_AND_EXPERIMENTS.md`
+8. `PREMIUM_PRESENTATION_SYSTEM.md`
+9. subsystem-specific documents relevant to the work package.
+
+`MASTER_AGENT_HANDOFF.md` records the earlier consolidated foundation milestone that produced the `b9ca6b0...` verified baseline; it is historical/supporting context now, not the active validation handoff.
 
 ## Current implementation-ready source set
 
-These are the highest-priority documents when moving from design to executable work.
-
 ### Runtime status and execution plan
 
-- `CURRENT_STATUS.md` — verified baseline vs pending runtime vs design-only work.
-- `POST_GREEN_TASK_BOARD.md` — work-package ordering and exit gates after pending runtime validates green.
+- `CURRENT_STATUS.md` — verified baseline vs current pending runtime vs later work.
+- `QUANTITATIVE_NATIVE_VALIDATION_HANDOFF.md` — active validation source of truth for current `main`.
+- `POST_GREEN_TASK_BOARD.md` — bounded work-package ordering after the pending batch validates green.
 - `IMPLEMENTATION_WORK_PACKAGES.md` — larger implementation decomposition.
 - `POST_VALIDATION_IMPLEMENTATION_PLAN.md` — product/performance sequencing.
-- `MASTER_AGENT_HANDOFF.md` — consolidated next-agent instructions and single large task scope.
 - `DOCS_CONSISTENCY_AUDIT.md` — architecture/status consistency review.
-- `SOURCE_AUDIT_DECISIONS.md` — decisions derived from current executable source rather than speculative parallel abstractions.
+- `SOURCE_AUDIT_DECISIONS.md` — decisions derived from executable source rather than speculative duplicate abstractions.
+- `MASTER_AGENT_HANDOFF.md` — historical consolidated foundation handoff completed at the previous verified milestone.
 
 ### Premium presentation implementation
 
@@ -49,6 +49,8 @@ These are the highest-priority documents when moving from design to executable w
 - `PREMIUM_SHOWCASE_ACCEPTANCE_DATA.md`
 - `PHASE1_PRESENTATION_IMPLEMENTATION_CHECKLIST.md`
 
+Current runtime has moved beyond several of these design drafts. When a draft conflicts with executable source, `CURRENT_STATUS.md`, tests, and current source win.
+
 ### Visual attributes / Scene evolution
 
 - `VISUAL_ATTRIBUTE_MODEL.md`
@@ -58,6 +60,8 @@ These are the highest-priority documents when moving from design to executable w
 - `BACKEND_CAPABILITIES_EXTENSION_PLAN.md`
 - `RENDERER_CAPABILITIES_API_DRAFT.md`
 
+Scene v5 / VisualAttribute foundation is verified at `b9ca6b0...`; current `main` extends its renderer realization without changing the Scene schema version.
+
 ### Blender premium implementation
 
 - `BLENDER_BACKEND.md`
@@ -66,6 +70,7 @@ These are the highest-priority documents when moving from design to executable w
 - `BLENDER_PREMIUM_ACCEPTANCE.md`
 - `BLENDER_PREMIUM_IMPLEMENTATION_BLUEPRINT.md`
 - `BACKEND_SESSION_PRODUCT_CONTRACT.md`
+- `QUANTITATIVE_NATIVE_VALIDATION_HANDOFF.md` — active quantitative Blender gates.
 
 ### SDK / plugins / project runtime
 
@@ -84,6 +89,8 @@ These are the highest-priority documents when moving from design to executable w
 - `SEMANTIC_METADATA_FIELD_CATALOG.md`
 - `INTROSPECTION_API_DRAFT.md`
 
+The first curated SDK/plugin/project runtime foundation is verified at `b9ca6b0...`; marketplace/collaboration/remote-product depth remains later work.
+
 ### Native/high-performance execution
 
 - `NATIVE_NUMERICAL_BACKENDS.md`
@@ -95,6 +102,7 @@ These are the highest-priority documents when moving from design to executable w
 - `HIGH_PERFORMANCE_ROADMAP.md`
 - `PERFORMANCE_BUDGETS.md`
 - `OBSERVABILITY_AND_PROFILING.md`
+- `QUANTITATIVE_NATIVE_VALIDATION_HANDOFF.md` — active compiled-RK4/fallback truthfulness gates.
 
 ## Platform map and policy
 
@@ -240,32 +248,52 @@ Geometry, relativity, PDE composition and related validation notes from an earli
 
 Documents describe different kinds of truth. Interpret them carefully.
 
-### Verified behavior
+### Last fully verified behavior
 
-Explicit validation records describe observed behavior at a specific commit.
-
-Current recorded verified baseline:
+Current recorded verified runtime baseline:
 
 ```text
-commit: acb9e056326177fac49cc57b202ca80cca5090a7
+commit: b9ca6b017cac83f45cc3864a88e219c848c12fc8
 compileall: PASS
-pytest: 224 passed
-Blender 5.2 native smoke: PASS
+pytest: 276 passed
+initial failures: 0
+DomainCatalog: 119 domains / 467 providers
+Blender 5.2 targeted smoke: PASS
 ```
 
-### Implemented, awaiting validation
+This baseline includes Scene v5 / VisualAttribute, the first renderer-neutral presentation runtime, solver/experiment/reproducibility platform, SDK/plugin/project foundations, and the `rk4.native_cpu` provider boundary. At this baseline the provider still delegated to Python RK4; it did not prove compiled native acceleration.
 
-The executable numerical/experiments batch after the verified baseline ends at:
+### Current `main`: implemented, awaiting validation
+
+Current `main` adds the quantitative/native batch described in `CURRENT_STATUS.md` and `QUANTITATIVE_NATIVE_VALIDATION_HANDOFF.md`, including:
 
 ```text
-00b5403a9ffb005b7eb011833174e013158ee1f4
+shared quantitative color scales
+legends / XYZ axes / camera-facing annotations
+presentation Track.owner/recomposition fixes
+Blender Surface/PointCloud mesh color-attribute realization
+per-value alpha × primitive-opacity shader semantics
+color/opacity-only incremental identity path
+optional compiled CPython C RK4 loop
+truthful Python fallback execution metadata
 ```
 
-It must not be called fully green until the next local validation completes.
+Do not call this batch green until the active handoff completes full pytest, catalog probe, compiled/fallback native checks, Blender 5.2 quantitative smoke, and existing Blender regressions.
 
-### Design/documentation after runtime freeze
+### Later design / future work
 
-Changes after `00b5403...` are intentionally documentation/design/source-audit work unless `CURRENT_STATUS.md` is explicitly updated to say otherwise. These documents must not be reported as implemented runtime functionality.
+Examples include:
+
+```text
+five canonical premium showcase scenes
+advanced VGS / Geometry Nodes realization
+screen-space layout and volume presentation
+typed/batched native numerical buffers
+GPU solver/grid providers
+device-resident PDE pipelines
+standalone/WebGPU product
+remote/HPC/collaboration product services
+```
 
 ## Rules for updating docs
 
