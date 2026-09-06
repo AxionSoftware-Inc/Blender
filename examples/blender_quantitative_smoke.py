@@ -22,7 +22,11 @@ from spectra.presentation import compose_presentation
 from spectra.presentation_models import PresentationContext
 
 
-def build_scene(values: tuple[float, ...]) -> Scene:
+def build_scene(
+    values: tuple[float, ...],
+    *,
+    alpha_opacity: float = 1.0,
+) -> Scene:
     positions = tuple(
         Vec3(float(index % 20) * 0.12, float(index // 20) * 0.12, 0.0)
         for index in range(len(values))
@@ -56,6 +60,7 @@ def build_scene(values: tuple[float, ...]) -> Scene:
             for index in range(len(alpha_colors))
         ),
         radius=0.055,
+        opacity=alpha_opacity,
         attributes=VisualAttributeSet(
             (
                 VisualAttribute(
@@ -101,6 +106,8 @@ assert len(handle.object_names) < 40, "quantitative presentation expanded into t
 # quantitative material must contain a dynamic alpha multiply + transparent mix.
 alpha_obj = bpy.data.objects[handle.object_names["alpha.cloud"]]
 alpha_mesh = alpha_obj.data
+alpha_object_pointer = alpha_obj.as_pointer()
+alpha_data_pointer = alpha_mesh.as_pointer()
 alpha_attribute = alpha_mesh.color_attributes.get("spectra_display_color")
 assert alpha_attribute is not None
 assert len(alpha_attribute.data) == 4 * 6
@@ -114,10 +121,12 @@ node_types = {node.type for node in alpha_material.node_tree.nodes}
 assert "MATH" in node_types, "quantitative material must multiply attribute alpha"
 assert "MIX_SHADER" in node_types, "quantitative material must mix transparency"
 assert "BSDF_TRANSPARENT" in node_types, "quantitative material must support alpha transparency"
+assert abs(float(alpha_material["spectra_opacity"]) - 1.0) < 1e-9
 
-# Reverse only scalar values. Geometry/object/datablock identities must remain
-# stable while the native color buffer is updated in place.
-updated = build_scene(tuple(reversed(values)))
+# Reverse scalar values and change only alpha-cloud primitive opacity. Geometry,
+# object and datablock identities must remain stable while color/material state
+# is updated through the quantitative adapter.
+updated = build_scene(tuple(reversed(values)), alpha_opacity=0.5)
 backend.apply(handle, updated)
 
 updated_obj = bpy.data.objects[handle.object_names["quantitative.cloud"]]
@@ -129,11 +138,16 @@ assert len(updated_attribute.data) == 300 * 6
 assert len(updated_obj.data.materials) == 1
 
 updated_alpha_obj = bpy.data.objects[handle.object_names["alpha.cloud"]]
+assert updated_alpha_obj.as_pointer() == alpha_object_pointer
+assert updated_alpha_obj.data.as_pointer() == alpha_data_pointer
 updated_alpha_attribute = updated_alpha_obj.data.color_attributes.get("spectra_display_color")
 assert updated_alpha_attribute is not None
 updated_alphas = tuple(float(updated_alpha_attribute.data[index * 6].color[3]) for index in range(4))
 for observed, expected in zip(updated_alphas, expected_alphas, strict=True):
     assert abs(observed - expected) < 1e-5, (observed, expected)
+updated_alpha_material = updated_alpha_obj.data.materials[0]
+assert updated_alpha_material.as_pointer() == alpha_material.as_pointer()
+assert abs(float(updated_alpha_material["spectra_opacity"]) - 0.5) < 1e-9
 
 collection_name = handle.collection_name
 backend.destroy(handle)
@@ -142,5 +156,5 @@ assert bpy.data.collections.get(collection_name) is None
 print(
     "Spectra quantitative Blender smoke PASS:",
     "300 values -> one PointCloud object, one material, native color attribute,",
-    "per-value alpha preserved, color-only identity preserved, cleanup PASS",
+    "per-value alpha + opacity preserved, color-only/opacity-only identity preserved, cleanup PASS",
 )
