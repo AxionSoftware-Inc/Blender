@@ -46,7 +46,9 @@ class BlackHoleGeodesicShowcaseConfig:
     mass changes the physical scale without changing the normalized display layout.
     """
 
-    black_hole_mass_kg: float = 6.732_954_607_500_545e26
+    # Approximate 10-solar-mass stellar black hole. The value is explicit in kg;
+    # all numerical/display scales below are derived from the resulting r_s.
+    black_hole_mass_kg: float = 1.988_47e31
     photon_orbit_steps: int = 128
     scatter_steps: int = 160
     scatter_start_radius_rs: float = 8.0
