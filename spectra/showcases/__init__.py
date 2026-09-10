@@ -5,6 +5,13 @@ presentation policies. They are product/integration examples, not new scientific
 domains and must not become alternate solver implementations.
 """
 
+from .black_hole_geodesics import (
+    BlackHoleGeodesicShowcaseConfig,
+    BlackHoleGeodesicShowcaseResult,
+    build_black_hole_geodesic_base_scene,
+    build_black_hole_geodesic_scene,
+    solve_black_hole_geodesic_showcase,
+)
 from .electrostatic_lab import (
     ElectrostaticLabShowcaseConfig,
     build_electrostatic_lab_base_scene,
@@ -31,20 +38,25 @@ from .thermoelastic_bar import (
 )
 
 __all__ = [
+    "BlackHoleGeodesicShowcaseConfig",
+    "BlackHoleGeodesicShowcaseResult",
     "ElectrostaticLabShowcaseConfig",
     "MaxwellWaveShowcaseConfig",
     "PROBABILITY_DENSITY_2D",
     "QuantumWavepacketShowcaseConfig",
     "RADIAN",
+    "ThermoelasticBarShowcaseConfig",
+    "build_black_hole_geodesic_base_scene",
+    "build_black_hole_geodesic_scene",
     "build_electrostatic_lab_base_scene",
     "build_electrostatic_lab_scene",
     "build_maxwell_wave_base_scene",
     "build_maxwell_wave_scene",
     "build_quantum_wavepacket_base_scene",
     "build_quantum_wavepacket_scene",
-    "solve_quantum_wavepacket_showcase",
-    "ThermoelasticBarShowcaseConfig",
     "build_thermoelastic_bar_base_scene",
     "build_thermoelastic_bar_scene",
+    "solve_black_hole_geodesic_showcase",
+    "solve_quantum_wavepacket_showcase",
     "solve_thermoelastic_bar_showcase",
 ]
