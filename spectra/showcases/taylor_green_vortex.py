@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import math
-import sys
 
 from spectra.core.attributes import VisualAttribute, VisualAttributeSet
 from spectra.core.composition import compose_scenes
@@ -83,8 +82,13 @@ class TaylorGreenVortexShowcaseConfig:
         for name, value in positive.items():
             if not math.isfinite(value) or value <= 0.0:
                 raise ValueError(f"{name} must be finite and positive")
-        if not math.isfinite(self.kinematic_viscosity_m2_s) or self.kinematic_viscosity_m2_s < 0.0:
-            raise ValueError("kinematic_viscosity_m2_s must be finite and non-negative")
+        if (
+            not math.isfinite(self.kinematic_viscosity_m2_s)
+            or self.kinematic_viscosity_m2_s < 0.0
+        ):
+            raise ValueError(
+                "kinematic_viscosity_m2_s must be finite and non-negative"
+            )
         if self.xy_count < 5 or self.z_count < 3:
             raise ValueError("Taylor-Green grid counts are too small")
         if self.steps < 1 or self.pathline_steps < 1:
@@ -95,7 +99,10 @@ class TaylorGreenVortexShowcaseConfig:
 
 def _registry() -> DomainRegistry:
     registry = DomainRegistry()
-    builtin_domain_catalog().load(registry, ["physics.incompressible_flow.views3d"])
+    builtin_domain_catalog().load(
+        registry,
+        ["physics.incompressible_flow.views3d"],
+    )
     return registry
 
 
@@ -156,7 +163,10 @@ def solve_taylor_green_vortex_showcase(
     )
 
 
-def _surface_triangles(x_count: int, y_count: int) -> tuple[tuple[int, int, int], ...]:
+def _surface_triangles(
+    x_count: int,
+    y_count: int,
+) -> tuple[tuple[int, int, int], ...]:
     triangles: list[tuple[int, int, int]] = []
     for y_index in range(y_count - 1):
         for x_index in range(x_count - 1):
@@ -208,15 +218,20 @@ def _final_velocity_vectors(
     grid = solution.grid
     state = solution.states[-1]
     z_index = grid.z.count // 2
+    # Lift arrows slightly above the pressure plane only to prevent z-fighting.
+    # Their origins still use the exact grid x/y coordinates and their vectors
+    # remain the final velocity state times an explicitly declared display scale.
     z = grid.z.coordinates[z_index] + 0.03 * config.domain_length_m
     origins: list[Vec3] = []
     vectors: list[Vec3] = []
+    speeds: list[float] = []
     for y_index, y in enumerate(grid.y.coordinates):
         for x_index, x in enumerate(grid.x.coordinates):
             flat = grid.flat_index(x_index, y_index, z_index)
             velocity = state.velocity[flat]
             origins.append(Vec3(x, y, z))
             vectors.append(velocity * config.vector_display_scale_s)
+            speeds.append(velocity.magnitude)
     return VectorGlyphSet(
         id="showcase.cfd.velocity.vectors",
         origins=tuple(origins),
@@ -228,7 +243,7 @@ def _final_velocity_vectors(
                     name="speed",
                     association="instance",
                     kind="scalar",
-                    values=tuple(state.velocity[grid.flat_index(xi, yi, z_index)].magnitude for yi in range(grid.y.count) for xi in range(grid.x.count)),
+                    values=tuple(speeds),
                     quantity_id="speed",
                     unit=METER_PER_SECOND,
                 ),
@@ -237,7 +252,10 @@ def _final_velocity_vectors(
     )
 
 
-def _pathline_seeds(config: TaylorGreenVortexShowcaseConfig, solution) -> tuple[Vec3, ...]:
+def _pathline_seeds(
+    config: TaylorGreenVortexShowcaseConfig,
+    solution,
+) -> tuple[Vec3, ...]:
     length = config.domain_length_m
     z = solution.grid.z.coordinates[solution.grid.z.count // 2]
     return (
@@ -255,7 +273,9 @@ def _pathline_scene(
     solution,
 ) -> Scene:
     registry = _registry()
-    make_problem = registry.require("physics.incompressible_flow.pathline_problem3d")
+    make_problem = registry.require(
+        "physics.incompressible_flow.pathline_problem3d"
+    )
     solve_pathline = registry.require("field_dynamics.solve_pathline", min_version=2)
     primitives = []
     for index, seed in enumerate(_pathline_seeds(config, solution)):
@@ -272,14 +292,17 @@ def _pathline_scene(
             Polyline(
                 id=pathline.name,
                 points=pathline.positions,
-                width=0.025 * config.domain_length_m,
+                width=0.008 * config.domain_length_m,
                 color=_PATHLINE_COLORS[index % len(_PATHLINE_COLORS)],
             )
         )
     return Scene(primitives=tuple(primitives))
 
 
-def _context_scene(config: TaylorGreenVortexShowcaseConfig, solution) -> Scene:
+def _context_scene(
+    config: TaylorGreenVortexShowcaseConfig,
+    solution,
+) -> Scene:
     length = config.domain_length_m
     z = solution.grid.z.coordinates[solution.grid.z.count // 2]
     frame = (
@@ -300,7 +323,10 @@ def _context_scene(config: TaylorGreenVortexShowcaseConfig, solution) -> Scene:
             ),
             TextLabel(
                 id="showcase.cfd.label.model",
-                text="Taylor-Green vortex · 3D periodic projection-method REFERENCE solver",
+                text=(
+                    "Taylor-Green vortex · 3D periodic projection-method "
+                    "REFERENCE solver"
+                ),
                 position=Vec3(0.0, -0.55, z),
                 size=0.18,
                 color=_LABEL_COLOR,
@@ -308,7 +334,8 @@ def _context_scene(config: TaylorGreenVortexShowcaseConfig, solution) -> Scene:
             TextLabel(
                 id="showcase.cfd.label.snapshot",
                 text=(
-                    f"final pressure snapshot t={final.time:.3g} s · pathlines integrate full velocity history · "
+                    f"final pressure snapshot t={final.time:.3g} s · "
+                    "pathlines integrate full velocity history · "
                     f"arrow scale {config.vector_display_scale_s:.3g} s"
                 ),
                 position=Vec3(0.0, -0.90, z),
@@ -357,13 +384,19 @@ def build_taylor_green_vortex_scene(
     config = config or TaylorGreenVortexShowcaseConfig()
     intent = PresentationIntent(
         preset=preset,
-        legend=LegendPolicy(visible=True, compact=False, show_units=True, show_min_max=True),
+        legend=LegendPolicy(
+            visible=True,
+            compact=False,
+            show_units=True,
+            show_min_max=True,
+        ),
         axes=AxesPolicy(visible=True, grid=False, equal_scale=True),
         annotations=AnnotationPolicy(
             density=AnnotationDensity.TEACHING,
             title="Reference CFD · Taylor-Green Vortex",
             subtitle=(
-                "3D incompressible projection solve · final signed pressure + velocity + time-integrated pathlines"
+                "3D incompressible projection solve · final signed pressure + "
+                "velocity + time-integrated pathlines"
             ),
             show_time=False,
         ),
