@@ -30,6 +30,12 @@ from .quantum_wavepacket import (
     build_quantum_wavepacket_scene,
     solve_quantum_wavepacket_showcase,
 )
+from .taylor_green_vortex import (
+    TaylorGreenVortexShowcaseConfig,
+    build_taylor_green_vortex_base_scene,
+    build_taylor_green_vortex_scene,
+    solve_taylor_green_vortex_showcase,
+)
 from .thermoelastic_bar import (
     ThermoelasticBarShowcaseConfig,
     build_thermoelastic_bar_base_scene,
@@ -45,6 +51,7 @@ __all__ = [
     "PROBABILITY_DENSITY_2D",
     "QuantumWavepacketShowcaseConfig",
     "RADIAN",
+    "TaylorGreenVortexShowcaseConfig",
     "ThermoelasticBarShowcaseConfig",
     "build_black_hole_geodesic_base_scene",
     "build_black_hole_geodesic_scene",
@@ -54,9 +61,12 @@ __all__ = [
     "build_maxwell_wave_scene",
     "build_quantum_wavepacket_base_scene",
     "build_quantum_wavepacket_scene",
+    "build_taylor_green_vortex_base_scene",
+    "build_taylor_green_vortex_scene",
     "build_thermoelastic_bar_base_scene",
     "build_thermoelastic_bar_scene",
     "solve_black_hole_geodesic_showcase",
     "solve_quantum_wavepacket_showcase",
+    "solve_taylor_green_vortex_showcase",
     "solve_thermoelastic_bar_showcase",
 ]
